@@ -58,18 +58,18 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   const displayCategory = categoryDisplayName || product.categoryLabel;
 
   return (
-    <article className="group bg-white rounded-2xl border border-slate-200/85 hover:border-blue-300/80 hover:shadow-[0_14px_30px_-14px_rgba(6,20,46,0.16)] transition-all duration-200 flex flex-col overflow-hidden h-full">
-      {/* Studio Product Artwork Stage */}
-      <div className="relative bg-[#F7F9FC] border-b border-slate-100 aspect-[4/3] overflow-hidden">
+    <article className="group bg-white rounded-2xl border border-slate-200/85 hover:border-blue-300/90 hover:-translate-y-1.5 hover:shadow-[0_22px_40px_-18px_rgba(7,13,25,0.22)] transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] flex flex-col overflow-hidden h-full">
+      {/* Studio Hardware Stage */}
+      <div className="relative bg-[#F5F7FA] border-b border-slate-100 aspect-[4/3] overflow-hidden">
         <button
           type="button"
           onClick={() => onOpenDetail(product)}
           aria-label={`View details for ${product.name}`}
           className={`w-full h-full ${
-            product.imageUrl?.trim() ? 'p-1.5 sm:p-2' : 'p-3 sm:p-5'
+            product.imageUrl?.trim() ? 'p-1.5 sm:p-2' : 'p-3.5 sm:p-5'
           } flex items-center justify-center cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-600`}
         >
-          <div className="w-full h-full min-w-0 min-h-0 flex items-center justify-center transition-transform duration-200 group-hover:scale-[1.03]">
+          <div className="w-full h-full min-w-0 min-h-0 flex items-center justify-center transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-[1.06] group-hover:-translate-y-0.5">
             <HardwareArtwork
               kind={product.artwork}
               imageUrl={product.imageUrl}
@@ -81,13 +81,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         </button>
 
         {discountPct && discountPct > 0 && !isOutOfStock && (
-          <span className="pointer-events-none absolute top-2 left-2 sm:top-2.5 sm:left-2.5 text-[10px] sm:text-[11px] font-mono font-bold text-[#0057E7] bg-white/95 px-2 py-0.5 rounded-md border border-blue-100 shadow-2xs tabular-nums">
+          <span className="pointer-events-none absolute top-2.5 left-2.5 text-[10px] sm:text-[11px] font-mono font-bold text-[#0057E7] bg-white/95 backdrop-blur-xs px-2 py-0.5 rounded-md border border-blue-100 shadow-2xs tabular-nums">
             -{discountPct}%
           </span>
         )}
 
         {isOutOfStock && (
-          <span className="pointer-events-none absolute top-2 left-2 sm:top-2.5 sm:left-2.5 text-[10px] sm:text-[11px] font-mono font-semibold text-red-700 bg-red-50/95 px-2 py-0.5 rounded-md border border-red-200">
+          <span className="pointer-events-none absolute top-2.5 left-2.5 text-[10px] sm:text-[11px] font-mono font-semibold text-red-700 bg-red-50/95 px-2 py-0.5 rounded-md border border-red-200">
             Out of Stock
           </span>
         )}
@@ -96,13 +96,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           type="button"
           onClick={() => onToggleWishlist(product.id)}
           aria-label={isWishlisted ? `Remove ${product.name} from saved` : `Save ${product.name}`}
-          className={`absolute top-2 right-2 sm:top-2.5 sm:right-2.5 w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${
+          className={`absolute top-2.5 right-2.5 w-7 h-7 sm:w-8 sm:h-8 rounded-xl flex items-center justify-center border transition-all duration-200 active:scale-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${
             isWishlisted
-              ? 'bg-[#06142E] border-[#06142E] text-white shadow-xs'
-              : 'bg-white/95 border-slate-200/90 text-slate-500 hover:text-[#0057E7] hover:border-blue-200'
+              ? 'bg-[#070D19] border-[#070D19] text-white shadow-xs'
+              : 'bg-white/90 backdrop-blur-xs border-slate-200/90 text-slate-500 hover:text-[#0057E7] hover:border-blue-200 hover:scale-105'
           }`}
         >
-          <Heart className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isWishlisted ? 'fill-current' : ''}`} />
+          <Heart className={`w-3.5 h-3.5 sm:w-4 sm:h-4 transition-transform duration-200 ${isWishlisted ? 'fill-current scale-110' : ''}`} />
         </button>
       </div>
 
@@ -122,7 +122,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           onClick={() => onOpenDetail(product)}
           className="text-left focus-visible:outline-none focus-visible:underline"
         >
-          <h3 className="font-display text-[13px] sm:text-[15px] font-semibold text-[#06142E] leading-snug line-clamp-2 group-hover:text-[#0057E7] transition-colors min-h-[2.3rem] sm:min-h-[2.6rem]">
+          <h3 className="font-display text-[13px] sm:text-[15px] font-semibold text-[#070D19] leading-snug line-clamp-2 group-hover:text-[#0057E7] transition-colors min-h-[2.3rem] sm:min-h-[2.6rem]">
             {product.name}
           </h3>
         </button>
@@ -150,7 +150,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
         {/* Price Row */}
         <div className="mt-2 sm:mt-2.5 flex items-baseline gap-1.5 sm:gap-2 flex-wrap">
-          <span className="font-mono text-sm sm:text-base font-bold text-[#06142E] tabular-nums">
+          <span className="font-mono text-sm sm:text-[17px] font-bold text-[#070D19] tabular-nums">
             ৳{product.price.toLocaleString('en-IN')}
           </span>
           {hasDiscount && product.originalPrice && (
@@ -160,15 +160,15 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           )}
         </div>
 
-        {/* Responsive Stepper + Add to Cart Row */}
+        {/* Responsive Stepper + Glossy Add to Cart Row */}
         <div className="mt-auto pt-3 sm:pt-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-1.5 sm:gap-2">
-          <div className="flex items-center justify-between sm:justify-start border border-slate-200 rounded-lg bg-[#F6F8FB] h-8 sm:h-9 px-1 sm:px-0 shrink-0">
+          <div className="flex items-center justify-between sm:justify-start border border-slate-200 rounded-xl bg-[#F5F7FA] h-8 sm:h-9 px-1 sm:px-0 shrink-0">
             <button
               type="button"
               disabled={isOutOfStock || qty <= 1}
               onClick={() => setQty((prev) => Math.max(1, prev - 1))}
               aria-label="Decrease quantity"
-              className="w-8 sm:w-7 h-full flex items-center justify-center text-slate-600 hover:text-slate-900 disabled:opacity-35 disabled:cursor-not-allowed"
+              className="w-8 sm:w-7 h-full flex items-center justify-center text-slate-600 hover:text-slate-900 active:scale-90 transition-transform disabled:opacity-35 disabled:cursor-not-allowed"
             >
               <Minus className="w-3.5 h-3.5" />
             </button>
@@ -180,7 +180,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               disabled={isOutOfStock || qty >= product.stock}
               onClick={() => setQty((prev) => Math.min(product.stock, prev + 1))}
               aria-label="Increase quantity"
-              className="w-8 sm:w-7 h-full flex items-center justify-center text-slate-600 hover:text-slate-900 disabled:opacity-35 disabled:cursor-not-allowed"
+              className="w-8 sm:w-7 h-full flex items-center justify-center text-slate-600 hover:text-slate-900 active:scale-90 transition-transform disabled:opacity-35 disabled:cursor-not-allowed"
             >
               <Plus className="w-3.5 h-3.5" />
             </button>
@@ -190,10 +190,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             type="button"
             disabled={isOutOfStock}
             onClick={handleAdd}
-            className={`w-full sm:flex-1 h-9 px-2.5 sm:px-3 rounded-lg text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap disabled:bg-slate-200 disabled:text-slate-500 disabled:cursor-not-allowed ${
-              justAdded
-                ? 'bg-[#06142E] text-white'
-                : 'bg-[#0057E7] hover:bg-[#0044BB] text-white'
+            className={`w-full sm:flex-1 h-9 px-2.5 sm:px-3 rounded-xl text-xs font-semibold inline-flex items-center justify-center gap-1.5 whitespace-nowrap disabled:bg-slate-200 disabled:text-slate-500 disabled:border-transparent disabled:shadow-none disabled:cursor-not-allowed ${
+              isOutOfStock
+                ? ''
+                : justAdded
+                ? 'btn-glossy-dark animate-pop-in'
+                : 'btn-glossy-blue'
             }`}
           >
             {justAdded ? (

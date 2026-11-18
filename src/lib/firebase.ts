@@ -547,9 +547,12 @@ export async function createOrderInFirestore(
     const safeTotal = clampNum(order.total, 0, 50000000);
 
     const currentUid = auth.currentUser?.uid;
+    if (!currentUid) {
+      throw new Error('Authentication required to place an order.');
+    }
     const orderPayload = stripUndefined({
       orderId: safeOrderId,
-      userId: currentUid ? truncateStr(currentUid, 128) : undefined,
+      userId: truncateStr(currentUid, 128),
       customerName: truncateStr(order.customerName, 120) || 'Customer',
       phone: truncateStr(order.phone, 30) || '',
       address: truncateStr(order.address, 300) || '',

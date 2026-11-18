@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 import { BannerItem, BannerTheme, CategoryId } from '../types/store';
 import { HardwareArtwork } from './HardwareArtwork';
+import { Reveal } from './Reveal';
 
 interface ScrollingBannerSectionProps {
   banners: BannerItem[];
@@ -12,6 +13,7 @@ const THEME_STYLES: Record<
   BannerTheme,
   {
     card: string;
+    gridClass: string;
     kicker: string;
     title: string;
     subtitle: string;
@@ -20,36 +22,40 @@ const THEME_STYLES: Record<
   }
 > = {
   navy: {
-    card: 'bg-[#06142E] text-white border-[#122952]',
+    card: 'bg-[#070D19] bg-gradient-to-br from-[#070D19] via-[#0B1730] to-[#112650] text-white border-[#183164]',
+    gridClass: 'bg-lab-grid-dark',
     kicker: 'text-blue-300',
     title: 'text-white',
     subtitle: 'text-slate-300',
-    cta: 'bg-[#0057E7] hover:bg-[#0044BB] text-white',
-    artworkBox: 'bg-white/5 border-white/10',
+    cta: 'btn-glossy-blue',
+    artworkBox: 'bg-white/[0.06] border-white/10 backdrop-blur-xs',
   },
   cobalt: {
-    card: 'bg-[#0057E7] text-white border-[#0044BB]',
+    card: 'bg-[#0048C4] bg-gradient-to-br from-[#0048C4] via-[#0057E7] to-[#1A73FF] text-white border-[#0044BB]',
+    gridClass: 'bg-lab-grid-dark',
     kicker: 'text-blue-100',
     title: 'text-white',
-    subtitle: 'text-blue-50',
-    cta: 'bg-[#06142E] hover:bg-slate-900 text-white',
-    artworkBox: 'bg-white/10 border-white/15',
+    subtitle: 'text-blue-50/90',
+    cta: 'btn-liquid-glass-dark',
+    artworkBox: 'bg-white/10 border-white/15 backdrop-blur-xs',
   },
   slate: {
-    card: 'bg-[#F4F7FB] text-[#06142E] border-slate-200',
+    card: 'bg-[#F4F7FB] bg-gradient-to-br from-[#F4F7FB] to-[#EBF0F7] text-[#070D19] border-slate-200/90',
+    gridClass: 'bg-lab-grid',
     kicker: 'text-[#0057E7]',
-    title: 'text-[#06142E]',
+    title: 'text-[#070D19]',
     subtitle: 'text-slate-600',
-    cta: 'bg-[#06142E] hover:bg-slate-800 text-white',
-    artworkBox: 'bg-white border-slate-200',
+    cta: 'btn-glossy-dark',
+    artworkBox: 'bg-white border-slate-200/90 shadow-2xs',
   },
   emerald: {
-    card: 'bg-[#082B27] text-white border-[#0E443D]',
+    card: 'bg-[#06211E] bg-gradient-to-br from-[#06211E] via-[#082B27] to-[#0E3F39] text-white border-[#134F47]',
+    gridClass: 'bg-lab-grid-dark',
     kicker: 'text-emerald-300',
     title: 'text-white',
-    subtitle: 'text-emerald-100/80',
-    cta: 'bg-white hover:bg-emerald-50 text-[#06142E]',
-    artworkBox: 'bg-white/10 border-white/15',
+    subtitle: 'text-emerald-100/85',
+    cta: 'btn-liquid-glass-dark',
+    artworkBox: 'bg-white/10 border-white/15 backdrop-blur-xs',
   },
 };
 
@@ -135,125 +141,126 @@ export const ScrollingBannerSection: React.FC<ScrollingBannerSectionProps> = ({
   return (
     <section
       aria-label="Promotional highlights"
-      className="py-5 sm:py-7 bg-white border-b border-slate-200/70"
+      className="py-6 sm:py-8 bg-white border-b border-slate-200/70"
     >
-      <div className="max-w-[1360px] mx-auto px-3 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between gap-4 mb-4">
-          <div>
-            <h2 className="font-display text-lg sm:text-xl font-bold text-[#06142E] tracking-tight">
+      <div className="w-full max-w-[1760px] mx-auto px-4 sm:px-6 lg:px-10">
+        <Reveal>
+          <div className="flex items-center justify-between gap-4 mb-4">
+            <h2 className="font-display text-lg sm:text-xl font-bold text-[#070D19] tracking-tight">
               Featured Campaigns &amp; Offers
             </h2>
+
+            {count > 1 && (
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => goToSlide(activeIndex - 1)}
+                  aria-label="Previous banner"
+                  className="btn-liquid-glass w-8 h-8 rounded-xl flex items-center justify-center"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => goToSlide(activeIndex + 1)}
+                  aria-label="Next banner"
+                  className="btn-liquid-glass w-8 h-8 rounded-xl flex items-center justify-center"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            )}
           </div>
 
-          {count > 1 && (
-            <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                onClick={() => goToSlide(activeIndex - 1)}
-                aria-label="Previous banner"
-                className="w-8 h-8 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 flex items-center justify-center transition-colors"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => goToSlide(activeIndex + 1)}
-                aria-label="Next banner"
-                className="w-8 h-8 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 flex items-center justify-center transition-colors"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          )}
-        </div>
+          {/* Smooth Continuous Auto-Scrolling Banner Track */}
+          <div
+            ref={trackRef}
+            onScroll={handleTrackScroll}
+            className="relative flex gap-4 sm:gap-5 overflow-x-auto no-scrollbar snap-x snap-mandatory scroll-smooth pb-1"
+          >
+            {activeBanners.map((banner) => {
+              const style = THEME_STYLES[banner.theme] ?? THEME_STYLES.navy;
+              const customImg = banner.imageUrl?.trim();
+              const widthClass = count === 1 ? 'w-full' : 'w-full md:w-[calc(50%-10px)]';
 
-        {/* Smooth Auto-Scrolling Horizontal Banner Track */}
-        <div
-          ref={trackRef}
-          onScroll={handleTrackScroll}
-          className="relative flex gap-4 sm:gap-5 overflow-x-auto no-scrollbar snap-x snap-mandatory scroll-smooth pb-1"
-        >
-          {activeBanners.map((banner) => {
-            const style = THEME_STYLES[banner.theme] ?? THEME_STYLES.navy;
-            const customImg = banner.imageUrl?.trim();
-            const widthClass = count === 1 ? 'w-full' : 'w-full md:w-[calc(50%-10px)]';
+              if (customImg) {
+                return (
+                  <button
+                    key={banner.id}
+                    type="button"
+                    onClick={() => onSelectCategory(banner.targetCategory)}
+                    aria-label={banner.title || 'View featured campaign'}
+                    className={`group snap-start shrink-0 ${widthClass} rounded-2xl border border-slate-200/90 bg-[#F8FAFD] overflow-hidden flex items-center justify-center hover:border-[#0057E7] hover:shadow-[0_14px_30px_-14px_rgba(7,13,25,0.2)] transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600`}
+                  >
+                    <img
+                      src={customImg}
+                      alt={banner.title || 'Promotional banner'}
+                      referrerPolicy="no-referrer"
+                      className="w-full h-auto max-h-[420px] object-contain block transition-transform duration-300 group-hover:scale-[1.015]"
+                    />
+                  </button>
+                );
+              }
 
-            if (customImg) {
               return (
+                <div
+                  key={banner.id}
+                  className={`group relative overflow-hidden snap-start shrink-0 ${widthClass} rounded-2xl border p-5 sm:p-7 flex items-center justify-between gap-4 sm:gap-6 shadow-[0_12px_30px_-18px_rgba(7,13,25,0.25)] hover:-translate-y-0.5 transition-all duration-200 ${style.card}`}
+                >
+                  <div aria-hidden="true" className={`pointer-events-none absolute inset-0 ${style.gridClass}`} />
+                  <div className="relative z-10 min-w-0 flex-1">
+                    <p className={`text-[11px] sm:text-xs font-mono font-semibold mb-1 sm:mb-1.5 truncate ${style.kicker}`}>
+                      {banner.kicker}
+                    </p>
+                    <h3 className={`font-display text-base sm:text-[22px] font-bold leading-snug [text-wrap:balance] ${style.title}`}>
+                      {banner.title}
+                    </h3>
+                    <p className={`text-xs sm:text-sm mt-1.5 sm:mt-2 leading-relaxed line-clamp-2 ${style.subtitle}`}>
+                      {banner.subtitle}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => onSelectCategory(banner.targetCategory)}
+                      className={`mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${style.cta}`}
+                    >
+                      <span>{banner.ctaLabel}</span>
+                      <ArrowRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
+                    </button>
+                  </div>
+
+                  <div
+                    className={`relative z-10 w-24 h-20 sm:w-36 sm:h-32 shrink-0 rounded-xl border p-1.5 sm:p-2 flex items-center justify-center overflow-hidden transition-transform duration-300 group-hover:scale-105 ${style.artworkBox}`}
+                  >
+                    <HardwareArtwork
+                      kind={banner.artwork}
+                      imageUrl={banner.imageUrl}
+                      alt={banner.title}
+                      fit="contain"
+                      className="w-full h-full"
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Slide Indicators */}
+          {count > 1 && (
+            <div className="mt-4 flex items-center justify-center gap-1.5">
+              {activeBanners.map((banner, idx) => (
                 <button
                   key={banner.id}
                   type="button"
-                  onClick={() => onSelectCategory(banner.targetCategory)}
-                  aria-label={banner.title || 'View featured campaign'}
-                  className={`snap-start shrink-0 ${widthClass} rounded-2xl border border-slate-200/90 bg-[#F8FAFD] overflow-hidden flex items-center justify-center hover:border-[#0057E7] hover:shadow-md transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600`}
-                >
-                  <img
-                    src={customImg}
-                    alt={banner.title || 'Promotional banner'}
-                    referrerPolicy="no-referrer"
-                    className="w-full h-auto max-h-[420px] object-contain block"
-                  />
-                </button>
-              );
-            }
-
-            return (
-              <div
-                key={banner.id}
-                className={`snap-start shrink-0 ${widthClass} rounded-2xl border p-4 sm:p-7 flex items-center justify-between gap-3 sm:gap-6 transition-transform duration-200 ${style.card}`}
-              >
-                <div className="min-w-0 flex-1">
-                  <p className={`text-[11px] sm:text-xs font-mono font-semibold mb-1 sm:mb-1.5 truncate ${style.kicker}`}>
-                    {banner.kicker}
-                  </p>
-                  <h3 className={`font-display text-base sm:text-2xl font-bold leading-snug [text-wrap:balance] ${style.title}`}>
-                    {banner.title}
-                  </h3>
-                  <p className={`text-xs sm:text-sm mt-1.5 sm:mt-2 leading-relaxed line-clamp-2 ${style.subtitle}`}>
-                    {banner.subtitle}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => onSelectCategory(banner.targetCategory)}
-                    className={`mt-3 sm:mt-4 inline-flex items-center gap-1.5 px-3.5 sm:px-4 py-2 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap ${style.cta}`}
-                  >
-                    <span>{banner.ctaLabel}</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-
-                <div
-                  className={`w-24 h-20 sm:w-36 sm:h-32 shrink-0 rounded-xl border p-1.5 sm:p-2 flex items-center justify-center overflow-hidden ${style.artworkBox}`}
-                >
-                  <HardwareArtwork
-                    kind={banner.artwork}
-                    imageUrl={banner.imageUrl}
-                    alt={banner.title}
-                    fit="contain"
-                    className="w-full h-full"
-                  />
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Slide Indicators */}
-        {count > 1 && (
-          <div className="mt-4 flex items-center justify-center gap-1.5">
-            {activeBanners.map((banner, idx) => (
-              <button
-                key={banner.id}
-                type="button"
-                onClick={() => goToSlide(idx)}
-                aria-label={`Go to banner ${idx + 1}: ${banner.title}`}
-                className={`h-1.5 rounded-full transition-all duration-200 ${
-                  idx === activeIndex ? 'w-7 bg-[#0057E7]' : 'w-2 bg-slate-300 hover:bg-slate-400'
-                }`}
-              />
-            ))}
-          </div>
-        )}
+                  onClick={() => goToSlide(idx)}
+                  aria-label={`Go to banner ${idx + 1}: ${banner.title}`}
+                  className={`h-1.5 rounded-full transition-all duration-200 ${
+                    idx === activeIndex ? 'w-7 bg-[#0057E7]' : 'w-2 bg-slate-300 hover:bg-slate-400'
+                  }`}
+                />
+              ))}
+            </div>
+          )}
+        </Reveal>
       </div>
     </section>
   );

@@ -117,7 +117,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4">
       <div
-        className="fixed inset-0 bg-[#06142E]/60 backdrop-blur-sm"
+        className="animate-fade-in fixed inset-0 bg-[#06142E]/60 backdrop-blur-sm"
         onClick={onClose}
         aria-hidden="true"
       />
@@ -125,7 +125,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
         role="dialog"
         aria-modal="true"
         aria-labelledby="pdp-title"
-        className="relative z-10 w-full max-w-3xl max-h-[92dvh] bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col"
+        className="animate-pop-in relative z-10 w-full max-w-3xl max-h-[92dvh] bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col"
       >
         <div className="px-4 sm:px-6 py-3.5 sm:py-4 border-b border-slate-200 flex items-center justify-between gap-3 shrink-0">
           <div className="flex items-center gap-2 text-xs text-slate-500 min-w-0">
@@ -262,7 +262,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                   <button
                     type="button"
                     onClick={() => setMediaTab('video')}
-                    className="absolute bottom-3 right-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#06142E]/90 hover:bg-[#0057E7] text-white text-xs font-semibold shadow-md transition-colors"
+                    className="btn-liquid-glass-dark absolute bottom-3 right-3 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold"
                   >
                     <Play className="w-3.5 h-3.5 fill-current" />
                     <span>Watch Demo</span>
@@ -396,7 +396,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                     onAddToCart(product, Math.min(qty, product.stock), selectedVariant);
                     onClose();
                   }}
-                  className="flex-1 min-w-0 h-11 px-3 sm:px-4 rounded-lg bg-[#0057E7] hover:bg-[#0044BB] disabled:bg-slate-200 disabled:text-slate-500 disabled:cursor-not-allowed text-white text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-1.5 sm:gap-2 transition-colors whitespace-nowrap"
+                  className="btn-glossy-blue flex-1 min-w-0 h-11 px-3 sm:px-4 rounded-xl disabled:bg-slate-200 disabled:text-slate-500 disabled:border-transparent disabled:shadow-none disabled:cursor-not-allowed text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap"
                 >
                   <ShoppingCart className="w-4 h-4 shrink-0" />
                   <span className="truncate">{isOutOfStock ? 'Out of Stock' : 'Add to Cart'}</span>
@@ -406,7 +406,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                   type="button"
                   onClick={() => onToggleWishlist(product.id)}
                   aria-label={isWishlisted ? 'Remove from saved' : 'Save item'}
-                  className={`w-11 h-11 rounded-lg border flex items-center justify-center transition-colors shrink-0 ${
+                  className={`w-11 h-11 rounded-xl border flex items-center justify-center active:scale-110 transition-all shrink-0 ${
                     isWishlisted
                       ? 'bg-[#06142E] border-[#06142E] text-white'
                       : 'bg-white border-slate-200 text-slate-600 hover:text-[#0057E7]'
@@ -423,7 +423,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                     onBuyNow(product, Math.min(qty, product.stock), selectedVariant);
                     onClose();
                   }}
-                  className="w-full h-10 rounded-lg bg-[#06142E] hover:bg-slate-800 text-white text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-2 transition-colors"
+                  className="btn-glossy-dark w-full h-11 rounded-xl text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-2"
                 >
                   <Zap className="w-4 h-4 text-blue-300" />
                   <span>Buy Now — Fast Checkout</span>

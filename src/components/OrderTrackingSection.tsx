@@ -123,7 +123,7 @@ export const OrderTrackingSection: React.FC<OrderTrackingSectionProps> = ({
       id="order-tracking"
       className="py-6 sm:py-10 lg:py-12 bg-[#F4F7FB] min-h-[calc(100dvh-14rem)]"
     >
-      <div className="max-w-[1360px] mx-auto px-3 sm:px-6 lg:px-8 space-y-6">
+      <div className="w-full max-w-[1760px] mx-auto px-4 sm:px-6 lg:px-10 space-y-6">
         {/* Top Page Breadcrumb & Return to Storefront */}
         <div className="flex flex-wrap items-center justify-between gap-3">
           {onBackToStore && (

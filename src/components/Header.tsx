@@ -113,15 +113,15 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80">
-      <div className="max-w-[1360px] mx-auto px-3 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2 sm:gap-8">
+    <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-xl border-b border-slate-200/80 shadow-[0_1px_12px_-4px_rgba(6,20,46,0.06)]">
+      <div className="max-w-[1760px] mx-auto px-4 sm:px-6 lg:px-10 h-16 flex items-center justify-between gap-2 sm:gap-8">
         {/* Zone 1: Menu Trigger + Brand Wordmark */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           <button
             type="button"
             onClick={onOpenSidebar}
             aria-label="Open department categories menu"
-            className="p-2 -ml-1.5 sm:-ml-2 rounded-lg text-slate-700 hover:text-blue-700 hover:bg-slate-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+            className="p-2 -ml-1.5 sm:-ml-2 rounded-xl text-slate-700 hover:text-[#0057E7] hover:bg-slate-100/80 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
           >
             <Menu className="w-5 h-5" />
           </button>
@@ -132,60 +132,41 @@ export const Header: React.FC<HeaderProps> = ({
               e.preventDefault();
               onGoHome();
             }}
-            className="font-display text-base sm:text-xl font-extrabold tracking-tight text-[#06142E] whitespace-nowrap shrink-0 flex items-center gap-1.5"
+            className="font-display text-base sm:text-[21px] font-extrabold tracking-tight text-[#070D19] whitespace-nowrap shrink-0 flex items-center gap-1.5"
           >
             <span>ROBOTERA</span>
-            <span className="bg-[#0057E7] text-white text-[11px] sm:text-xs font-bold px-1.5 py-0.5 rounded">
+            <span className="bg-[#0057E7] text-white text-[10px] sm:text-[11px] font-mono font-bold px-1.5 py-0.5 rounded-md shadow-2xs">
               BD
             </span>
           </a>
         </div>
 
         {/* Zone 2: Clean Single-Line Navigation Links */}
-        <nav className="hidden lg:flex items-center gap-7 text-sm font-medium text-slate-600">
-          <button
-            type="button"
-            onClick={() => onNavigateSection('categories')}
-            className="hover:text-[#0057E7] transition-colors whitespace-nowrap shrink-0 py-1 border-b-2 border-transparent hover:border-[#0057E7]"
-          >
-            Categories
-          </button>
-          <button
-            type="button"
-            onClick={() => onNavigateSection('best-selling')}
-            className="hover:text-[#0057E7] transition-colors whitespace-nowrap shrink-0 py-1 border-b-2 border-transparent hover:border-[#0057E7]"
-          >
-            Best Sellers
-          </button>
-          <button
-            type="button"
-            onClick={() => onNavigateSection('just-arrived')}
-            className="hover:text-[#0057E7] transition-colors whitespace-nowrap shrink-0 py-1 border-b-2 border-transparent hover:border-[#0057E7]"
-          >
-            New Arrivals
-          </button>
-          <button
-            type="button"
-            onClick={() => onNavigateSection('bundles')}
-            className="hover:text-[#0057E7] transition-colors whitespace-nowrap shrink-0 py-1 border-b-2 border-transparent hover:border-[#0057E7]"
-          >
-            Robotics Kits
-          </button>
-          <button
-            type="button"
-            onClick={onOpenTracking}
-            className={`transition-colors whitespace-nowrap shrink-0 py-1 border-b-2 ${
-              activePage === 'track'
-                ? 'text-[#0057E7] border-[#0057E7] font-semibold'
-                : 'border-transparent hover:text-[#0057E7] hover:border-[#0057E7]'
-            }`}
-          >
-            Track Order
-          </button>
+        <nav className="hidden lg:flex items-center gap-7 text-[13.5px] font-semibold text-slate-600">
+          {[
+            { label: 'Categories', action: () => onNavigateSection('categories'), active: false },
+            { label: 'Shop Hardware', action: () => onNavigateSection('best-selling'), active: false },
+            { label: 'New Arrivals', action: () => onNavigateSection('just-arrived'), active: false },
+            { label: 'Robotics Kits', action: () => onNavigateSection('bundles'), active: false },
+            { label: 'Track Order', action: onOpenTracking, active: activePage === 'track' },
+          ].map((navItem) => (
+            <button
+              key={navItem.label}
+              type="button"
+              onClick={navItem.action}
+              className={`relative py-1.5 whitespace-nowrap shrink-0 transition-colors after:content-[''] after:absolute after:left-0 after:bottom-0 after:h-[2px] after:w-full after:rounded-full after:bg-[#0057E7] after:origin-left after:transition-transform after:duration-200 ${
+                navItem.active
+                  ? 'text-[#0057E7] after:scale-x-100'
+                  : 'hover:text-[#070D19] after:scale-x-0 hover:after:scale-x-100'
+              }`}
+            >
+              {navItem.label}
+            </button>
+          ))}
         </nav>
 
         {/* Zone 3: Install App, Search, Wishlist, Account & Primary Cart Action */}
-        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+        <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
           <PWAInstallButton variant="header" />
 
           <button
@@ -193,24 +174,30 @@ export const Header: React.FC<HeaderProps> = ({
             onClick={() => setSearchOpen((prev) => !prev)}
             aria-label="Toggle product search"
             aria-expanded={searchOpen}
-            className={`p-2 sm:p-2.5 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${
+            className={`h-9 sm:h-10 px-2.5 sm:px-3.5 rounded-xl inline-flex items-center gap-2 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${
               searchOpen || hasActiveSearchFilters
-                ? 'text-[#0057E7] bg-[#EEF4FF]'
-                : 'text-slate-700 hover:text-[#0057E7] hover:bg-slate-100'
+                ? 'text-[#0057E7] bg-[#EEF4FF] border border-blue-200 shadow-2xs'
+                : 'btn-liquid-glass text-slate-700'
             }`}
           >
-            {searchOpen ? <X className="w-5 h-5" /> : <Search className="w-5 h-5" />}
+            {searchOpen ? <X className="w-4 h-4 sm:w-[18px] sm:h-[18px]" /> : <Search className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />}
+            <span className="hidden xl:inline text-xs font-medium text-slate-600">
+              Search SKU, 3.3V...
+            </span>
           </button>
 
           <button
             type="button"
             onClick={onOpenWishlist}
             aria-label={`Saved items (${wishlistCount})`}
-            className="relative p-2 sm:p-2.5 rounded-lg text-slate-700 hover:text-[#0057E7] hover:bg-slate-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+            className="relative p-2 sm:p-2.5 rounded-xl text-slate-700 hover:text-[#0057E7] hover:bg-slate-100/90 active:scale-95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
           >
-            <Heart className="w-5 h-5" />
+            <Heart className="w-[18px] h-[18px] sm:w-5 sm:h-5" />
             {wishlistCount > 0 && (
-              <span className="absolute top-1 right-1 min-w-[16px] h-4 px-1 rounded-full bg-[#06142E] text-white text-[10px] font-mono font-semibold flex items-center justify-center tabular-nums">
+              <span
+                key={wishlistCount}
+                className="animate-badge-bounce absolute top-1 right-1 min-w-[16px] h-4 px-1 rounded-full bg-[#070D19] text-white text-[10px] font-mono font-semibold flex items-center justify-center tabular-nums"
+              >
                 {wishlistCount}
               </span>
             )}
@@ -220,24 +207,27 @@ export const Header: React.FC<HeaderProps> = ({
             type="button"
             onClick={onOpenAuth}
             aria-label={isSignedIn ? 'Open account settings' : 'Sign in to Robotera BD'}
-            className={`p-2 sm:p-2.5 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${
+            className={`p-2 sm:p-2.5 rounded-xl active:scale-95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${
               isSignedIn
                 ? 'text-[#0057E7] bg-[#EEF4FF] hover:bg-blue-100'
-                : 'text-slate-700 hover:text-[#0057E7] hover:bg-slate-100'
+                : 'text-slate-700 hover:text-[#0057E7] hover:bg-slate-100/90'
             }`}
           >
-            <UserIcon className="w-5 h-5" />
+            <UserIcon className="w-[18px] h-[18px] sm:w-5 sm:h-5" />
           </button>
 
           <button
             type="button"
             onClick={onOpenCart}
             aria-label={`Open shopping cart (${cartCount} items)`}
-            className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-lg bg-[#0057E7] hover:bg-[#0044BB] text-white text-xs sm:text-sm font-semibold transition-colors whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
+            className="btn-glossy-dark inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 h-9 sm:h-10 rounded-xl text-xs sm:text-sm font-semibold whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
           >
             <ShoppingBag className="w-4 h-4" />
             <span className="hidden sm:inline">Cart</span>
-            <span className="font-mono text-xs bg-white/20 px-1.5 py-0.5 rounded tabular-nums">
+            <span
+              key={cartCount}
+              className="animate-badge-bounce font-mono text-[11px] bg-white/15 px-1.5 py-0.5 rounded-md tabular-nums"
+            >
               {cartCount}
             </span>
           </button>
@@ -246,8 +236,8 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Expandable Live Technical Catalog Search Panel */}
       {searchOpen && (
-        <div className="border-t border-slate-200 bg-[#F6F8FB] shadow-xl max-h-[calc(100dvh-4rem)] overflow-y-auto overscroll-contain">
-          <div className="max-w-[1360px] mx-auto px-3 sm:px-6 lg:px-8 py-3.5 space-y-3">
+        <div className="animate-slide-down border-t border-slate-200 bg-[#F6F8FB] shadow-xl max-h-[calc(100dvh-4rem)] overflow-y-auto overscroll-contain">
+          <div className="max-w-[1760px] mx-auto px-4 sm:px-6 lg:px-10 py-3.5 space-y-3">
             <form onSubmit={handleSearchSubmit} className="flex flex-col md:flex-row gap-2.5">
               <div className="relative flex-1 flex items-center bg-white border border-slate-200 rounded-lg px-3 h-10 focus-within:ring-2 focus-within:ring-blue-600">
                 <Search className="w-4 h-4 text-slate-400 shrink-0 mr-2.5" />

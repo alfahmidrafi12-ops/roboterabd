@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import { Award, Banknote, Check, Mail, MapPin, MessageCircle, Phone, ShieldCheck, Truck } from 'lucide-react';
 import { QUICK_SEARCH_TAGS } from '../data/catalog';
 import { CategoryId, CategoryItem } from '../types/store';
+import { Reveal } from './Reveal';
 import { WHATSAPP_URL } from './WhatsAppButton';
 
 interface FooterSectionProps {
@@ -50,78 +51,70 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
   return (
     <footer className="bg-white border-t border-slate-200">
       {/* Organic's "People are also looking for" Quick Search Bar */}
-      <div className="max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-8 py-10 border-b border-slate-200">
-        <h2 className="font-display text-xl sm:text-2xl font-bold text-[#06142E] mb-4">
-          People are also looking for
-        </h2>
-        <div className="flex flex-wrap gap-2.5">
-          {QUICK_SEARCH_TAGS.map((term) => (
-            <button
-              key={term}
-              type="button"
-              onClick={() => onQuickSearch(term)}
-              className="px-3.5 py-2 rounded-lg bg-[#F4F7FB] hover:bg-[#0057E7] text-slate-700 hover:text-white text-xs sm:text-sm font-medium border border-slate-200/80 hover:border-[#0057E7] transition-colors whitespace-nowrap"
-            >
-              {term}
-            </button>
-          ))}
-        </div>
+      <div className="w-full max-w-[1760px] mx-auto px-4 sm:px-6 lg:px-10 py-10 border-b border-slate-200">
+        <Reveal>
+          <h2 className="font-display text-xl sm:text-2xl font-bold text-[#06142E] mb-4">
+            People are also looking for
+          </h2>
+          <div className="flex flex-wrap gap-2.5">
+            {QUICK_SEARCH_TAGS.map((term) => (
+              <button
+                key={term}
+                type="button"
+                onClick={() => onQuickSearch(term)}
+                className="px-3.5 py-2 rounded-xl bg-[#F4F7FB] hover:bg-[#0057E7] text-slate-700 hover:text-white text-xs sm:text-sm font-medium border border-slate-200/80 hover:border-[#0057E7] hover:-translate-y-0.5 active:scale-[0.97] transition-all whitespace-nowrap"
+              >
+                {term}
+              </button>
+            ))}
+          </div>
+        </Reveal>
 
-        {/* Organic's 4-Column Store Guarantees */}
+        {/* Store Guarantees */}
         <div className="mt-10 pt-10 border-t border-slate-200 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className="flex items-start gap-3.5">
-            <div className="w-10 h-10 rounded-lg bg-[#EEF4FF] text-[#0057E7] flex items-center justify-center shrink-0">
-              <Truck className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="font-display text-sm font-bold text-[#06142E]">Nationwide Delivery</h3>
-              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                Inside Dhaka: 2–3 days (৳80) · Outside Dhaka: 2–4 days (৳150). Free over ৳3,000.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-start gap-3.5">
-            <div className="w-10 h-10 rounded-lg bg-[#EEF4FF] text-[#0057E7] flex items-center justify-center shrink-0">
-              <ShieldCheck className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="font-display text-sm font-bold text-[#06142E]">100% Genuine Components</h3>
-              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                Direct-sourced MCUs, LiDAR, and power ICs with ESD-safe packaging.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-start gap-3.5">
-            <div className="w-10 h-10 rounded-lg bg-[#EEF4FF] text-[#0057E7] flex items-center justify-center shrink-0">
-              <Award className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="font-display text-sm font-bold text-[#06142E]">7-Day Lab Replacement</h3>
-              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                Instant hardware replacement for verified manufacturing defects.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-start gap-3.5">
-            <div className="w-10 h-10 rounded-lg bg-[#EEF4FF] text-[#0057E7] flex items-center justify-center shrink-0">
-              <Banknote className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="font-display text-sm font-bold text-[#06142E]">bKash, Nagad &amp; COD</h3>
-              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                Pay securely via mobile banking or Cash on Delivery at your doorstep.
-              </p>
-            </div>
-          </div>
+          {[
+            {
+              icon: Truck,
+              title: 'Nationwide Delivery',
+              desc: 'Inside Dhaka: 2–3 days (৳80) · Outside Dhaka: 2–4 days (৳150). Free over ৳3,000.',
+            },
+            {
+              icon: ShieldCheck,
+              title: '100% Genuine Components',
+              desc: 'Direct-sourced MCUs, LiDAR, and power ICs with ESD-safe packaging.',
+            },
+            {
+              icon: Award,
+              title: '7-Day Lab Replacement',
+              desc: 'Instant hardware replacement for verified manufacturing defects.',
+            },
+            {
+              icon: Banknote,
+              title: 'bKash, Nagad & COD',
+              desc: 'Pay securely via mobile banking or Cash on Delivery at your doorstep.',
+            },
+          ].map((item, idx) => {
+            const Icon = item.icon;
+            return (
+              <Reveal key={item.title} delayMs={idx * 65}>
+                <div className="group flex items-start gap-3.5">
+                  <div className="w-10 h-10 rounded-xl bg-[#EEF4FF] text-[#0057E7] flex items-center justify-center shrink-0 transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:scale-105">
+                    <Icon className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-display text-sm font-bold text-[#06142E]">{item.title}</h3>
+                    <p className="text-xs text-slate-500 mt-1 leading-relaxed">{item.desc}</p>
+                  </div>
+                </div>
+              </Reveal>
+            );
+          })}
         </div>
       </div>
 
       {/* Multi-Column Store Footer */}
-      <div className="bg-[#06142E] text-slate-300">
-        <div className="max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-8 py-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-8">
+      <div className="bg-[#070D19] text-slate-300">
+        <div className="w-full max-w-[1760px] mx-auto px-4 sm:px-6 lg:px-10 py-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-8">
           <div className="lg:col-span-4 space-y-4">
             <div className="font-display text-xl font-extrabold text-white tracking-tight flex items-center gap-1.5">
               <span>ROBOTERA</span>
@@ -233,7 +226,7 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
                 />
                 <button
                   type="submit"
-                  className="h-10 px-4 rounded-lg bg-[#0057E7] hover:bg-[#0044BB] text-white text-xs font-semibold transition-colors whitespace-nowrap shrink-0"
+                  className="btn-glossy-blue h-10 px-4 rounded-xl text-xs font-semibold whitespace-nowrap shrink-0"
                 >
                   Subscribe
                 </button>
@@ -243,7 +236,7 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
         </div>
 
         <div className="border-t border-white/10">
-          <div className="max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-8 py-5 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-400">
+          <div className="w-full max-w-[1760px] mx-auto px-4 sm:px-6 lg:px-10 py-5 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-400">
             <p onClick={handleSecretTap} className="select-none cursor-default">
               © {new Date().getFullYear()} Robotera BD. All rights reserved.
             </p>

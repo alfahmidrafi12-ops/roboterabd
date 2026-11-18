@@ -25,7 +25,7 @@ export const WishlistDrawer: React.FC<WishlistDrawerProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
       <div
-        className="fixed inset-0 bg-[#06142E]/50 backdrop-blur-[2px]"
+        className="animate-fade-in fixed inset-0 bg-[#06142E]/50 backdrop-blur-[2px]"
         onClick={onClose}
         aria-hidden="true"
       />
@@ -33,7 +33,7 @@ export const WishlistDrawer: React.FC<WishlistDrawerProps> = ({
         role="dialog"
         aria-modal="true"
         aria-label="Saved hardware wishlist"
-        className="relative z-10 w-full max-w-md bg-white h-dvh shadow-2xl flex flex-col border-l border-slate-200 pb-[env(safe-area-inset-bottom)]"
+        className="animate-drawer-in relative z-10 w-full max-w-md bg-white h-dvh shadow-2xl flex flex-col border-l border-slate-200 pb-[env(safe-area-inset-bottom)]"
       >
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
           <h2 className="font-display text-lg font-bold text-[#06142E] tabular-nums">
@@ -114,7 +114,7 @@ export const WishlistDrawer: React.FC<WishlistDrawerProps> = ({
                         type="button"
                         disabled={outOfStock}
                         onClick={() => onMoveToCart(product)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[#0057E7] hover:bg-[#0044BB] disabled:bg-slate-200 disabled:text-slate-500 disabled:cursor-not-allowed text-white text-xs font-semibold transition-colors"
+                        className="btn-glossy-blue inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg disabled:bg-slate-200 disabled:text-slate-500 disabled:border-transparent disabled:shadow-none disabled:cursor-not-allowed text-xs font-semibold"
                       >
                         <ShoppingCart className="w-3 h-3" />
                         <span>{outOfStock ? 'Out of Stock' : 'Add to Cart'}</span>

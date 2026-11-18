@@ -16,6 +16,7 @@ import {
   SortOption,
 } from '../types/store';
 import { ProductCard } from './ProductCard';
+import { Reveal } from './Reveal';
 
 interface BestSellingSectionProps {
   products: Product[];
@@ -125,19 +126,24 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
   return (
     <section
       id="best-selling"
-      className="scroll-mt-20 py-8 sm:py-11 lg:py-14 bg-[#F9FBFD] border-b border-slate-200/70"
+      className="scroll-mt-20 py-9 sm:py-12 lg:py-16 bg-white border-b border-slate-200/70"
     >
-      <div className="max-w-[1360px] mx-auto px-3 sm:px-6 lg:px-8">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-5">
+      <div className="w-full max-w-[1760px] mx-auto px-4 sm:px-6 lg:px-10">
+        <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4 mb-6">
           <div>
-            <h2 className="font-display text-xl sm:text-2xl lg:text-3xl font-bold text-[#06142E] tracking-tight">
-              {activeCategoryName ? activeCategoryName : 'Shop Hardware'}
-            </h2>
+            <div className="flex items-baseline gap-3">
+              <h2 className="font-display text-xl sm:text-2xl lg:text-3xl font-bold text-[#070D19] tracking-tight">
+                {activeCategoryName ? activeCategoryName : 'Shop Hardware'}
+              </h2>
+              <span className="text-xs font-mono text-slate-400 tabular-nums">
+                {products.length} {products.length === 1 ? 'item' : 'items'}
+              </span>
+            </div>
             {hasAnyFilter && (
               <div className="mt-1.5 flex flex-wrap items-center gap-3 text-xs text-slate-600">
                 <span>
-                  Showing <strong className="font-mono tabular-nums">{products.length}</strong> items
-                  {searchQuery ? ` matching "${searchQuery}"` : ''}
+                  Filtered results
+                  {searchQuery ? ` · "${searchQuery}"` : ''}
                   {availabilityFilter !== 'all' ? ` · ${availabilityFilter.replace('-', ' ')}` : ''}
                   {minPrice || maxPrice
                     ? ` · ৳${minPrice || '0'}–${maxPrice ? `৳${maxPrice}` : 'Any'}`
@@ -159,14 +165,14 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full lg:w-auto">
             {/* Inline Real-Time Technical Search Input */}
             <div className="relative flex-1 sm:w-72">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => onSearchChange(e.target.value)}
-                placeholder="Search model, SKU, or specs (3.3V, I2C...)"
+                placeholder="Search model, SKU, specs (3.3V, I2C...)"
                 aria-label="Filter hardware catalog by name, SKU, or technical keywords"
-                className="w-full h-10 pl-9 pr-8 rounded-lg bg-white border border-slate-200 text-base sm:text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                className="w-full h-10 pl-9 pr-8 rounded-xl bg-[#F7F9FC] border border-slate-200/90 text-base sm:text-sm text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 transition-colors"
               />
               {searchQuery && (
                 <button
@@ -185,10 +191,10 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
                 type="button"
                 onClick={() => setFiltersOpen((prev) => !prev)}
                 aria-expanded={filtersOpen}
-                className={`h-10 px-3.5 rounded-lg border text-xs sm:text-sm font-semibold inline-flex items-center gap-2 transition-colors whitespace-nowrap shrink-0 ${
+                className={`h-10 px-3.5 rounded-xl border text-xs sm:text-sm font-semibold inline-flex items-center gap-2 transition-colors whitespace-nowrap shrink-0 ${
                   filtersOpen || activeAdvancedCount > 0
-                    ? 'bg-[#06142E] border-[#06142E] text-white'
-                    : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300'
+                    ? 'bg-[#070D19] border-[#070D19] text-white'
+                    : 'bg-[#F7F9FC] border-slate-200/90 text-slate-700 hover:border-slate-300 hover:bg-white'
                 }`}
               >
                 <SlidersHorizontal className="w-3.5 h-3.5" />
@@ -207,7 +213,7 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
                   value={sortBy}
                   onChange={(e) => onSortChange(e.target.value as SortOption)}
                   aria-label="Sort products"
-                  className="w-full sm:w-52 h-10 pl-8 pr-8 rounded-lg bg-white border border-slate-200 text-xs sm:text-sm font-medium text-slate-800 appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-600 hover:border-slate-300 transition-colors"
+                  className="w-full sm:w-52 h-10 pl-8 pr-8 rounded-xl bg-[#F7F9FC] border border-slate-200/90 text-xs sm:text-sm font-medium text-slate-800 appearance-none cursor-pointer focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 hover:border-slate-300 transition-colors"
                 >
                   <option value="featured">Sort: Best Selling</option>
                   <option value="price-asc">Price: Low to High</option>
@@ -222,7 +228,7 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
 
         {/* Collapsible Advanced Filters: Price Range, Availability & Technical Keywords */}
         {filtersOpen && (
-          <div className="mb-5 bg-white rounded-xl border border-slate-200 p-4 sm:p-5 shadow-sm space-y-4">
+          <div className="animate-slide-down mb-5 bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-md space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
               {/* Price Range */}
               <div className="md:col-span-5 space-y-1.5">
@@ -367,10 +373,10 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
                 key={tab.id}
                 type="button"
                 onClick={() => onSelectCategory(tab.id)}
-                className={`px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap shrink-0 ${
+                className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap shrink-0 ${
                   isSelected
-                    ? 'bg-[#06142E] text-white'
-                    : 'bg-white text-slate-600 border border-slate-200 hover:border-slate-300 hover:text-slate-900'
+                    ? 'bg-[#070D19] text-white shadow-xs'
+                    : 'bg-[#F5F7FA] text-slate-600 border border-slate-200/80 hover:border-slate-300 hover:bg-white hover:text-slate-900'
                 }`}
               >
                 {tab.label}
@@ -396,17 +402,18 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-5">
-            {products.map((product) => (
-              <ProductCard
-                key={product.id}
-                product={product}
-                categoryDisplayName={categoryLabels[product.category]}
-                isWishlisted={wishlistIds.includes(product.id)}
-                onToggleWishlist={onToggleWishlist}
-                onAddToCart={onAddToCart}
-                onOpenDetail={onOpenDetail}
-              />
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3.5 sm:gap-5">
+            {products.map((product, idx) => (
+              <Reveal key={product.id} delayMs={Math.min(idx * 35, 240)} className="h-full">
+                <ProductCard
+                  product={product}
+                  categoryDisplayName={categoryLabels[product.category]}
+                  isWishlisted={wishlistIds.includes(product.id)}
+                  onToggleWishlist={onToggleWishlist}
+                  onAddToCart={onAddToCart}
+                  onOpenDetail={onOpenDetail}
+                />
+              </Reveal>
             ))}
           </div>
         )}

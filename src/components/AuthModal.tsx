@@ -202,7 +202,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div
-        className="fixed inset-0 bg-[#06142E]/60 backdrop-blur-sm"
+        className="animate-fade-in fixed inset-0 bg-[#06142E]/60 backdrop-blur-sm"
         onClick={onClose}
         aria-hidden="true"
       />
@@ -210,7 +210,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         role="dialog"
         aria-modal="true"
         aria-label={user ? 'Your Robotera BD Account' : 'Account Sign In'}
-        className={`relative z-10 w-full ${
+        className={`animate-pop-in relative z-10 w-full ${
           user ? 'max-w-lg' : 'max-w-md'
         } max-h-[92dvh] bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden flex flex-col`}
       >
@@ -622,7 +622,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full h-11 rounded-lg bg-[#0057E7] hover:bg-[#0044BB] disabled:opacity-60 text-white text-sm font-semibold transition-colors"
+                  className="btn-glossy-blue w-full h-11 rounded-xl disabled:opacity-60 text-sm font-semibold"
                 >
                   {loading
                     ? 'Please wait...'
@@ -657,7 +657,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 type="button"
                 onClick={handleGoogleSignIn}
                 disabled={loading}
-                className="w-full h-10 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-800 text-xs font-semibold transition-colors"
+                className="btn-liquid-glass w-full h-10 rounded-xl text-xs font-semibold"
               >
                 Continue with Google
               </button>

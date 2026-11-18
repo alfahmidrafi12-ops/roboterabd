@@ -1,9 +1,12 @@
 import React, { useEffect, useState } from 'react';
+import { User } from 'firebase/auth';
 import {
   ArrowLeft,
   Check,
   CheckCircle2,
   Copy,
+  Lock,
+  LogIn,
   Minus,
   Plus,
   Printer,
@@ -20,6 +23,9 @@ interface CartDrawerProps {
   items: CartItem[];
   appliedCoupon: string | null;
   startInCheckout?: boolean;
+  user: User | null;
+  hasPlacedOrderBefore: boolean;
+  onOpenAuth: () => void;
   onClose: () => void;
   onUpdateQty: (productId: string, variant: string | undefined, delta: number) => void;
   onRemoveItem: (productId: string, variant: string | undefined) => void;
@@ -39,6 +45,9 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   items,
   appliedCoupon,
   startInCheckout = false,
+  user,
+  hasPlacedOrderBefore,
+  onOpenAuth,
   onClose,
   onUpdateQty,
   onRemoveItem,
@@ -52,7 +61,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   const [couponError, setCouponError] = useState('');
 
   // Checkout Form State
-  const [customerName, setCustomerName] = useState('');
+  const [customerName, setCustomerName] = useState(user?.displayName || '');
   const [phone, setPhone] = useState('');
   const [district, setDistrict] = useState('Dhaka Metro');
   const [address, setAddress] = useState('');
@@ -62,6 +71,12 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   const [checkoutError, setCheckoutError] = useState('');
   const [receipt, setReceipt] = useState<OrderReceipt | null>(null);
   const [copiedId, setCopiedId] = useState(false);
+
+  useEffect(() => {
+    if (user?.displayName && !customerName) {
+      setCustomerName(user.displayName);
+    }
+  }, [user?.displayName]);
 
   useEffect(() => {
     if (isOpen) {
@@ -76,8 +91,12 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
   if (!isOpen) return null;
 
+  const isFirstOrderDiscountEligible = Boolean(user && !hasPlacedOrderBefore);
+  const effectiveCoupon =
+    appliedCoupon === 'ROBOTERA15' && isFirstOrderDiscountEligible ? 'ROBOTERA15' : null;
+
   const subtotal = items.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
-  const discount = appliedCoupon === 'ROBOTERA15' ? Math.round(subtotal * 0.15) : 0;
+  const discount = effectiveCoupon === 'ROBOTERA15' ? Math.round(subtotal * 0.15) : 0;
   const discountedSubtotal = Math.max(0, subtotal - discount);
   const freeShippingThreshold = 3000;
   const freeShipping = discountedSubtotal >= freeShippingThreshold || discountedSubtotal === 0;
@@ -96,17 +115,31 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     e.preventDefault();
     const cleaned = couponInput.trim().toUpperCase();
     if (cleaned === 'ROBOTERA15') {
+      if (!user) {
+        setCouponError('Please sign in first to use the 1st-order 15% discount.');
+        return;
+      }
+      if (hasPlacedOrderBefore) {
+        setCouponError('ROBOTERA15 is valid only for your 1st order on this account.');
+        return;
+      }
       onApplyCoupon('ROBOTERA15');
       setCouponError('');
       setCouponInput('');
     } else {
-      setCouponError('Invalid code. Use ROBOTERA15 for 15% off.');
+      setCouponError('Invalid code. Use ROBOTERA15 (1st-order signed-in accounts only).');
     }
   };
 
   const handlePlaceOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submitting || items.length === 0) return;
+
+    if (!user) {
+      setCheckoutError('Please sign in or create an account before placing an order.');
+      onOpenAuth();
+      return;
+    }
 
     const trimmedName = customerName.trim();
     const trimmedPhone = phone.trim();
@@ -154,7 +187,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
         discount,
         deliveryFee,
         total,
-        couponCode: appliedCoupon ?? undefined,
+        couponCode: effectiveCoupon ?? undefined,
         notes: orderNotes.trim() || undefined,
       });
 
@@ -205,7 +238,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
       <div
-        className="fixed inset-0 bg-[#06142E]/50 backdrop-blur-[2px]"
+        className="animate-fade-in fixed inset-0 bg-[#06142E]/50 backdrop-blur-[2px]"
         onClick={handleResetAndClose}
         aria-hidden="true"
       />
@@ -213,7 +246,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
         role="dialog"
         aria-modal="true"
         aria-label="Shopping cart and checkout"
-        className="relative z-10 w-full max-w-md bg-white h-dvh shadow-2xl flex flex-col border-l border-slate-200"
+        className="animate-drawer-in relative z-10 w-full max-w-md bg-white h-dvh shadow-2xl flex flex-col border-l border-slate-200"
       >
         {/* Drawer Header */}
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
@@ -482,10 +515,10 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
               {/* Promo Code Input */}
               <div className="pt-1">
-                {appliedCoupon ? (
+                {effectiveCoupon ? (
                   <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-lg px-3.5 py-2.5 text-xs">
                     <span className="text-emerald-800 font-medium">
-                      Coupon <strong className="font-mono">{appliedCoupon}</strong> (-15%) applied
+                      Coupon <strong className="font-mono">{effectiveCoupon}</strong> (-15% 1st order) applied
                     </span>
                     <button
                       type="button"
@@ -501,7 +534,13 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                       type="text"
                       value={couponInput}
                       onChange={(e) => setCouponInput(e.target.value)}
-                      placeholder="Promo code (try ROBOTERA15)"
+                      placeholder={
+                        !user
+                          ? 'Sign in for 1st-order code ROBOTERA15'
+                          : hasPlacedOrderBefore
+                          ? 'Promo code (1st-order offer already used)'
+                          : 'Promo code (ROBOTERA15 for 1st order)'
+                      }
                       className="flex-1 h-9 px-3 rounded-lg border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-blue-600"
                     />
                     <button
@@ -527,7 +566,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 </div>
                 {discount > 0 && (
                   <div className="flex justify-between text-emerald-700 font-medium">
-                    <span>Lab Discount (15%)</span>
+                    <span>First-Order Discount (15%)</span>
                     <span className="font-mono tabular-nums">
                       -৳{discount.toLocaleString('en-IN')}
                     </span>
@@ -545,16 +584,60 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 </div>
               </div>
 
+              {!user && (
+                <p className="text-[11px] text-slate-600 bg-[#EEF4FF] border border-blue-100 rounded-lg px-3 py-2 flex items-center gap-2">
+                  <Lock className="w-3.5 h-3.5 text-[#0057E7] shrink-0" />
+                  <span>Account sign-in is required to place an order.</span>
+                </p>
+              )}
+
               <button
                 type="button"
                 disabled={hasOutOfStockInCart}
                 onClick={() => setStep('checkout')}
-                className="w-full h-11 rounded-lg bg-[#0057E7] hover:bg-[#0044BB] disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-sm font-semibold transition-colors"
+                className="btn-glossy-blue w-full h-11 rounded-xl disabled:bg-slate-300 disabled:text-slate-500 disabled:border-transparent disabled:shadow-none disabled:cursor-not-allowed text-sm font-semibold"
               >
-                {hasOutOfStockInCart ? 'Remove Unavailable Items First' : 'Proceed to Checkout'}
+                {hasOutOfStockInCart
+                  ? 'Remove Unavailable Items First'
+                  : !user
+                  ? 'Sign In & Proceed to Checkout'
+                  : 'Proceed to Checkout'}
               </button>
             </div>
           </>
+        ) : !user ? (
+          /* Mandatory Account Sign-In Gate Before Ordering */
+          <div className="animate-pop-in flex-1 flex flex-col items-center justify-center p-7 text-center space-y-4">
+            <div className="w-16 h-16 rounded-2xl bg-[#EEF4FF] border border-blue-200 text-[#0057E7] flex items-center justify-center">
+              <Lock className="w-7 h-7" />
+            </div>
+            <div className="space-y-2 max-w-xs">
+              <h3 className="font-display text-lg font-bold text-[#070D19]">
+                Sign In Required to Order
+              </h3>
+              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+                Please sign in or create an account first so your order receipt, shipment
+                updates, and 1st-order discount are securely tied to your profile.
+              </p>
+            </div>
+            <div className="w-full max-w-xs space-y-2.5 pt-2">
+              <button
+                type="button"
+                onClick={onOpenAuth}
+                className="btn-glossy-blue w-full h-11 rounded-xl text-sm font-semibold inline-flex items-center justify-center gap-2"
+              >
+                <LogIn className="w-4 h-4" />
+                <span>Sign In / Create Account</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setStep('cart')}
+                className="btn-liquid-glass w-full h-10 rounded-xl text-xs font-semibold"
+              >
+                Back to Cart
+              </button>
+            </div>
+          </div>
         ) : (
           /* Bangladesh Checkout Step */
           <form onSubmit={handlePlaceOrder} className="flex-1 flex flex-col overflow-hidden">
@@ -705,7 +788,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full h-11 rounded-lg bg-[#0057E7] hover:bg-[#0044BB] disabled:opacity-60 text-white text-sm font-semibold transition-colors"
+                className="btn-glossy-blue w-full h-11 rounded-xl disabled:opacity-60 text-sm font-semibold"
               >
                 {submitting
                   ? 'Placing Order...'

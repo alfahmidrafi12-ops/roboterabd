@@ -29,6 +29,7 @@ import {
   subscribeCategories,
   subscribeProducts,
   subscribeSiteSettings,
+  subscribeUserOrders,
   testConnection,
 } from './lib/firebase';
 import {
@@ -41,6 +42,7 @@ import {
   Product,
   SiteImagesConfig,
   SortOption,
+  StoredOrder,
 } from './types/store';
 
 const STORAGE_CART_KEY = 'robotera_bd_cart_v1';
@@ -83,6 +85,7 @@ export default function App() {
   const [banners, setBanners] = useState<BannerItem[]>(DEFAULT_BANNERS);
   const [siteSettings, setSiteSettings] = useState<SiteImagesConfig>(DEFAULT_SITE_SETTINGS);
   const [authUser, setAuthUser] = useState<User | null>(null);
+  const [userOrders, setUserOrders] = useState<StoredOrder[]>([]);
   const [adminOpen, setAdminOpen] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
 
@@ -184,6 +187,31 @@ export default function App() {
       unsubSite();
     };
   }, []);
+
+  // Track signed-in user's order history for 1st-order discount eligibility
+  useEffect(() => {
+    if (!authUser?.uid) {
+      setUserOrders([]);
+      return;
+    }
+    const unsubUserOrders = subscribeUserOrders(
+      authUser.uid,
+      (ordersList) => setUserOrders(ordersList),
+      (err) => console.error('User order eligibility check error:', err)
+    );
+    return () => unsubUserOrders();
+  }, [authUser?.uid]);
+
+  const hasPlacedOrderBefore = useMemo(
+    () => userOrders.some((o) => o.status !== 'Cancelled'),
+    [userOrders]
+  );
+
+  useEffect(() => {
+    if (appliedCoupon === 'ROBOTERA15' && (!authUser || hasPlacedOrderBefore)) {
+      setAppliedCoupon(null);
+    }
+  }, [appliedCoupon, authUser, hasPlacedOrderBefore]);
 
   // Synchronize persisted cart items with live product prices, images, and stock
   useEffect(() => {
@@ -700,6 +728,9 @@ export default function App() {
 
             <DiscountBanner
               bannerImageUrl={siteSettings.discountBannerImageUrl}
+              user={authUser}
+              hasPlacedOrderBefore={hasPlacedOrderBefore}
+              onOpenAuth={() => setAuthModalOpen(true)}
               onApplyCoupon={(code) => setAppliedCoupon(code)}
             />
 
@@ -757,6 +788,9 @@ export default function App() {
         items={cartItems}
         appliedCoupon={appliedCoupon}
         startInCheckout={startInCheckout}
+        user={authUser}
+        hasPlacedOrderBefore={hasPlacedOrderBefore}
+        onOpenAuth={() => setAuthModalOpen(true)}
         onClose={() => {
           setCartOpen(false);
           setStartInCheckout(false);
@@ -827,7 +861,7 @@ export default function App() {
         <div
           role="status"
           aria-live="polite"
-          className="fixed bottom-[calc(8.5rem+env(safe-area-inset-bottom))] md:bottom-20 left-3 right-3 sm:right-auto sm:left-6 z-40 sm:max-w-sm bg-emerald-950 text-white rounded-xl shadow-2xl border border-emerald-500/40 p-3.5 flex items-center justify-between gap-3"
+          className="animate-pop-in fixed bottom-[calc(8.5rem+env(safe-area-inset-bottom))] md:bottom-20 left-3 right-3 sm:right-auto sm:left-6 z-40 sm:max-w-sm bg-emerald-950 text-white rounded-xl shadow-2xl border border-emerald-500/40 p-3.5 flex items-center justify-between gap-3"
         >
           <div className="flex items-center gap-2.5 min-w-0">
             <BellRing className="w-5 h-5 text-emerald-400 shrink-0" />
@@ -869,7 +903,7 @@ export default function App() {
         <div
           role="status"
           aria-live="polite"
-          className="fixed bottom-[calc(8.25rem+env(safe-area-inset-bottom))] md:bottom-6 left-3 right-3 sm:right-auto sm:left-6 z-40 sm:max-w-sm bg-[#06142E] text-white rounded-xl shadow-2xl border border-white/10 p-3.5 flex items-center justify-between gap-3"
+          className="animate-pop-in fixed bottom-[calc(8.25rem+env(safe-area-inset-bottom))] md:bottom-6 left-3 right-3 sm:right-auto sm:left-6 z-40 sm:max-w-sm bg-[#070D19] text-white rounded-xl shadow-2xl border border-white/10 p-3.5 flex items-center justify-between gap-3"
         >
           <div className="flex items-center gap-2.5 min-w-0">
             <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
