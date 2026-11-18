@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { User } from 'firebase/auth';
 import { BellRing, CheckCircle2, ShoppingBag, X } from 'lucide-react';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import { AdminPanel } from './components/AdminPanel';
 import { AuthModal } from './components/AuthModal';
 import { BestSellingSection } from './components/BestSellingSection';
@@ -925,6 +926,9 @@ export default function App() {
 
       {/* Floating WhatsApp Support Button */}
       <WhatsAppButton />
+
+      {/* Vercel Speed Insights */}
+      <SpeedInsights />
     </div>
   );
 }
