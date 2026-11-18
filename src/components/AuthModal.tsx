@@ -64,8 +64,21 @@ function formatOrderDate(ts: unknown): string {
 
 export function formatAuthErrorMessage(err: unknown): string {
   const msg = err instanceof Error ? err.message : String(err);
+  const host = typeof window !== 'undefined' ? window.location.hostname : 'this domain';
+  if (msg.includes('auth/unauthorized-domain')) {
+    return `This domain (${host}) is not authorized for sign-in yet. Add "${host}" in Firebase Console → Authentication → Settings → Authorized domains.`;
+  }
+  if (msg.includes('auth/popup-blocked')) {
+    return 'Sign-in popup was blocked by your browser. Please allow popups for this site and try again.';
+  }
+  if (msg.includes('auth/popup-closed-by-user') || msg.includes('auth/cancelled-popup-request')) {
+    return 'Google sign-in popup was closed before finishing. Please try again.';
+  }
+  if (msg.includes('auth/network-request-failed')) {
+    return 'Network error while connecting to authentication service. Check your connection and try again.';
+  }
   if (msg.includes('auth/operation-not-allowed')) {
-    return 'Email/Password login is not enabled yet in Firebase Console (Authentication → Sign-in method → Email/Password). Please enable it or use Google Sign-In below.';
+    return 'This sign-in method is not enabled yet in Firebase Console (Authentication → Sign-in method). Please enable it first.';
   }
   if (msg.includes('auth/invalid-credential') || msg.includes('auth/wrong-password')) {
     return 'Incorrect email or password. Please try again.';
