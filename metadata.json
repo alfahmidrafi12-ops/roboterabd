@@ -1,0 +1,6 @@
+{
+  "name": "Robotera BD — Robotics & Electronics Store",
+  "description": "Precision robotics kits, microcontrollers, sensors, actuators, and embedded electronics store in Bangladesh.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

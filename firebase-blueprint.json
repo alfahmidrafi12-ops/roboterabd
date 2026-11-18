@@ -1,0 +1,194 @@
+{
+  "entities": {
+    "Category": {
+      "title": "Category",
+      "description": "Storefront hardware department category manageable by admins.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 64, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "countLabel": { "type": "string", "minLength": 1, "maxLength": 40 },
+        "artwork": { "type": "string", "minLength": 1, "maxLength": 40 },
+        "imageUrl": { "type": "string", "maxLength": 300000 },
+        "order": { "type": "number" },
+        "active": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "countLabel", "artwork", "order", "active", "updatedAt"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "Robotics and embedded electronics catalog item sold on Robotera BD.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 64, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "sku": { "type": "string", "minLength": 1, "maxLength": 40 },
+        "name": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "category": { "type": "string", "minLength": 1, "maxLength": 64, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "categoryLabel": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "price": { "type": "number" },
+        "originalPrice": { "type": "number" },
+        "rating": { "type": "number" },
+        "reviews": { "type": "number" },
+        "stock": { "type": "number" },
+        "tag": { "type": "string", "maxLength": 40 },
+        "isBestSeller": { "type": "boolean" },
+        "isJustArrived": { "type": "boolean" },
+        "artwork": { "type": "string", "minLength": 1, "maxLength": 40 },
+        "imageUrl": { "type": "string", "maxLength": 300000 },
+        "videoUrl": { "type": "string", "maxLength": 500 },
+        "shortDesc": { "type": "string", "minLength": 1, "maxLength": 600 },
+        "specs": { "type": "array" },
+        "variants": { "type": "array" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "sku", "name", "category", "categoryLabel", "price", "rating", "reviews", "stock", "artwork", "shortDesc", "specs", "updatedAt"]
+    },
+    "Banner": {
+      "title": "Banner",
+      "description": "Auto-scrolling promotional banner displayed on the Robotera BD storefront.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 64, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "kicker": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "title": { "type": "string", "minLength": 1, "maxLength": 140 },
+        "subtitle": { "type": "string", "minLength": 1, "maxLength": 240 },
+        "ctaLabel": { "type": "string", "minLength": 1, "maxLength": 40 },
+        "targetCategory": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "theme": { "type": "string", "enum": ["navy", "cobalt", "slate", "emerald"] },
+        "artwork": { "type": "string", "minLength": 1, "maxLength": 40 },
+        "imageUrl": { "type": "string", "maxLength": 300000 },
+        "order": { "type": "number" },
+        "active": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "kicker", "title", "subtitle", "ctaLabel", "targetCategory", "theme", "artwork", "order", "active", "updatedAt"]
+    },
+    "SiteSettings": {
+      "title": "SiteSettings",
+      "description": "Storefront hero, promotional cards, discount banner, and lab guide visual assets editable by admins.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 64, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "heroImageUrl": { "type": "string", "maxLength": 300000 },
+        "heroKicker": { "type": "string", "maxLength": 80 },
+        "heroTitle": { "type": "string", "maxLength": 160 },
+        "heroSubtitle": { "type": "string", "maxLength": 320 },
+        "heroTagline": { "type": "string", "maxLength": 120 },
+        "heroDispatchText": { "type": "string", "maxLength": 120 },
+        "promoLeftImageUrl": { "type": "string", "maxLength": 300000 },
+        "promoTopRightImageUrl": { "type": "string", "maxLength": 300000 },
+        "promoBottomRightImageUrl": { "type": "string", "maxLength": 300000 },
+        "discountBannerImageUrl": { "type": "string", "maxLength": 300000 },
+        "blogImages": { "type": "object" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "heroImageUrl", "updatedAt"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Customer checkout order submitted from Robotera BD cart drawer.",
+      "type": "object",
+      "properties": {
+        "orderId": { "type": "string", "minLength": 1, "maxLength": 40, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "customerName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "phone": { "type": "string", "minLength": 6, "maxLength": 30 },
+        "address": { "type": "string", "minLength": 2, "maxLength": 300 },
+        "district": { "type": "string", "minLength": 2, "maxLength": 80 },
+        "paymentMethod": { "type": "string", "minLength": 2, "maxLength": 60 },
+        "status": { "type": "string", "enum": ["Pending", "Confirmed", "Shipped", "Delivered", "Cancelled"] },
+        "items": { "type": "array" },
+        "subtotal": { "type": "number" },
+        "discount": { "type": "number" },
+        "deliveryFee": { "type": "number" },
+        "total": { "type": "number" },
+        "couponCode": { "type": "string", "maxLength": 40 },
+        "notes": { "type": "string", "maxLength": 300 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["orderId", "customerName", "phone", "address", "district", "paymentMethod", "status", "items", "subtotal", "discount", "deliveryFee", "total", "createdAt", "updatedAt"]
+    },
+    "AdminUser": {
+      "title": "AdminUser",
+      "description": "Authorized Robotera BD store administrator UID record.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "email": { "type": "string", "minLength": 3, "maxLength": 120 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "createdAt"]
+    },
+    "OrderTracking": {
+      "title": "OrderTracking",
+      "description": "Public non-PII shipment status projection for Order Tracking lookup by exact orderId.",
+      "type": "object",
+      "properties": {
+        "orderId": { "type": "string", "minLength": 1, "maxLength": 40, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "status": { "type": "string", "enum": ["Pending", "Confirmed", "Shipped", "Delivered", "Cancelled"] },
+        "district": { "type": "string", "minLength": 2, "maxLength": 80 },
+        "paymentMethod": { "type": "string", "minLength": 2, "maxLength": 60 },
+        "itemCount": { "type": "number" },
+        "total": { "type": "number" },
+        "courierNote": { "type": "string", "maxLength": 300 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["orderId", "status", "district", "paymentMethod", "itemCount", "total", "createdAt", "updatedAt"]
+    },
+    "PriceAlert": {
+      "title": "PriceAlert",
+      "description": "Customer price-drop email alert subscription for a specific product.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 64, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "productId": { "type": "string", "minLength": 1, "maxLength": 64, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "productName": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "email": { "type": "string", "minLength": 5, "maxLength": 120, "pattern": "^[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}$" },
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "baselinePrice": { "type": "number" },
+        "notifiedPrice": { "type": "number" },
+        "status": { "type": "string", "enum": ["Active", "Notified"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "productId", "productName", "email", "baselinePrice", "status", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/categories/{categoryId}": {
+      "schema": { "$ref": "#/entities/Category" },
+      "description": "Public storefront categories; writable only by admins."
+    },
+    "/products/{productId}": {
+      "schema": { "$ref": "#/entities/Product" },
+      "description": "Public storefront hardware catalog; writable only by admins."
+    },
+    "/banners/{bannerId}": {
+      "schema": { "$ref": "#/entities/Banner" },
+      "description": "Public scrolling promotional banners; writable only by admins."
+    },
+    "/site_settings/{settingId}": {
+      "schema": { "$ref": "#/entities/SiteSettings" },
+      "description": "Public storefront imagery and hero branding config; writable only by admins."
+    },
+    "/orders/{orderId}": {
+      "schema": { "$ref": "#/entities/Order" },
+      "description": "Customer orders containing PII; creatable at checkout, readable/updatable/deletable only by admins or order owners."
+    },
+    "/order_tracking/{orderId}": {
+      "schema": { "$ref": "#/entities/OrderTracking" },
+      "description": "Non-PII shipment tracking projection readable only by exact orderId lookup; no list queries permitted."
+    },
+    "/price_alerts/{alertId}": {
+      "schema": { "$ref": "#/entities/PriceAlert" },
+      "description": "Customer price-drop email alert subscriptions; creatable by any shopper, readable only by the subscriber or admins."
+    },
+    "/admins/{adminUid}": {
+      "schema": { "$ref": "#/entities/AdminUser" },
+      "description": "Admin access registry."
+    }
+  }
+}

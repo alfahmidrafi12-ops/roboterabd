@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <rect width="512" height="512" rx="112" fill="#06142E" />
+  <rect x="44" y="44" width="424" height="424" rx="88" stroke="#1E3A6D" stroke-width="4" />
+  <!-- Circuit pin accents -->
+  <rect x="200" y="76" width="24" height="36" rx="8" fill="#3B82F6" />
+  <rect x="288" y="76" width="24" height="36" rx="8" fill="#3B82F6" />
+  <rect x="200" y="400" width="24" height="36" rx="8" fill="#3B82F6" />
+  <rect x="288" y="400" width="24" height="36" rx="8" fill="#3B82F6" />
+  <rect x="76" y="200" width="36" height="24" rx="8" fill="#3B82F6" />
+  <rect x="76" y="288" width="36" height="24" rx="8" fill="#3B82F6" />
+  <rect x="400" y="200" width="36" height="24" rx="8" fill="#3B82F6" />
+  <rect x="400" y="288" width="36" height="24" rx="8" fill="#3B82F6" />
+  <!-- Core microchip housing -->
+  <rect x="116" y="116" width="280" height="280" rx="56" fill="#0D2247" stroke="#0057E7" stroke-width="10" />
+  <!-- Geometric Robotera R + Cobalt BD Accent -->
+  <path d="M180 184H262C298 184 322 206 322 238C322 264 306 283 280 290L326 340H276L236 294H218V340H180V184ZM218 216V262H258C276 262 284 252 284 239C284 226 276 216 258 216H218Z" fill="#FFFFFF" />
+  <circle cx="322" cy="184" r="18" fill="#0057E7" />
+  <circle cx="322" cy="184" r="8" fill="#93C5FD" />
+</svg>
