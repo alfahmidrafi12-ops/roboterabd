@@ -200,11 +200,11 @@ export const OrderTrackingSection: React.FC<OrderTrackingSectionProps> = ({
             <div className="pt-3 border-t border-slate-100 flex flex-col gap-2 text-xs text-slate-600">
               <div className="flex items-center gap-2">
                 <Truck className="w-4 h-4 text-[#0057E7] shrink-0" />
-                <span>Dhaka Metro: Same-day rider dispatch before 4:00 PM</span>
+                <span>Inside Dhaka: 2–3 days delivery (৳80 charge)</span>
               </div>
               <div className="flex items-center gap-2">
                 <ShieldCheck className="w-4 h-4 text-[#0057E7] shrink-0" />
-                <span>Nationwide: 24–48h delivery via Steadfast &amp; Pathao</span>
+                <span>Outside Dhaka: 2–4 days delivery via Steadfast &amp; Pathao (৳150 charge)</span>
               </div>
             </div>
           </div>

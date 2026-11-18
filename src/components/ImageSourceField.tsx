@@ -39,12 +39,13 @@ async function compressImageFile(
     ctx.drawImage(img, 0, 0, width, height);
 
     const hasAlpha = file.type === 'image/png' || file.type === 'image/webp';
-    let quality = 0.82;
-    let dataUrl = canvas.toDataURL(hasAlpha ? 'image/webp' : 'image/jpeg', quality);
+    const outputMime = hasAlpha ? 'image/webp' : 'image/jpeg';
+    let quality = 0.88;
+    let dataUrl = canvas.toDataURL(outputMime, quality);
 
     while (dataUrl.length > maxChars && quality > 0.35) {
-      quality -= 0.12;
-      dataUrl = canvas.toDataURL('image/jpeg', quality);
+      quality -= 0.1;
+      dataUrl = canvas.toDataURL(outputMime, quality);
     }
 
     if (dataUrl.length > maxChars) {
@@ -115,7 +116,7 @@ export const ImageSourceField: React.FC<ImageSourceFieldProps> = ({
               src={value}
               alt={label}
               referrerPolicy="no-referrer"
-              className="w-full h-full object-cover"
+              className="w-full h-full object-contain p-0.5"
             />
           ) : (
             <ImageIcon className="w-4 h-4 text-slate-400" />

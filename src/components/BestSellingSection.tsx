@@ -125,13 +125,13 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
   return (
     <section
       id="best-selling"
-      className="scroll-mt-20 py-10 sm:py-12 lg:py-16 bg-[#F9FBFD] border-y border-slate-200/70"
+      className="scroll-mt-20 py-8 sm:py-11 lg:py-14 bg-[#F9FBFD] border-b border-slate-200/70"
     >
       <div className="max-w-[1360px] mx-auto px-3 sm:px-6 lg:px-8">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-5 sm:mb-6">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-5">
           <div>
-            <h2 className="font-display text-2xl sm:text-3xl font-bold text-[#06142E] tracking-tight">
-              {activeCategoryName ? activeCategoryName : 'Best Selling Hardware'}
+            <h2 className="font-display text-xl sm:text-2xl lg:text-3xl font-bold text-[#06142E] tracking-tight">
+              {activeCategoryName ? activeCategoryName : 'Shop Hardware'}
             </h2>
             {hasAnyFilter && (
               <div className="mt-1.5 flex flex-wrap items-center gap-3 text-xs text-slate-600">

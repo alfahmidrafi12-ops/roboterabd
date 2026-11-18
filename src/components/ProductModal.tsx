@@ -239,12 +239,19 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                 </div>
               </div>
             ) : (
-              <div className="bg-[#F6F8FB] rounded-xl border border-slate-200/80 p-5 sm:p-6 flex items-center justify-center aspect-square relative overflow-hidden">
+              <div
+                className={`bg-[#F6F8FB] rounded-xl border border-slate-200/80 ${
+                  product.imageUrl?.trim()
+                    ? 'p-2.5 sm:p-3 min-h-[220px] sm:min-h-[260px]'
+                    : 'p-5 sm:p-6 aspect-square'
+                } flex items-center justify-center relative overflow-hidden`}
+              >
                 <HardwareArtwork
                   kind={product.artwork}
                   imageUrl={product.imageUrl}
                   alt={product.name}
-                  className="w-full h-full"
+                  fit="contain"
+                  className={product.imageUrl?.trim() ? 'w-full h-auto max-h-[380px]' : 'w-full h-full'}
                 />
                 {discountPct && discountPct > 0 && !isOutOfStock && (
                   <span className="absolute top-3 left-3 text-xs font-mono font-semibold text-[#0057E7] bg-white px-2 py-0.5 rounded border border-blue-100 tabular-nums">
@@ -267,7 +274,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
             <div className="bg-[#F6F8FB] rounded-xl border border-slate-200/70 p-3.5 space-y-2 text-xs text-slate-600">
               <div className="flex items-center gap-2">
                 <Truck className="w-4 h-4 text-[#0057E7] shrink-0" />
-                <span>Same-day Dhaka dispatch · 24–48h nationwide</span>
+                <span>Inside Dhaka: 2–3 days (৳80) · Outside Dhaka: 2–4 days (৳150)</span>
               </div>
               <div className="flex items-center gap-2">
                 <ShieldCheck className="w-4 h-4 text-[#0057E7] shrink-0" />

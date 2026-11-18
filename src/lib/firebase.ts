@@ -1,4 +1,4 @@
-import { initializeApp } from 'firebase/app';
+import { getApp, getApps, initializeApp } from 'firebase/app';
 import {
   GoogleAuthProvider,
   User,
@@ -41,9 +41,10 @@ import {
   StoredOrder,
 } from '../types/store';
 
-const app = initializeApp(firebaseConfig);
+const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 export const auth = getAuth(app);
+auth.useDeviceLanguage();
 const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
 
@@ -135,7 +136,11 @@ export async function signUpWithEmail(
   if (fullName.trim()) {
     await updateProfile(result.user, { displayName: fullName.trim() });
   }
-  await sendEmailVerification(result.user);
+  try {
+    await sendEmailVerification(result.user);
+  } catch (err) {
+    console.warn('Email verification could not be sent immediately:', err);
+  }
   return result.user;
 }
 

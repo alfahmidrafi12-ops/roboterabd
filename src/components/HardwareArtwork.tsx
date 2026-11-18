@@ -29,7 +29,11 @@ export const HardwareArtwork: React.FC<HardwareArtworkProps> = ({
         alt={alt || kind}
         referrerPolicy="no-referrer"
         onError={() => setImgFailed(true)}
-        className={`${className} ${fit === 'cover' ? 'object-cover' : 'object-contain'} rounded-lg`}
+        className={`${className} ${
+          fit === 'cover'
+            ? 'object-cover rounded-lg'
+            : 'object-contain min-w-0 min-h-0 max-w-full max-h-full'
+        }`}
       />
     );
   }

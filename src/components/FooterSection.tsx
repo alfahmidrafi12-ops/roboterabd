@@ -74,9 +74,9 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
               <Truck className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-display text-sm font-bold text-[#06142E]">Free Nationwide Delivery</h3>
+              <h3 className="font-display text-sm font-bold text-[#06142E]">Nationwide Delivery</h3>
               <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                Free courier across Bangladesh on orders above ৳3,000.
+                Inside Dhaka: 2–3 days (৳80) · Outside Dhaka: 2–4 days (৳150). Free over ৳3,000.
               </p>
             </div>
           </div>

@@ -1254,12 +1254,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                         className="border border-slate-200 rounded-xl p-4 bg-white flex items-start justify-between gap-4"
                       >
                         <div className="flex items-start gap-3 min-w-0">
-                          <div className="w-16 h-14 rounded-lg bg-[#F6F8FB] border border-slate-200 p-1 shrink-0 overflow-hidden">
+                          <div className="w-20 h-14 rounded-lg bg-[#F6F8FB] border border-slate-200 p-1 shrink-0 overflow-hidden">
                             <HardwareArtwork
                               kind={banner.artwork}
                               imageUrl={banner.imageUrl}
                               alt={banner.title}
-                              fit={banner.imageUrl ? 'cover' : 'contain'}
+                              fit="contain"
                               className="w-full h-full"
                             />
                           </div>
@@ -1554,37 +1554,37 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     </h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <ImageSourceField
-                        label="Promo Left Card (Robotics Kits)"
+                        label="Promo Left Banner (Full Image)"
                         value={draftSiteSettings.promoLeftImageUrl}
-                        maxDimension={700}
-                        maxChars={100000}
+                        maxDimension={1200}
+                        maxChars={150000}
                         onChange={(url) =>
                           setDraftSiteSettings({ ...draftSiteSettings, promoLeftImageUrl: url })
                         }
                       />
                       <ImageSourceField
-                        label="Promo Top-Right Card (Edge AI & IoT)"
+                        label="Promo Top-Right Banner (Full Image)"
                         value={draftSiteSettings.promoTopRightImageUrl}
-                        maxDimension={600}
-                        maxChars={100000}
+                        maxDimension={1000}
+                        maxChars={140000}
                         onChange={(url) =>
                           setDraftSiteSettings({ ...draftSiteSettings, promoTopRightImageUrl: url })
                         }
                       />
                       <ImageSourceField
-                        label="Promo Bottom-Right Card (Power & LiPo)"
+                        label="Promo Bottom-Right Banner (Full Image)"
                         value={draftSiteSettings.promoBottomRightImageUrl}
-                        maxDimension={600}
-                        maxChars={100000}
+                        maxDimension={1000}
+                        maxChars={140000}
                         onChange={(url) =>
                           setDraftSiteSettings({ ...draftSiteSettings, promoBottomRightImageUrl: url })
                         }
                       />
                       <ImageSourceField
-                        label="Discount Banner Backdrop Image"
+                        label="Discount Full Banner Image"
                         value={draftSiteSettings.discountBannerImageUrl}
-                        maxDimension={800}
-                        maxChars={100000}
+                        maxDimension={1280}
+                        maxChars={150000}
                         onChange={(url) =>
                           setDraftSiteSettings({ ...draftSiteSettings, discountBannerImageUrl: url })
                         }
@@ -1999,10 +1999,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
               <div className="sm:col-span-2">
                 <ImageSourceField
-                  label="Custom Product Image (Upload or URL)"
+                  label="Custom Product Image (Shows full photo without cropping)"
                   value={editingProduct.imageUrl}
-                  maxDimension={680}
-                  maxChars={150000}
+                  maxDimension={1000}
+                  maxChars={180000}
                   onChange={(url) => setEditingProduct({ ...editingProduct, imageUrl: url })}
                 />
               </div>
@@ -2301,10 +2301,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
               <div className="sm:col-span-2">
                 <ImageSourceField
-                  label="Custom Banner Image (Upload or URL)"
+                  label="Custom Banner Image (Shows full banner without cropping or text overlay)"
                   value={editingBanner.imageUrl}
-                  maxDimension={760}
-                  maxChars={150000}
+                  maxDimension={1280}
+                  maxChars={180000}
                   onChange={(url) => setEditingBanner({ ...editingBanner, imageUrl: url })}
                 />
               </div>

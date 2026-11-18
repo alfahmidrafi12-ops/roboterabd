@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowRight, ChevronLeft, ChevronRight, Pause, Play } from 'lucide-react';
+import { ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 import { BannerItem, BannerTheme, CategoryId } from '../types/store';
 import { HardwareArtwork } from './HardwareArtwork';
 
@@ -59,58 +59,58 @@ export const ScrollingBannerSection: React.FC<ScrollingBannerSectionProps> = ({
 }) => {
   const activeBanners = banners.filter((b) => b.active);
   const trackRef = useRef<HTMLDivElement>(null);
+  const activeIndexRef = useRef(0);
   const [activeIndex, setActiveIndex] = useState(0);
-  const [isPaused, setIsPaused] = useState(false);
 
   const count = activeBanners.length;
 
   useEffect(() => {
     if (activeIndex >= count && count > 0) {
+      activeIndexRef.current = 0;
       setActiveIndex(0);
     }
   }, [count, activeIndex]);
 
-  useEffect(() => {
-    if (count <= 1 || isPaused) return;
-    const prefersReduced =
-      typeof window !== 'undefined' &&
-      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    if (prefersReduced) return;
-
-    const timer = window.setInterval(() => {
-      setActiveIndex((prev) => {
-        const next = (prev + 1) % count;
-        if (trackRef.current) {
-          const cardEl = trackRef.current.children[next] as HTMLElement | undefined;
-          if (cardEl) {
-            trackRef.current.scrollTo({
-              left: cardEl.offsetLeft,
-              behavior: 'smooth',
-            });
-          }
-        }
-        return next;
-      });
-    }, 4000);
-
-    return () => window.clearInterval(timer);
-  }, [count, isPaused]);
-
-  if (count === 0) return null;
-
   const goToSlide = (idx: number) => {
+    if (count === 0) return;
     const normalized = ((idx % count) + count) % count;
+    activeIndexRef.current = normalized;
     setActiveIndex(normalized);
-    if (trackRef.current) {
-      const cardEl = trackRef.current.children[normalized] as HTMLElement | undefined;
+    const el = trackRef.current;
+    if (el) {
+      const cardEl = el.children[normalized] as HTMLElement | undefined;
       if (cardEl) {
-        trackRef.current.scrollTo({
-          left: cardEl.offsetLeft,
+        const maxScroll = Math.max(0, el.scrollWidth - el.clientWidth);
+        const targetLeft = Math.min(cardEl.offsetLeft, maxScroll);
+        el.scrollTo({
+          left: targetLeft,
           behavior: 'smooth',
         });
       }
     }
   };
+
+  useEffect(() => {
+    if (count <= 1) return;
+
+    const timer = window.setInterval(() => {
+      const el = trackRef.current;
+      if (!el) return;
+      const maxScroll = Math.max(0, el.scrollWidth - el.clientWidth);
+      let next = (activeIndexRef.current + 1) % count;
+      if (maxScroll > 0) {
+        const nextCard = el.children[next] as HTMLElement | undefined;
+        if (nextCard && el.scrollLeft >= maxScroll - 4 && nextCard.offsetLeft >= maxScroll - 4) {
+          next = 0;
+        }
+      }
+      goToSlide(next);
+    }, 4000);
+
+    return () => window.clearInterval(timer);
+  }, [count]);
+
+  if (count === 0) return null;
 
   const handleTrackScroll = () => {
     const el = trackRef.current;
@@ -126,7 +126,8 @@ export const ScrollingBannerSection: React.FC<ScrollingBannerSectionProps> = ({
         closestIdx = i;
       }
     }
-    if (closestIdx !== activeIndex) {
+    if (closestIdx !== activeIndexRef.current) {
+      activeIndexRef.current = closestIdx;
       setActiveIndex(closestIdx);
     }
   };
@@ -134,44 +135,36 @@ export const ScrollingBannerSection: React.FC<ScrollingBannerSectionProps> = ({
   return (
     <section
       aria-label="Promotional highlights"
-      className="py-8 sm:py-10 bg-white border-b border-slate-200/70"
-      onMouseEnter={() => setIsPaused(true)}
-      onMouseLeave={() => setIsPaused(false)}
+      className="py-5 sm:py-7 bg-white border-b border-slate-200/70"
     >
       <div className="max-w-[1360px] mx-auto px-3 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between gap-4 mb-5">
+        <div className="flex items-center justify-between gap-4 mb-4">
           <div>
-            <h2 className="font-display text-xl sm:text-2xl font-bold text-[#06142E] tracking-tight">
+            <h2 className="font-display text-lg sm:text-xl font-bold text-[#06142E] tracking-tight">
               Featured Campaigns &amp; Offers
             </h2>
           </div>
 
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setIsPaused((p) => !p)}
-              aria-label={isPaused ? 'Resume auto-scroll' : 'Pause auto-scroll'}
-              className="w-8 h-8 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 flex items-center justify-center transition-colors"
-            >
-              {isPaused ? <Play className="w-3.5 h-3.5" /> : <Pause className="w-3.5 h-3.5" />}
-            </button>
-            <button
-              type="button"
-              onClick={() => goToSlide(activeIndex - 1)}
-              aria-label="Previous banner"
-              className="w-8 h-8 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 flex items-center justify-center transition-colors"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => goToSlide(activeIndex + 1)}
-              aria-label="Next banner"
-              className="w-8 h-8 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 flex items-center justify-center transition-colors"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
+          {count > 1 && (
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => goToSlide(activeIndex - 1)}
+                aria-label="Previous banner"
+                className="w-8 h-8 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 flex items-center justify-center transition-colors"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => goToSlide(activeIndex + 1)}
+                aria-label="Next banner"
+                className="w-8 h-8 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 flex items-center justify-center transition-colors"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Smooth Auto-Scrolling Horizontal Banner Track */}
@@ -182,10 +175,32 @@ export const ScrollingBannerSection: React.FC<ScrollingBannerSectionProps> = ({
         >
           {activeBanners.map((banner) => {
             const style = THEME_STYLES[banner.theme] ?? THEME_STYLES.navy;
+            const customImg = banner.imageUrl?.trim();
+            const widthClass = count === 1 ? 'w-full' : 'w-full md:w-[calc(50%-10px)]';
+
+            if (customImg) {
+              return (
+                <button
+                  key={banner.id}
+                  type="button"
+                  onClick={() => onSelectCategory(banner.targetCategory)}
+                  aria-label={banner.title || 'View featured campaign'}
+                  className={`snap-start shrink-0 ${widthClass} rounded-2xl border border-slate-200/90 bg-[#F8FAFD] overflow-hidden flex items-center justify-center hover:border-[#0057E7] hover:shadow-md transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600`}
+                >
+                  <img
+                    src={customImg}
+                    alt={banner.title || 'Promotional banner'}
+                    referrerPolicy="no-referrer"
+                    className="w-full h-auto max-h-[420px] object-contain block"
+                  />
+                </button>
+              );
+            }
+
             return (
               <div
                 key={banner.id}
-                className={`snap-start shrink-0 w-full md:w-[calc(50%-10px)] rounded-2xl border p-4 sm:p-7 flex items-center justify-between gap-3 sm:gap-6 transition-transform duration-200 ${style.card}`}
+                className={`snap-start shrink-0 ${widthClass} rounded-2xl border p-4 sm:p-7 flex items-center justify-between gap-3 sm:gap-6 transition-transform duration-200 ${style.card}`}
               >
                 <div className="min-w-0 flex-1">
                   <p className={`text-[11px] sm:text-xs font-mono font-semibold mb-1 sm:mb-1.5 truncate ${style.kicker}`}>
@@ -214,7 +229,7 @@ export const ScrollingBannerSection: React.FC<ScrollingBannerSectionProps> = ({
                     kind={banner.artwork}
                     imageUrl={banner.imageUrl}
                     alt={banner.title}
-                    fit="cover"
+                    fit="contain"
                     className="w-full h-full"
                   />
                 </div>

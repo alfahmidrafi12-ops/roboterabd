@@ -58,33 +58,36 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   const displayCategory = categoryDisplayName || product.categoryLabel;
 
   return (
-    <article className="group bg-white rounded-xl border border-slate-200/90 hover:border-slate-300 hover:shadow-md transition-all duration-150 flex flex-col overflow-hidden h-full">
-      {/* Studio Product Artwork Backdrop (separate button siblings to prevent nested interactive elements) */}
-      <div className="relative bg-[#F6F8FB] aspect-[4/3] overflow-hidden">
+    <article className="group bg-white rounded-2xl border border-slate-200/85 hover:border-blue-300/80 hover:shadow-[0_14px_30px_-14px_rgba(6,20,46,0.16)] transition-all duration-200 flex flex-col overflow-hidden h-full">
+      {/* Studio Product Artwork Stage */}
+      <div className="relative bg-[#F7F9FC] border-b border-slate-100 aspect-[4/3] overflow-hidden">
         <button
           type="button"
           onClick={() => onOpenDetail(product)}
           aria-label={`View details for ${product.name}`}
-          className="w-full h-full p-3 sm:p-5 flex items-center justify-center cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-600"
+          className={`w-full h-full ${
+            product.imageUrl?.trim() ? 'p-1.5 sm:p-2' : 'p-3 sm:p-5'
+          } flex items-center justify-center cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-600`}
         >
-          <div className="w-full h-full transition-transform duration-200 group-hover:-translate-y-0.5">
+          <div className="w-full h-full min-w-0 min-h-0 flex items-center justify-center transition-transform duration-200 group-hover:scale-[1.03]">
             <HardwareArtwork
               kind={product.artwork}
               imageUrl={product.imageUrl}
               alt={product.name}
+              fit="contain"
               className="w-full h-full"
             />
           </div>
         </button>
 
         {discountPct && discountPct > 0 && !isOutOfStock && (
-          <span className="pointer-events-none absolute top-2 left-2 sm:top-3 sm:left-3 text-[10px] sm:text-[11px] font-mono font-semibold text-[#0057E7] bg-white/95 px-1.5 sm:px-2 py-0.5 rounded border border-blue-100 tabular-nums">
+          <span className="pointer-events-none absolute top-2 left-2 sm:top-2.5 sm:left-2.5 text-[10px] sm:text-[11px] font-mono font-bold text-[#0057E7] bg-white/95 px-2 py-0.5 rounded-md border border-blue-100 shadow-2xs tabular-nums">
             -{discountPct}%
           </span>
         )}
 
         {isOutOfStock && (
-          <span className="pointer-events-none absolute top-2 left-2 sm:top-3 sm:left-3 text-[10px] sm:text-[11px] font-mono font-semibold text-red-700 bg-red-50/95 px-1.5 sm:px-2 py-0.5 rounded border border-red-200">
+          <span className="pointer-events-none absolute top-2 left-2 sm:top-2.5 sm:left-2.5 text-[10px] sm:text-[11px] font-mono font-semibold text-red-700 bg-red-50/95 px-2 py-0.5 rounded-md border border-red-200">
             Out of Stock
           </span>
         )}
@@ -93,10 +96,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           type="button"
           onClick={() => onToggleWishlist(product.id)}
           aria-label={isWishlisted ? `Remove ${product.name} from saved` : `Save ${product.name}`}
-          className={`absolute top-2 right-2 sm:top-3 sm:right-3 w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${
+          className={`absolute top-2 right-2 sm:top-2.5 sm:right-2.5 w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${
             isWishlisted
-              ? 'bg-[#06142E] border-[#06142E] text-white'
-              : 'bg-white/95 border-slate-200 text-slate-500 hover:text-[#0057E7]'
+              ? 'bg-[#06142E] border-[#06142E] text-white shadow-xs'
+              : 'bg-white/95 border-slate-200/90 text-slate-500 hover:text-[#0057E7] hover:border-blue-200'
           }`}
         >
           <Heart className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isWishlisted ? 'fill-current' : ''}`} />
@@ -104,10 +107,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       </div>
 
       {/* Product Details */}
-      <div className="p-2.5 sm:p-4 flex flex-col flex-1">
-        <div className="flex items-center justify-between gap-1.5 text-[11px] sm:text-xs text-slate-500 mb-1">
-          <span className="truncate">{displayCategory}</span>
-          <span className="hidden sm:inline font-mono text-[11px] text-slate-400 shrink-0">
+      <div className="p-3 sm:p-4 flex flex-col flex-1">
+        <div className="flex items-center justify-between gap-1.5 text-[10px] sm:text-[11px] text-slate-400 mb-1">
+          <span className="truncate font-semibold uppercase tracking-wider text-slate-500">
+            {displayCategory}
+          </span>
+          <span className="hidden sm:inline font-mono text-[10px] text-slate-400 shrink-0">
             {product.sku}
           </span>
         </div>
@@ -117,7 +122,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           onClick={() => onOpenDetail(product)}
           className="text-left focus-visible:outline-none focus-visible:underline"
         >
-          <h3 className="font-display text-[13px] sm:text-[15px] font-semibold text-[#06142E] leading-snug line-clamp-2 hover:text-[#0057E7] transition-colors min-h-[2.3rem] sm:min-h-[2.6rem]">
+          <h3 className="font-display text-[13px] sm:text-[15px] font-semibold text-[#06142E] leading-snug line-clamp-2 group-hover:text-[#0057E7] transition-colors min-h-[2.3rem] sm:min-h-[2.6rem]">
             {product.name}
           </h3>
         </button>
@@ -144,7 +149,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         </div>
 
         {/* Price Row */}
-        <div className="mt-2 sm:mt-3 flex items-baseline gap-1.5 sm:gap-2 flex-wrap">
+        <div className="mt-2 sm:mt-2.5 flex items-baseline gap-1.5 sm:gap-2 flex-wrap">
           <span className="font-mono text-sm sm:text-base font-bold text-[#06142E] tabular-nums">
             ৳{product.price.toLocaleString('en-IN')}
           </span>

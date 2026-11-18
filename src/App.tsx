@@ -684,11 +684,6 @@ export default function App() {
               onOpenDetail={setSelectedProduct}
             />
 
-            <PromoBanners
-              siteSettings={siteSettings}
-              onSelectCategory={handleSelectCategory}
-            />
-
             <FeaturedCarousel
               products={justArrivedProducts}
               categoryLabels={categoryLabels}
@@ -696,6 +691,11 @@ export default function App() {
               onToggleWishlist={handleToggleWishlist}
               onAddToCart={handleAddToCart}
               onOpenDetail={setSelectedProduct}
+            />
+
+            <PromoBanners
+              siteSettings={siteSettings}
+              onSelectCategory={handleSelectCategory}
             />
 
             <DiscountBanner

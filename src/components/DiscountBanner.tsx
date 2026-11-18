@@ -32,16 +32,18 @@ export const DiscountBanner: React.FC<DiscountBannerProps> = ({
     <section className="py-10 bg-white">
       <div className="max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-8">
         {/* Organic's Signature Discount Split Card */}
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#06142E] via-[#0B224D] to-[#0057E7] text-white p-7 sm:p-11 lg:p-14 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
+        <div className="overflow-hidden rounded-2xl bg-gradient-to-br from-[#06142E] via-[#0B224D] to-[#0057E7] text-white">
           {bannerImageUrl && bannerImageUrl.trim().length > 0 && (
-            <img
-              src={bannerImageUrl}
-              alt=""
-              aria-hidden="true"
-              referrerPolicy="no-referrer"
-              className="absolute inset-0 w-full h-full object-cover opacity-20 pointer-events-none"
-            />
+            <div className="w-full bg-[#F8FAFD] border-b border-slate-200/80">
+              <img
+                src={bannerImageUrl.trim()}
+                alt="Promotional Lab Discount Banner"
+                referrerPolicy="no-referrer"
+                className="w-full h-auto max-h-[400px] object-contain block mx-auto"
+              />
+            </div>
           )}
+          <div className="p-7 sm:p-11 lg:p-14 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
           <div className="relative z-10 lg:col-span-6">
             <h2 className="font-display text-3xl sm:text-4xl font-extrabold leading-tight [text-wrap:balance]">
               Get 15% Discount on Your First Lab Order
@@ -118,6 +120,7 @@ export const DiscountBanner: React.FC<DiscountBannerProps> = ({
                 </button>
               </form>
             )}
+          </div>
           </div>
         </div>
       </div>

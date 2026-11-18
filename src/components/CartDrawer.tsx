@@ -85,7 +85,9 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     100,
     Math.round((discountedSubtotal / freeShippingThreshold) * 100)
   );
-  const deliveryFee = freeShipping ? 0 : district === 'Dhaka Metro' ? 60 : 120;
+  const isInsideDhaka = district === 'Dhaka Metro';
+  const estimatedDeliveryWindow = isInsideDhaka ? '2–3 days' : '2–4 days';
+  const deliveryFee = freeShipping ? 0 : isInsideDhaka ? 80 : 150;
   const total = discountedSubtotal + deliveryFee;
 
   const hasOutOfStockInCart = items.some((item) => item.product.stock <= 0);
@@ -532,7 +534,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   </div>
                 )}
                 <div className="flex justify-between text-slate-600">
-                  <span>Estimated Courier</span>
+                  <span>Delivery ({estimatedDeliveryWindow})</span>
                   <span className="font-mono tabular-nums">
                     {freeShipping ? 'Free' : `৳${deliveryFee}`}
                   </span>
@@ -599,14 +601,18 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   onChange={(e) => setDistrict(e.target.value)}
                   className="w-full h-10 px-3 rounded-lg border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-600"
                 >
-                  <option value="Dhaka Metro">Dhaka Metro (Same-Day · {freeShipping ? 'Free' : '৳60'})</option>
-                  <option value="Chattogram">Chattogram (24–48h · {freeShipping ? 'Free' : '৳120'})</option>
-                  <option value="Sylhet">Sylhet (24–48h · {freeShipping ? 'Free' : '৳120'})</option>
-                  <option value="Rajshahi">Rajshahi (24–48h · {freeShipping ? 'Free' : '৳120'})</option>
-                  <option value="Khulna">Khulna (24–48h · {freeShipping ? 'Free' : '৳120'})</option>
-                  <option value="Gazipur / Savar">Gazipur / Savar ({freeShipping ? 'Free' : '৳120'})</option>
-                  <option value="Other District">Other District (Steadfast · {freeShipping ? 'Free' : '৳120'})</option>
+                  <option value="Dhaka Metro">Inside Dhaka — Dhaka Metro (2–3 days · {freeShipping ? 'Free' : '৳80'})</option>
+                  <option value="Chattogram">Outside Dhaka — Chattogram (2–4 days · {freeShipping ? 'Free' : '৳150'})</option>
+                  <option value="Sylhet">Outside Dhaka — Sylhet (2–4 days · {freeShipping ? 'Free' : '৳150'})</option>
+                  <option value="Rajshahi">Outside Dhaka — Rajshahi (2–4 days · {freeShipping ? 'Free' : '৳150'})</option>
+                  <option value="Khulna">Outside Dhaka — Khulna (2–4 days · {freeShipping ? 'Free' : '৳150'})</option>
+                  <option value="Gazipur / Savar">Outside Dhaka — Gazipur / Savar (2–4 days · {freeShipping ? 'Free' : '৳150'})</option>
+                  <option value="Other District">Outside Dhaka — Other District (2–4 days · {freeShipping ? 'Free' : '৳150'})</option>
                 </select>
+                <p className="mt-1.5 text-[11px] text-slate-500">
+                  Estimated delivery: <strong className="text-slate-700">{estimatedDeliveryWindow}</strong> · Charge:{' '}
+                  <strong className="font-mono text-slate-700">{freeShipping ? 'Free' : `৳${deliveryFee}`}</strong>
+                </p>
               </div>
 
               <div>
@@ -686,9 +692,15 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   {checkoutError}
                 </p>
               )}
-              <div className="flex justify-between text-sm font-bold text-[#06142E]">
-                <span>Total Payable</span>
-                <span className="font-mono tabular-nums">৳{total.toLocaleString('en-IN')}</span>
+              <div className="space-y-1 text-xs">
+                <div className="flex justify-between text-slate-600">
+                  <span>Delivery ({isInsideDhaka ? 'Inside Dhaka' : 'Outside Dhaka'} · {estimatedDeliveryWindow})</span>
+                  <span className="font-mono tabular-nums">{freeShipping ? 'Free' : `৳${deliveryFee}`}</span>
+                </div>
+                <div className="flex justify-between text-sm font-bold text-[#06142E] pt-1">
+                  <span>Total Payable</span>
+                  <span className="font-mono tabular-nums">৳{total.toLocaleString('en-IN')}</span>
+                </div>
               </div>
               <button
                 type="submit"

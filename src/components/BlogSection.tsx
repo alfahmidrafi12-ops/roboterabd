@@ -56,8 +56,8 @@ export const BlogSection: React.FC<BlogSectionProps> = ({ blogImages }) => {
                     kind={post.artwork}
                     imageUrl={blogImages?.[post.id]}
                     alt={post.title}
-                    fit={blogImages?.[post.id] ? 'cover' : 'contain'}
-                    className="w-full h-full max-w-[220px] max-h-[150px]"
+                    fit="contain"
+                    className="w-full h-full"
                   />
                 </div>
               </div>
@@ -123,7 +123,7 @@ export const BlogSection: React.FC<BlogSectionProps> = ({ blogImages }) => {
                     kind={activePost.artwork}
                     imageUrl={blogImages?.[activePost.id]}
                     alt={activePost.title}
-                    fit={blogImages?.[activePost.id] ? 'cover' : 'contain'}
+                    fit="contain"
                     className="w-full h-full"
                   />
                 </div>

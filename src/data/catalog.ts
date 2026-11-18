@@ -8,7 +8,7 @@ export const DEFAULT_SITE_SETTINGS: SiteImagesConfig = {
   heroSubtitle:
     'Source bench-tested microcontrollers, SLAM LiDAR scanners, high-torque actuators, and industrial IoT modules with fast nationwide courier across Bangladesh.',
   heroTagline: 'ESP32-S3 · RPLIDAR · Raspberry Pi 5',
-  heroDispatchText: 'Same-Day Dhaka Dispatch before 4:00 PM',
+  heroDispatchText: 'Inside Dhaka 2–3 Days (৳80) · Outside Dhaka 2–4 Days (৳150)',
   promoLeftImageUrl: '',
   promoTopRightImageUrl: '',
   promoBottomRightImageUrl: '',
