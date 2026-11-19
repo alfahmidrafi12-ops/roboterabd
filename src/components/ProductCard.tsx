@@ -7,6 +7,7 @@ interface ProductCardProps {
   product: Product;
   categoryDisplayName?: string;
   isWishlisted: boolean;
+  layout?: 'grid' | 'list';
   onToggleWishlist: (productId: string) => void;
   onAddToCart: (product: Product, quantity: number) => void;
   onOpenDetail: (product: Product) => void;
@@ -16,6 +17,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   product,
   categoryDisplayName,
   isWishlisted,
+  layout = 'grid',
   onToggleWishlist,
   onAddToCart,
   onOpenDetail,
@@ -57,19 +59,186 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
   const displayCategory = categoryDisplayName || product.categoryLabel;
 
+  if (layout === 'list') {
+    return (
+      <article className="group bg-white rounded-2xl border border-slate-200/90 hover:border-[#0866F5]/60 transition-colors duration-200 flex flex-col sm:flex-row overflow-hidden">
+        {/* Left Studio Stage */}
+        <div className="relative bg-[#F1F5F9] border-b sm:border-b-0 sm:border-r border-slate-100 w-full sm:w-52 aspect-[4/3] sm:aspect-auto shrink-0 overflow-hidden">
+          <button
+            type="button"
+            onClick={() => onOpenDetail(product)}
+            aria-label={`View details for ${product.name}`}
+            className="w-full h-full p-4 flex items-center justify-center cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0866F5]"
+          >
+            <div className="w-full h-full max-h-36 flex items-center justify-center">
+              <HardwareArtwork
+                kind={product.artwork}
+                imageUrl={product.imageUrl}
+                alt={product.name}
+                fit="contain"
+                className="w-full h-full"
+              />
+            </div>
+          </button>
+
+          {discountPct && discountPct > 0 && !isOutOfStock && (
+            <span className="pointer-events-none absolute top-2.5 left-2.5 text-[11px] font-mono font-bold text-[#0F766E] bg-teal-50/95 px-2 py-0.5 rounded-md border border-teal-200/80 tabular-nums">
+              -{discountPct}%
+            </span>
+          )}
+          {isOutOfStock && (
+            <span className="pointer-events-none absolute top-2.5 left-2.5 text-[11px] font-mono font-semibold text-red-700 bg-red-50 px-2 py-0.5 rounded-md border border-red-200">
+              Out of Stock
+            </span>
+          )}
+        </div>
+
+        {/* Center Info + Right Purchase Action */}
+        <div className="flex-1 p-4 sm:p-5 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 min-w-0">
+          <div className="flex-1 min-w-0 space-y-1.5">
+            <div className="flex items-center gap-2 text-[11px] text-[#64748B]">
+              <span className="font-semibold uppercase tracking-wider text-[#0866F5]">
+                {displayCategory}
+              </span>
+              <span aria-hidden="true">·</span>
+              <span className="font-mono">{product.sku}</span>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => onOpenDetail(product)}
+              className="text-left focus-visible:outline-none focus-visible:underline"
+            >
+              <h3 className="font-display text-base sm:text-lg font-bold text-[#101828] group-hover:text-[#0866F5] transition-colors">
+                {product.name}
+              </h3>
+            </button>
+
+            <p className="text-xs sm:text-sm text-[#64748B] line-clamp-2">{product.shortDesc}</p>
+
+            <div className="flex flex-wrap items-center gap-2.5 pt-1 text-xs text-[#64748B]">
+              <span className="inline-flex items-center gap-1">
+                <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                <strong className="text-[#101828] tabular-nums">{product.rating.toFixed(1)}</strong>
+                <span className="tabular-nums">({product.reviews})</span>
+              </span>
+              <span aria-hidden="true">·</span>
+              {isOutOfStock ? (
+                <span className="text-red-600 font-semibold">Out of Stock</span>
+              ) : isLowStock ? (
+                <span className="text-amber-700 font-semibold tabular-nums">
+                  Only {product.stock} left
+                </span>
+              ) : (
+                <span className="text-emerald-700 font-semibold">In Stock</span>
+              )}
+              {product.specs.slice(0, 2).map((s) => (
+                <span
+                  key={s.label}
+                  className="hidden xl:inline-flex font-mono text-[11px] px-2 py-0.5 rounded bg-[#F5F8FC] border border-slate-200/80 text-[#101828]"
+                >
+                  {s.label}: {s.value}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex sm:flex-col items-center sm:items-end justify-between gap-3 shrink-0 sm:pl-4 sm:border-l border-slate-100">
+            <div className="text-left sm:text-right">
+              <div className="flex items-baseline sm:justify-end gap-2">
+                <span className="font-mono text-lg font-bold text-[#071A3B] tabular-nums">
+                  ৳{product.price.toLocaleString('en-IN')}
+                </span>
+                {hasDiscount && product.originalPrice && (
+                  <span className="font-mono text-xs text-slate-400 line-through tabular-nums">
+                    ৳{product.originalPrice.toLocaleString('en-IN')}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => onToggleWishlist(product.id)}
+                aria-label={isWishlisted ? `Remove ${product.name} from saved` : `Save ${product.name}`}
+                className={`w-9 h-9 rounded-xl flex items-center justify-center border transition-colors ${
+                  isWishlisted
+                    ? 'bg-[#071A3B] hover:bg-[#071A3B]/90 border-[#071A3B] text-white'
+                    : 'bg-white border-slate-200 text-[#64748B] hover:text-[#0866F5] hover:bg-[#0866F5]/[0.06] hover:border-[#0866F5]/45'
+                }`}
+              >
+                <Heart className={`w-4 h-4 ${isWishlisted ? 'fill-current' : ''}`} />
+              </button>
+
+              <div className="flex items-center border border-slate-200 rounded-xl bg-[#F5F8FC] h-9">
+                <button
+                  type="button"
+                  disabled={isOutOfStock || qty <= 1}
+                  onClick={() => setQty((prev) => Math.max(1, prev - 1))}
+                  aria-label="Decrease quantity"
+                  className="w-7 h-full flex items-center justify-center text-[#64748B] hover:text-[#101828] hover:bg-white/70 rounded-l-xl transition-colors disabled:opacity-35"
+                >
+                  <Minus className="w-3.5 h-3.5" />
+                </button>
+                <span className="w-6 text-center text-xs font-mono font-semibold text-[#101828] tabular-nums">
+                  {isOutOfStock ? 0 : qty}
+                </span>
+                <button
+                  type="button"
+                  disabled={isOutOfStock || qty >= product.stock}
+                  onClick={() => setQty((prev) => Math.min(product.stock, prev + 1))}
+                  aria-label="Increase quantity"
+                  className="w-7 h-full flex items-center justify-center text-[#64748B] hover:text-[#101828] hover:bg-white/70 rounded-r-xl transition-colors disabled:opacity-35"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              <button
+                type="button"
+                disabled={isOutOfStock}
+                onClick={handleAdd}
+                className={`h-9 px-4 rounded-xl border text-xs font-semibold inline-flex items-center justify-center gap-1.5 whitespace-nowrap transition-colors disabled:bg-slate-200 disabled:border-slate-200 disabled:text-slate-500 disabled:cursor-not-allowed ${
+                  isOutOfStock
+                    ? ''
+                    : justAdded
+                    ? 'bg-[#071A3B] border-[#071A3B] text-white'
+                    : 'bg-[#0866F5] hover:bg-[#0866F5]/90 border-[#0866F5] hover:border-[#1685FF] text-white'
+                }`}
+              >
+                {justAdded ? (
+                  <>
+                    <Check className="w-3.5 h-3.5 shrink-0" />
+                    <span>Added</span>
+                  </>
+                ) : (
+                  <>
+                    <ShoppingCart className="w-3.5 h-3.5 shrink-0" />
+                    <span>{isOutOfStock ? 'Unavailable' : 'Add to Cart'}</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      </article>
+    );
+  }
+
   return (
-    <article className="group bg-white rounded-2xl border border-slate-200/85 hover:border-blue-300/90 hover:-translate-y-1.5 hover:shadow-[0_22px_40px_-18px_rgba(7,13,25,0.22)] transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] flex flex-col overflow-hidden h-full">
+    <article className="group bg-white rounded-2xl border border-slate-200/90 hover:border-[#0866F5]/60 transition-colors duration-200 flex flex-col overflow-hidden h-full">
       {/* Studio Hardware Stage */}
-      <div className="relative bg-[#F5F7FA] border-b border-slate-100 aspect-[4/3] overflow-hidden">
+      <div className="relative bg-[#F1F5F9] border-b border-slate-100 aspect-[4/3] overflow-hidden">
         <button
           type="button"
           onClick={() => onOpenDetail(product)}
           aria-label={`View details for ${product.name}`}
           className={`w-full h-full ${
-            product.imageUrl?.trim() ? 'p-1.5 sm:p-2' : 'p-3.5 sm:p-5'
-          } flex items-center justify-center cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-600`}
+            product.imageUrl?.trim() ? 'p-2 sm:p-2.5' : 'p-4 sm:p-5'
+          } flex items-center justify-center cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0866F5]`}
         >
-          <div className="w-full h-full min-w-0 min-h-0 flex items-center justify-center transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-[1.06] group-hover:-translate-y-0.5">
+          <div className="w-full h-full min-w-0 min-h-0 flex items-center justify-center">
             <HardwareArtwork
               kind={product.artwork}
               imageUrl={product.imageUrl}
@@ -81,13 +250,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         </button>
 
         {discountPct && discountPct > 0 && !isOutOfStock && (
-          <span className="pointer-events-none absolute top-2.5 left-2.5 text-[10px] sm:text-[11px] font-mono font-bold text-[#0057E7] bg-white/95 backdrop-blur-xs px-2 py-0.5 rounded-md border border-blue-100 shadow-2xs tabular-nums">
+          <span className="pointer-events-none absolute top-2 left-2 sm:top-2.5 sm:left-2.5 text-[10px] sm:text-[11px] font-mono font-bold text-[#0F766E] bg-teal-50/95 px-2 py-0.5 rounded-md border border-teal-200/80 tabular-nums">
             -{discountPct}%
           </span>
         )}
 
         {isOutOfStock && (
-          <span className="pointer-events-none absolute top-2.5 left-2.5 text-[10px] sm:text-[11px] font-mono font-semibold text-red-700 bg-red-50/95 px-2 py-0.5 rounded-md border border-red-200">
+          <span className="pointer-events-none absolute top-2 left-2 sm:top-2.5 sm:left-2.5 text-[10px] sm:text-[11px] font-mono font-semibold text-red-700 bg-red-50/95 px-2 py-0.5 rounded-md border border-red-200">
             Out of Stock
           </span>
         )}
@@ -96,20 +265,20 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           type="button"
           onClick={() => onToggleWishlist(product.id)}
           aria-label={isWishlisted ? `Remove ${product.name} from saved` : `Save ${product.name}`}
-          className={`absolute top-2.5 right-2.5 w-7 h-7 sm:w-8 sm:h-8 rounded-xl flex items-center justify-center border transition-all duration-200 active:scale-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${
+          className={`absolute top-2 right-2 sm:top-2.5 sm:right-2.5 w-7 h-7 sm:w-8 sm:h-8 rounded-xl flex items-center justify-center border transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0866F5] ${
             isWishlisted
-              ? 'bg-[#070D19] border-[#070D19] text-white shadow-xs'
-              : 'bg-white/90 backdrop-blur-xs border-slate-200/90 text-slate-500 hover:text-[#0057E7] hover:border-blue-200 hover:scale-105'
+              ? 'bg-[#071A3B] hover:bg-[#071A3B]/90 border-[#071A3B] text-white'
+              : 'bg-white/95 border-slate-200/90 text-[#64748B] hover:text-[#0866F5] hover:bg-[#0866F5]/[0.06] hover:border-[#0866F5]/45'
           }`}
         >
-          <Heart className={`w-3.5 h-3.5 sm:w-4 sm:h-4 transition-transform duration-200 ${isWishlisted ? 'fill-current scale-110' : ''}`} />
+          <Heart className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isWishlisted ? 'fill-current' : ''}`} />
         </button>
       </div>
 
       {/* Product Details */}
-      <div className="p-3 sm:p-4 flex flex-col flex-1">
-        <div className="flex items-center justify-between gap-1.5 text-[10px] sm:text-[11px] text-slate-400 mb-1">
-          <span className="truncate font-semibold uppercase tracking-wider text-slate-500">
+      <div className="p-2.5 sm:p-4 flex flex-col flex-1">
+        <div className="flex items-center justify-between gap-1.5 text-[10px] sm:text-[11px] text-[#64748B] mb-1">
+          <span className="truncate font-semibold uppercase tracking-wider text-[#0D9488]">
             {displayCategory}
           </span>
           <span className="hidden sm:inline font-mono text-[10px] text-slate-400 shrink-0">
@@ -122,15 +291,15 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           onClick={() => onOpenDetail(product)}
           className="text-left focus-visible:outline-none focus-visible:underline"
         >
-          <h3 className="font-display text-[13px] sm:text-[15px] font-semibold text-[#070D19] leading-snug line-clamp-2 group-hover:text-[#0057E7] transition-colors min-h-[2.3rem] sm:min-h-[2.6rem]">
+          <h3 className="font-display text-[12.5px] sm:text-[15px] font-semibold text-[#101828] leading-snug line-clamp-2 group-hover:text-[#0866F5] transition-colors min-h-[2.2rem] sm:min-h-[2.6rem]">
             {product.name}
           </h3>
         </button>
 
         {/* Rating & Availability Row */}
-        <div className="mt-1.5 sm:mt-2 flex items-center gap-1 sm:gap-1.5 text-[11px] sm:text-xs text-slate-600">
+        <div className="mt-1.5 sm:mt-2 flex items-center gap-1 sm:gap-1.5 text-[11px] sm:text-xs text-[#64748B]">
           <Star className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-500 fill-amber-500 shrink-0" />
-          <span className="font-semibold text-slate-800 tabular-nums">{product.rating.toFixed(1)}</span>
+          <span className="font-semibold text-[#101828] tabular-nums">{product.rating.toFixed(1)}</span>
           <span className="text-slate-400 tabular-nums">({product.reviews})</span>
           <span aria-hidden="true" className="hidden sm:inline text-slate-300">·</span>
           {isOutOfStock ? (
@@ -138,41 +307,41 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               Out of Stock
             </span>
           ) : isLowStock ? (
-            <span className="hidden sm:inline text-amber-700 font-medium whitespace-nowrap tabular-nums">
+            <span className="hidden sm:inline text-[#EA580C] font-semibold whitespace-nowrap tabular-nums">
               Only {product.stock} left
             </span>
           ) : (
-            <span className="hidden sm:inline text-emerald-700 font-medium whitespace-nowrap">
+            <span className="hidden sm:inline text-[#0D9488] font-medium whitespace-nowrap">
               In Stock
             </span>
           )}
         </div>
 
         {/* Price Row */}
-        <div className="mt-2 sm:mt-2.5 flex items-baseline gap-1.5 sm:gap-2 flex-wrap">
-          <span className="font-mono text-sm sm:text-[17px] font-bold text-[#070D19] tabular-nums">
+        <div className="mt-1.5 sm:mt-2.5 flex items-baseline gap-1.5 sm:gap-2 flex-wrap">
+          <span className="font-mono text-sm sm:text-[17px] font-bold text-[#071A3B] tabular-nums">
             ৳{product.price.toLocaleString('en-IN')}
           </span>
           {hasDiscount && product.originalPrice && (
-            <span className="font-mono text-[11px] sm:text-xs text-slate-400 line-through tabular-nums">
+            <span className="font-mono text-[10.5px] sm:text-xs text-slate-400 line-through tabular-nums">
               ৳{product.originalPrice.toLocaleString('en-IN')}
             </span>
           )}
         </div>
 
-        {/* Responsive Stepper + Glossy Add to Cart Row */}
-        <div className="mt-auto pt-3 sm:pt-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-1.5 sm:gap-2">
-          <div className="flex items-center justify-between sm:justify-start border border-slate-200 rounded-xl bg-[#F5F7FA] h-8 sm:h-9 px-1 sm:px-0 shrink-0">
+        {/* Stepper + Add to Cart Row */}
+        <div className="mt-auto pt-2.5 sm:pt-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-1.5 sm:gap-2">
+          <div className="flex items-center justify-between sm:justify-start border border-slate-200 rounded-xl bg-[#F5F8FC] h-8 sm:h-9 px-1 sm:px-0 shrink-0">
             <button
               type="button"
               disabled={isOutOfStock || qty <= 1}
               onClick={() => setQty((prev) => Math.max(1, prev - 1))}
               aria-label="Decrease quantity"
-              className="w-8 sm:w-7 h-full flex items-center justify-center text-slate-600 hover:text-slate-900 active:scale-90 transition-transform disabled:opacity-35 disabled:cursor-not-allowed"
+              className="w-8 sm:w-7 h-full flex items-center justify-center text-[#64748B] hover:text-[#101828] hover:bg-white/70 rounded-l-xl transition-colors disabled:opacity-35 disabled:cursor-not-allowed"
             >
               <Minus className="w-3.5 h-3.5" />
             </button>
-            <span className="w-6 text-center text-xs font-mono font-semibold text-slate-900 tabular-nums">
+            <span className="w-6 text-center text-xs font-mono font-semibold text-[#101828] tabular-nums">
               {isOutOfStock ? 0 : qty}
             </span>
             <button
@@ -180,7 +349,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               disabled={isOutOfStock || qty >= product.stock}
               onClick={() => setQty((prev) => Math.min(product.stock, prev + 1))}
               aria-label="Increase quantity"
-              className="w-8 sm:w-7 h-full flex items-center justify-center text-slate-600 hover:text-slate-900 active:scale-90 transition-transform disabled:opacity-35 disabled:cursor-not-allowed"
+              className="w-8 sm:w-7 h-full flex items-center justify-center text-[#64748B] hover:text-[#101828] hover:bg-white/70 rounded-r-xl transition-colors disabled:opacity-35 disabled:cursor-not-allowed"
             >
               <Plus className="w-3.5 h-3.5" />
             </button>
@@ -190,12 +359,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             type="button"
             disabled={isOutOfStock}
             onClick={handleAdd}
-            className={`w-full sm:flex-1 h-9 px-2.5 sm:px-3 rounded-xl text-xs font-semibold inline-flex items-center justify-center gap-1.5 whitespace-nowrap disabled:bg-slate-200 disabled:text-slate-500 disabled:border-transparent disabled:shadow-none disabled:cursor-not-allowed ${
+            className={`w-full sm:flex-1 h-9 px-2.5 sm:px-3 rounded-xl border text-xs font-semibold inline-flex items-center justify-center gap-1.5 whitespace-nowrap transition-colors disabled:bg-slate-200 disabled:border-slate-200 disabled:text-slate-500 disabled:cursor-not-allowed ${
               isOutOfStock
                 ? ''
                 : justAdded
-                ? 'btn-glossy-dark animate-pop-in'
-                : 'btn-glossy-blue'
+                ? 'bg-[#071A3B] border-[#071A3B] text-white'
+                : 'bg-[#0866F5] hover:bg-[#0866F5]/90 border-[#0866F5] hover:border-[#1685FF] text-white'
             }`}
           >
             {justAdded ? (

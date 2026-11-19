@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ArrowRight,
+  ChevronDown,
   Cpu,
   Heart,
   Menu,
@@ -10,12 +11,13 @@ import {
   User as UserIcon,
   X,
 } from 'lucide-react';
-import { AvailabilityFilter, Product } from '../types/store';
+import { AvailabilityFilter, CategoryId, CategoryItem, Product } from '../types/store';
 import { HardwareArtwork } from './HardwareArtwork';
 import { PWAInstallButton } from './PWAInstallButton';
 
 interface HeaderProps {
   activePage?: 'shop' | 'track';
+  categories?: CategoryItem[];
   cartCount: number;
   wishlistCount: number;
   isSignedIn: boolean;
@@ -30,6 +32,7 @@ interface HeaderProps {
   onMaxPriceChange: (value: string) => void;
   onAvailabilityChange: (value: AvailabilityFilter) => void;
   onClearFilters: () => void;
+  onSelectCategory?: (categoryId: CategoryId) => void;
   onSelectProduct: (product: Product) => void;
   onOpenSidebar: () => void;
   onOpenCart: () => void;
@@ -44,6 +47,7 @@ const TECH_KEYWORD_CHIPS = ['3.3V', '5V', 'USB-C', 'UART', 'I2C', 'SPI', 'LiDAR'
 
 export const Header: React.FC<HeaderProps> = ({
   activePage = 'shop',
+  categories = [],
   cartCount,
   wishlistCount,
   isSignedIn,
@@ -58,6 +62,7 @@ export const Header: React.FC<HeaderProps> = ({
   onMaxPriceChange,
   onAvailabilityChange,
   onClearFilters,
+  onSelectCategory,
   onSelectProduct,
   onOpenSidebar,
   onOpenCart,
@@ -68,6 +73,38 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenTracking,
 }) => {
   const [searchOpen, setSearchOpen] = useState(false);
+  const [categoriesOpen, setCategoriesOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const visibleCategories = categories.filter((c) => c.active !== false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 10);
+    };
+    handleScroll();
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  useEffect(() => {
+    if (!categoriesOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setCategoriesOpen(false);
+      }
+    };
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setCategoriesOpen(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    window.addEventListener('keydown', handleKey);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('keydown', handleKey);
+    };
+  }, [categoriesOpen]);
 
   useEffect(() => {
     if (!searchOpen) return;
@@ -113,15 +150,21 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-xl border-b border-slate-200/80 shadow-[0_1px_12px_-4px_rgba(6,20,46,0.06)]">
-      <div className="max-w-[1760px] mx-auto px-4 sm:px-6 lg:px-10 h-16 flex items-center justify-between gap-2 sm:gap-8">
-        {/* Zone 1: Menu Trigger + Brand Wordmark */}
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+    <header
+      className={`sticky top-0 z-40 transition-colors duration-200 border-b ${
+        scrolled
+          ? 'bg-white/95 backdrop-blur-xl border-slate-200/90'
+          : 'bg-white/92 backdrop-blur-xl border-slate-200/75'
+      }`}
+    >
+      <div className="max-w-[1760px] mx-auto px-3 sm:px-6 lg:px-8 xl:px-10 h-16 flex items-center justify-between gap-1.5 sm:gap-4 xl:gap-6">
+        {/* Zone 1: Menu Trigger + Geometric Robotera BD Brand Lockup */}
+        <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
           <button
             type="button"
             onClick={onOpenSidebar}
             aria-label="Open department categories menu"
-            className="p-2 -ml-1.5 sm:-ml-2 rounded-xl text-slate-700 hover:text-[#0057E7] hover:bg-slate-100/80 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+            className="p-2 -ml-1 sm:-ml-2 rounded-xl text-[#101828] hover:text-[#0866F5] hover:bg-[#F5F8FC] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0866F5]"
           >
             <Menu className="w-5 h-5" />
           </button>
@@ -132,32 +175,116 @@ export const Header: React.FC<HeaderProps> = ({
               e.preventDefault();
               onGoHome();
             }}
-            className="font-display text-base sm:text-[21px] font-extrabold tracking-tight text-[#070D19] whitespace-nowrap shrink-0 flex items-center gap-1.5"
+            className="font-display text-[15px] sm:text-[19px] font-extrabold tracking-tight text-[#071A3B] whitespace-nowrap shrink-0 flex items-center gap-1.5 sm:gap-2 group"
           >
-            <span>ROBOTERA</span>
-            <span className="bg-[#0057E7] text-white text-[10px] sm:text-[11px] font-mono font-bold px-1.5 py-0.5 rounded-md shadow-2xs">
-              BD
+            <span className="w-7 h-7 rounded-lg bg-[#071A3B] flex items-center justify-center group-hover:bg-[#0866F5] transition-colors">
+              <svg viewBox="0 0 24 24" className="w-4 h-4 text-white" fill="none" aria-hidden="true">
+                <rect x="6" y="6" width="12" height="12" rx="2.5" stroke="currentColor" strokeWidth="2" />
+                <circle cx="12" cy="12" r="2.2" fill="#06B6D4" />
+                <path d="M9 2.5V6M15 2.5V6M9 18V21.5M15 18V21.5M2.5 9H6M2.5 15H6M18 9H21.5M18 15H21.5" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
+              </svg>
+            </span>
+            <span className="flex items-center gap-1 sm:gap-1.5">
+              <span>ROBOTERA</span>
+              <span className="bg-[#0866F5] text-white text-[10px] sm:text-[11px] font-mono font-bold px-1.5 py-0.5 rounded-md">
+                BD
+              </span>
             </span>
           </a>
         </div>
 
-        {/* Zone 2: Clean Single-Line Navigation Links */}
-        <nav className="hidden lg:flex items-center gap-7 text-[13.5px] font-semibold text-slate-600">
+        {/* Zone 2: Clean Single-Line Navigation Links + Interactive Categories Dropdown */}
+        <nav className="hidden lg:flex items-center gap-3.5 xl:gap-6 text-[13px] xl:text-[13.5px] font-semibold text-[#64748B]">
+          <div ref={dropdownRef} className="relative">
+            <button
+              type="button"
+              onClick={() => setCategoriesOpen((prev) => !prev)}
+              aria-expanded={categoriesOpen}
+              className={`inline-flex items-center gap-1 py-1.5 whitespace-nowrap shrink-0 transition-colors ${
+                categoriesOpen ? 'text-[#0866F5]' : 'hover:text-[#071A3B]'
+              }`}
+            >
+              <span>Categories</span>
+              <ChevronDown
+                className={`w-3.5 h-3.5 transition-transform duration-200 ${
+                  categoriesOpen ? 'rotate-180 text-[#0866F5]' : ''
+                }`}
+              />
+            </button>
+
+            {categoriesOpen && (
+              <div className="animate-slide-down absolute left-0 top-full mt-2 w-[540px] bg-white rounded-2xl border border-slate-200/90 shadow-[0_24px_48px_-16px_rgba(7,26,59,0.22)] p-4 z-50">
+                <div className="flex items-center justify-between pb-2.5 mb-3 border-b border-slate-100">
+                  <span className="text-xs font-mono font-semibold uppercase tracking-wider text-[#64748B]">
+                    Hardware Departments
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCategoriesOpen(false);
+                      onSelectCategory?.('all');
+                    }}
+                    className="text-xs font-semibold text-[#0866F5] hover:underline inline-flex items-center gap-1"
+                  >
+                    <span>View All Hardware</span>
+                    <ArrowRight className="w-3 h-3" />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  {visibleCategories.map((cat) => (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => {
+                        setCategoriesOpen(false);
+                        if (onSelectCategory) {
+                          onSelectCategory(cat.id);
+                        } else {
+                          onNavigateSection('categories');
+                        }
+                      }}
+                      className="group flex items-center gap-3 p-2.5 rounded-xl hover:bg-[#F1F5F9] border border-transparent hover:border-slate-200 text-left transition-colors"
+                    >
+                      <div className="w-10 h-10 rounded-lg bg-[#F1F5F9] border border-slate-200/90 p-1 flex items-center justify-center shrink-0">
+                        <HardwareArtwork
+                          kind={cat.artwork}
+                          imageUrl={cat.imageUrl}
+                          alt={cat.name}
+                          fit="contain"
+                          className="w-full h-full"
+                        />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold text-[#101828] group-hover:text-[#0866F5] truncate transition-colors">
+                          {cat.name}
+                        </p>
+                        <p className="text-[11px] font-mono text-[#64748B] truncate">
+                          {cat.countLabel}
+                        </p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
           {[
-            { label: 'Categories', action: () => onNavigateSection('categories'), active: false },
             { label: 'Shop Hardware', action: () => onNavigateSection('best-selling'), active: false },
             { label: 'New Arrivals', action: () => onNavigateSection('just-arrived'), active: false },
             { label: 'Robotics Kits', action: () => onNavigateSection('bundles'), active: false },
+            { label: 'Engineering Guides', action: () => onNavigateSection('lab-guides'), active: false },
             { label: 'Track Order', action: onOpenTracking, active: activePage === 'track' },
           ].map((navItem) => (
             <button
               key={navItem.label}
               type="button"
               onClick={navItem.action}
-              className={`relative py-1.5 whitespace-nowrap shrink-0 transition-colors after:content-[''] after:absolute after:left-0 after:bottom-0 after:h-[2px] after:w-full after:rounded-full after:bg-[#0057E7] after:origin-left after:transition-transform after:duration-200 ${
+              className={`relative py-1.5 whitespace-nowrap shrink-0 transition-colors after:content-[''] after:absolute after:left-0 after:bottom-0 after:h-[2px] after:w-full after:rounded-full after:bg-[#0866F5] after:origin-left after:transition-transform after:duration-200 ${
                 navItem.active
-                  ? 'text-[#0057E7] after:scale-x-100'
-                  : 'hover:text-[#070D19] after:scale-x-0 hover:after:scale-x-100'
+                  ? 'text-[#0866F5] after:scale-x-100'
+                  : 'hover:text-[#071A3B] after:scale-x-0 hover:after:scale-x-100'
               }`}
             >
               {navItem.label}
@@ -165,7 +292,7 @@ export const Header: React.FC<HeaderProps> = ({
           ))}
         </nav>
 
-        {/* Zone 3: Install App, Search, Wishlist, Account & Primary Cart Action */}
+        {/* Zone 3: Install App, Smart Search, Wishlist, Account & Primary Cart Action */}
         <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
           <PWAInstallButton variant="header" />
 
@@ -174,15 +301,15 @@ export const Header: React.FC<HeaderProps> = ({
             onClick={() => setSearchOpen((prev) => !prev)}
             aria-label="Toggle product search"
             aria-expanded={searchOpen}
-            className={`h-9 sm:h-10 px-2.5 sm:px-3.5 rounded-xl inline-flex items-center gap-2 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${
+            className={`h-9 sm:h-10 px-2.5 sm:px-3.5 rounded-xl inline-flex items-center gap-2 border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0866F5] ${
               searchOpen || hasActiveSearchFilters
-                ? 'text-[#0057E7] bg-[#EEF4FF] border border-blue-200 shadow-2xs'
-                : 'btn-liquid-glass text-slate-700'
+                ? 'text-[#0866F5] bg-[#EFF6FF] border-blue-200'
+                : 'bg-[#F1F5F9] hover:bg-slate-200/70 border-slate-200 text-[#101828]'
             }`}
           >
             {searchOpen ? <X className="w-4 h-4 sm:w-[18px] sm:h-[18px]" /> : <Search className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />}
-            <span className="hidden xl:inline text-xs font-medium text-slate-600">
-              Search SKU, 3.3V...
+            <span className="hidden xl:inline text-xs font-medium text-[#64748B]">
+              Search ESP32, LiDAR...
             </span>
           </button>
 
@@ -190,13 +317,13 @@ export const Header: React.FC<HeaderProps> = ({
             type="button"
             onClick={onOpenWishlist}
             aria-label={`Saved items (${wishlistCount})`}
-            className="relative p-2 sm:p-2.5 rounded-xl text-slate-700 hover:text-[#0057E7] hover:bg-slate-100/90 active:scale-95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+            className="relative p-1.5 sm:p-2.5 rounded-xl text-[#101828] hover:text-[#0866F5] hover:bg-[#F1F5F9] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0866F5]"
           >
             <Heart className="w-[18px] h-[18px] sm:w-5 sm:h-5" />
             {wishlistCount > 0 && (
               <span
                 key={wishlistCount}
-                className="animate-badge-bounce absolute top-1 right-1 min-w-[16px] h-4 px-1 rounded-full bg-[#070D19] text-white text-[10px] font-mono font-semibold flex items-center justify-center tabular-nums"
+                className="animate-badge-bounce absolute top-0.5 right-0.5 sm:top-1 sm:right-1 min-w-[16px] h-4 px-1 rounded-full bg-[#0D9488] text-white text-[10px] font-mono font-semibold flex items-center justify-center tabular-nums"
               >
                 {wishlistCount}
               </span>
@@ -207,10 +334,10 @@ export const Header: React.FC<HeaderProps> = ({
             type="button"
             onClick={onOpenAuth}
             aria-label={isSignedIn ? 'Open account settings' : 'Sign in to Robotera BD'}
-            className={`p-2 sm:p-2.5 rounded-xl active:scale-95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${
+            className={`p-1.5 sm:p-2.5 rounded-xl transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0866F5] ${
               isSignedIn
-                ? 'text-[#0057E7] bg-[#EEF4FF] hover:bg-blue-100'
-                : 'text-slate-700 hover:text-[#0057E7] hover:bg-slate-100/90'
+                ? 'text-[#0866F5] bg-[#EFF6FF] hover:bg-blue-100'
+                : 'text-[#101828] hover:text-[#0866F5] hover:bg-[#F1F5F9]'
             }`}
           >
             <UserIcon className="w-[18px] h-[18px] sm:w-5 sm:h-5" />
@@ -220,13 +347,15 @@ export const Header: React.FC<HeaderProps> = ({
             type="button"
             onClick={onOpenCart}
             aria-label={`Open shopping cart (${cartCount} items)`}
-            className="btn-glossy-dark inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 h-9 sm:h-10 rounded-xl text-xs sm:text-sm font-semibold whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
+            className="inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 h-9 sm:h-10 rounded-xl bg-[#071A3B] hover:bg-[#071A3B]/90 border border-[#071A3B] hover:border-[#0866F5]/60 text-white text-xs sm:text-sm font-semibold transition-colors whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0866F5] focus-visible:ring-offset-2"
           >
             <ShoppingBag className="w-4 h-4" />
             <span className="hidden sm:inline">Cart</span>
             <span
               key={cartCount}
-              className="animate-badge-bounce font-mono text-[11px] bg-white/15 px-1.5 py-0.5 rounded-md tabular-nums"
+              className={`animate-badge-bounce font-mono text-[11px] px-1.5 py-0.5 rounded-md tabular-nums ${
+                cartCount > 0 ? 'bg-[#EA580C] text-white' : 'bg-white/15 text-white'
+              }`}
             >
               {cartCount}
             </span>
@@ -236,18 +365,18 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Expandable Live Technical Catalog Search Panel */}
       {searchOpen && (
-        <div className="animate-slide-down border-t border-slate-200 bg-[#F6F8FB] shadow-xl max-h-[calc(100dvh-4rem)] overflow-y-auto overscroll-contain">
+        <div className="animate-slide-down border-t border-slate-200 bg-[#F1F5F9] shadow-xl max-h-[calc(100dvh-4rem)] overflow-y-auto overscroll-contain">
           <div className="max-w-[1760px] mx-auto px-4 sm:px-6 lg:px-10 py-3.5 space-y-3">
             <form onSubmit={handleSearchSubmit} className="flex flex-col md:flex-row gap-2.5">
-              <div className="relative flex-1 flex items-center bg-white border border-slate-200 rounded-lg px-3 h-10 focus-within:ring-2 focus-within:ring-blue-600">
-                <Search className="w-4 h-4 text-slate-400 shrink-0 mr-2.5" />
+              <div className="relative flex-1 flex items-center bg-white border border-slate-200 rounded-lg px-3 h-10 focus-within:ring-2 focus-within:ring-[#0866F5]">
+                <Search className="w-4 h-4 text-[#64748B] shrink-0 mr-2.5" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => onSearchChange(e.target.value)}
-                  placeholder="Search model, SKU, or specs (3.3V UART)..."
+                  placeholder="Search hardware model, SKU, or specs (3.3V UART, LiDAR)..."
                   autoFocus
-                  className="w-full bg-transparent text-base sm:text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none"
+                  className="w-full bg-transparent text-base sm:text-sm text-[#101828] placeholder:text-slate-400 focus:outline-none"
                 />
                 {searchQuery && (
                   <button
@@ -264,7 +393,7 @@ export const Header: React.FC<HeaderProps> = ({
               {/* Price Range & Availability Controls */}
               <div className="grid grid-cols-2 sm:flex sm:flex-nowrap items-center gap-2">
                 <div className="col-span-2 sm:col-span-1 flex items-center gap-1 bg-white border border-slate-200 rounded-lg px-2.5 h-10">
-                  <span className="text-[11px] font-semibold text-slate-500">৳</span>
+                  <span className="text-[11px] font-semibold text-[#64748B]">৳</span>
                   <input
                     type="number"
                     min={0}
@@ -272,7 +401,7 @@ export const Header: React.FC<HeaderProps> = ({
                     onChange={(e) => onMinPriceChange(e.target.value)}
                     placeholder="Min"
                     aria-label="Minimum price BDT"
-                    className="flex-1 min-w-0 sm:w-16 text-base sm:text-xs font-mono text-slate-900 bg-transparent focus:outline-none"
+                    className="flex-1 min-w-0 sm:w-16 text-base sm:text-xs font-mono text-[#101828] bg-transparent focus:outline-none"
                   />
                   <span className="text-slate-300">–</span>
                   <input
@@ -282,7 +411,7 @@ export const Header: React.FC<HeaderProps> = ({
                     onChange={(e) => onMaxPriceChange(e.target.value)}
                     placeholder="Max"
                     aria-label="Maximum price BDT"
-                    className="flex-1 min-w-0 sm:w-16 text-base sm:text-xs font-mono text-slate-900 bg-transparent focus:outline-none"
+                    className="flex-1 min-w-0 sm:w-16 text-base sm:text-xs font-mono text-[#101828] bg-transparent focus:outline-none"
                   />
                 </div>
 
@@ -290,7 +419,7 @@ export const Header: React.FC<HeaderProps> = ({
                   value={availabilityFilter}
                   onChange={(e) => onAvailabilityChange(e.target.value as AvailabilityFilter)}
                   aria-label="Filter by availability"
-                  className="h-10 px-2.5 rounded-lg bg-white border border-slate-200 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                  className="h-10 px-2.5 rounded-lg bg-white border border-slate-200 text-xs font-semibold text-[#101828] focus:outline-none focus:ring-2 focus:ring-[#0866F5]"
                 >
                   <option value="all">All Stock</option>
                   <option value="in-stock">In Stock Only</option>
@@ -300,7 +429,7 @@ export const Header: React.FC<HeaderProps> = ({
 
                 <button
                   type="submit"
-                  className="inline-flex items-center justify-center gap-1 h-10 px-4 rounded-lg bg-[#06142E] text-white text-xs font-semibold hover:bg-slate-800 transition-colors whitespace-nowrap shrink-0"
+                  className="inline-flex items-center justify-center gap-1 h-10 px-4 rounded-lg bg-[#0866F5] hover:bg-[#0654CC] text-white text-xs font-semibold transition-colors whitespace-nowrap shrink-0"
                 >
                   <span>View {liveResults.length}</span>
                   <ArrowRight className="w-3.5 h-3.5" />
@@ -311,8 +440,8 @@ export const Header: React.FC<HeaderProps> = ({
             {/* Technical Keyword Chips */}
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
-                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500 whitespace-nowrap shrink-0 mr-1">
-                  <Cpu className="w-3.5 h-3.5 text-[#0057E7]" />
+                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#64748B] whitespace-nowrap shrink-0 mr-1">
+                  <Cpu className="w-3.5 h-3.5 text-[#0866F5]" />
                   Tech Specs:
                 </span>
                 {TECH_KEYWORD_CHIPS.map((kw) => {
@@ -327,8 +456,8 @@ export const Header: React.FC<HeaderProps> = ({
                       onClick={() => handleKeywordChip(kw)}
                       className={`px-2.5 py-1 rounded-md text-[11px] font-mono font-semibold border transition-colors whitespace-nowrap shrink-0 ${
                         active
-                          ? 'bg-[#0057E7] border-[#0057E7] text-white'
-                          : 'bg-white border-slate-200 text-slate-700 hover:border-[#0057E7]/60'
+                          ? 'bg-[#0866F5] border-[#0866F5] text-white'
+                          : 'bg-white border-slate-200 text-[#101828] hover:border-[#0866F5]/60'
                       }`}
                     >
                       {kw}
@@ -341,7 +470,7 @@ export const Header: React.FC<HeaderProps> = ({
                 <button
                   type="button"
                   onClick={onClearFilters}
-                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#0057E7] hover:underline whitespace-nowrap shrink-0"
+                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#0866F5] hover:underline whitespace-nowrap shrink-0"
                 >
                   <RotateCcw className="w-3 h-3" />
                   <span>Reset</span>
@@ -349,13 +478,13 @@ export const Header: React.FC<HeaderProps> = ({
               )}
             </div>
 
-            {/* Real-Time Instant Search Results */}
+            {/* Real-Time Instant Search Suggestions */}
             {hasActiveSearchFilters && (
               <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                <div className="px-4 py-2 bg-[#F9FBFD] border-b border-slate-100 flex items-center justify-between text-xs text-slate-600">
+                <div className="px-4 py-2 bg-[#F5F8FC] border-b border-slate-100 flex items-center justify-between text-xs text-[#64748B]">
                   <span>
                     Real-time matches:{' '}
-                    <strong className="font-mono text-[#06142E] tabular-nums">
+                    <strong className="font-mono text-[#071A3B] tabular-nums">
                       {liveResults.length}
                     </strong>
                   </span>
@@ -366,7 +495,7 @@ export const Header: React.FC<HeaderProps> = ({
                         onNavigateSection('best-selling');
                         setSearchOpen(false);
                       }}
-                      className="font-semibold text-[#0057E7] hover:underline inline-flex items-center gap-1"
+                      className="font-semibold text-[#0866F5] hover:underline inline-flex items-center gap-1"
                     >
                       <span>Show all in catalog</span>
                       <ArrowRight className="w-3 h-3" />
@@ -375,7 +504,7 @@ export const Header: React.FC<HeaderProps> = ({
                 </div>
 
                 {liveResults.length === 0 ? (
-                  <div className="p-5 text-center text-xs text-slate-500">
+                  <div className="p-5 text-center text-xs text-[#64748B]">
                     No hardware matched your keywords or price/stock criteria. Try adjusting min/max price or clearing a keyword.
                   </div>
                 ) : (
@@ -391,9 +520,9 @@ export const Header: React.FC<HeaderProps> = ({
                             setSearchOpen(false);
                             onSelectProduct(product);
                           }}
-                          className="w-full px-4 py-2.5 flex items-center gap-3 hover:bg-[#F6F8FB] transition-colors text-left"
+                          className="w-full px-4 py-2.5 flex items-center gap-3 hover:bg-[#F5F8FC] transition-colors text-left"
                         >
-                          <div className="w-11 h-11 rounded-lg bg-[#F4F7FB] border border-slate-200/70 p-1 flex items-center justify-center shrink-0">
+                          <div className="w-11 h-11 rounded-lg bg-[#F5F8FC] border border-slate-200/70 p-1 flex items-center justify-center shrink-0">
                             <HardwareArtwork
                               kind={product.artwork}
                               imageUrl={product.imageUrl}
@@ -403,19 +532,19 @@ export const Header: React.FC<HeaderProps> = ({
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
-                              <p className="text-xs sm:text-sm font-semibold text-[#06142E] truncate">
+                              <p className="text-xs sm:text-sm font-semibold text-[#101828] truncate">
                                 {product.name}
                               </p>
-                              <span className="hidden sm:inline font-mono text-[10px] text-slate-400 shrink-0">
+                              <span className="hidden sm:inline font-mono text-[10px] text-[#64748B] shrink-0">
                                 {product.sku}
                               </span>
                             </div>
-                            <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
+                            <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[11px] text-[#64748B]">
                               <span>{categoryLabels?.[product.category] || product.categoryLabel}</span>
                               {specSnippet && (
                                 <>
                                   <span aria-hidden="true">·</span>
-                                  <span className="font-mono text-[#0057E7] truncate max-w-[220px]">
+                                  <span className="font-mono text-[#0866F5] truncate max-w-[220px]">
                                     {specSnippet}
                                   </span>
                                 </>
@@ -423,7 +552,7 @@ export const Header: React.FC<HeaderProps> = ({
                             </div>
                           </div>
                           <div className="text-right shrink-0">
-                            <p className="font-mono text-xs sm:text-sm font-bold text-[#06142E] tabular-nums">
+                            <p className="font-mono text-xs sm:text-sm font-bold text-[#071A3B] tabular-nums">
                               ৳{product.price.toLocaleString('en-IN')}
                             </p>
                             <p

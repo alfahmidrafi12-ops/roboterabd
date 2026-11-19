@@ -1,5 +1,5 @@
-import React, { useRef } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { ArrowRight, ChevronDown } from 'lucide-react';
 import { CategoryId, CategoryItem } from '../types/store';
 import { HardwareArtwork } from './HardwareArtwork';
 import { Reveal } from './Reveal';
@@ -10,76 +10,100 @@ interface CategoryCarouselProps {
   onSelectCategory: (id: CategoryId) => void;
 }
 
+const DEPT_ACCENTS = [
+  { tray: 'bg-[#F1F5F9] border-slate-200/90', hover: 'hover:border-[#0866F5]/60 hover:bg-[#0866F5]/[0.03]', count: 'text-[#0866F5]' },
+  { tray: 'bg-[#F1F5F9] border-slate-200/90', hover: 'hover:border-[#0D9488]/60 hover:bg-[#0D9488]/[0.03]', count: 'text-[#0D9488]' },
+  { tray: 'bg-[#F1F5F9] border-slate-200/90', hover: 'hover:border-[#0866F5]/60 hover:bg-[#0866F5]/[0.03]', count: 'text-[#0866F5]' },
+  { tray: 'bg-[#F1F5F9] border-slate-200/90', hover: 'hover:border-[#EA580C]/55 hover:bg-[#EA580C]/[0.03]', count: 'text-[#EA580C]' },
+  { tray: 'bg-[#F1F5F9] border-slate-200/90', hover: 'hover:border-[#0D9488]/60 hover:bg-[#0D9488]/[0.03]', count: 'text-[#0D9488]' },
+  { tray: 'bg-[#F1F5F9] border-slate-200/90', hover: 'hover:border-[#0866F5]/60 hover:bg-[#0866F5]/[0.03]', count: 'text-[#0866F5]' },
+];
+
+const MOBILE_INITIAL_COUNT = 4;
+const DESKTOP_INITIAL_COUNT = 6;
+
 export const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
   categories,
   activeCategory,
   onSelectCategory,
 }) => {
-  const trackRef = useRef<HTMLDivElement>(null);
   const visibleCategories = categories.filter((c) => c.active !== false);
+  const [showAll, setShowAll] = useState(false);
 
-  const scrollByAmount = (direction: 'left' | 'right') => {
-    if (!trackRef.current) return;
-    const distance = direction === 'left' ? -320 : 320;
-    trackRef.current.scrollBy({ left: distance, behavior: 'smooth' });
-  };
+  const mobileRemaining = Math.max(0, visibleCategories.length - MOBILE_INITIAL_COUNT);
+  const desktopRemaining = Math.max(0, visibleCategories.length - DESKTOP_INITIAL_COUNT);
+
+  useEffect(() => {
+    if (
+      activeCategory !== 'all' &&
+      visibleCategories.slice(MOBILE_INITIAL_COUNT).some((c) => c.id === activeCategory)
+    ) {
+      setShowAll(true);
+    }
+  }, [activeCategory, visibleCategories]);
 
   return (
-    <section id="categories" className="scroll-mt-20 py-7 sm:py-9 bg-[#F7F9FC] border-b border-slate-200/80">
+    <section id="categories" className="scroll-mt-20 py-8 sm:py-11 bg-[#F1F5F9]">
       <div className="w-full max-w-[1760px] mx-auto px-4 sm:px-6 lg:px-10">
         <Reveal>
-          <div className="flex items-center justify-between gap-4 mb-4 sm:mb-5">
-            <h2 className="font-display text-lg sm:text-2xl font-bold text-[#070D19] tracking-tight">
-              Shop by Category
-            </h2>
-
-            <div className="flex items-center gap-2 sm:gap-2.5">
-              <button
-                type="button"
-                onClick={() => onSelectCategory('all')}
-                className="text-xs sm:text-sm font-semibold text-[#0057E7] hover:text-[#070D19] transition-colors whitespace-nowrap shrink-0 mr-1"
-              >
-                View All
-              </button>
-              <button
-                type="button"
-                onClick={() => scrollByAmount('left')}
-                aria-label="Scroll categories left"
-                className="btn-liquid-glass w-8 h-8 rounded-xl flex items-center justify-center"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => scrollByAmount('right')}
-                aria-label="Scroll categories right"
-                className="btn-liquid-glass w-8 h-8 rounded-xl flex items-center justify-center"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
+          <div className="flex items-end justify-between gap-4 mb-5 sm:mb-6">
+            <div>
+              <p className="text-xs font-mono font-semibold uppercase tracking-wider text-[#0D9488] mb-1 inline-flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#0D9488]" aria-hidden="true" />
+                <span>Hardware Departments</span>
+              </p>
+              <h2 className="font-display text-xl sm:text-2xl lg:text-[26px] font-bold text-[#071A3B] tracking-tight">
+                Shop by Category
+              </h2>
             </div>
+
+            <button
+              type="button"
+              onClick={() => onSelectCategory('all')}
+              className="px-3 py-1.5 rounded-lg border border-transparent hover:border-[#0866F5]/35 bg-transparent hover:bg-[#0866F5]/[0.06] text-xs sm:text-sm font-semibold text-[#0866F5] hover:text-[#071A3B] transition-colors inline-flex items-center gap-1.5 whitespace-nowrap shrink-0"
+            >
+              <span>Shop All Hardware</span>
+              <ArrowRight className="w-3.5 h-3.5 text-[#EA580C]" />
+            </button>
           </div>
 
-          <div
-            ref={trackRef}
-            className="flex gap-2.5 sm:gap-3.5 overflow-x-auto no-scrollbar scroll-smooth pb-1.5 pt-0.5"
-          >
-            {visibleCategories.map((category) => {
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-3.5">
+            {visibleCategories.map((category, idx) => {
               const isSelected = activeCategory === category.id;
+              const accent = DEPT_ACCENTS[idx % DEPT_ACCENTS.length];
+              const hasUploadedImage = Boolean(category.imageUrl?.trim());
+
+              // Mobile/tablet (<lg): 4 cards initially (2x2); Desktop (lg+): 6 cards in 1 row initially
+              let visibilityClass = 'flex';
+              if (!showAll) {
+                if (idx >= DESKTOP_INITIAL_COUNT) {
+                  visibilityClass = 'hidden';
+                } else if (idx >= MOBILE_INITIAL_COUNT) {
+                  visibilityClass = 'hidden lg:flex';
+                }
+              }
+
               return (
                 <button
                   key={category.id}
                   type="button"
                   onClick={() => onSelectCategory(isSelected ? 'all' : category.id)}
-                  className={`group shrink-0 w-[calc(44%-4px)] sm:w-[172px] rounded-2xl p-2.5 sm:p-3.5 text-center border transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${
+                  className={`group w-full rounded-2xl p-2.5 sm:p-3 text-center border transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0866F5] flex-col items-stretch ${visibilityClass} ${
                     isSelected
-                      ? 'btn-glossy-dark border-[#070D19] text-white'
-                      : 'bg-white border-slate-200/90 hover:border-blue-300/90 hover:-translate-y-1.5 hover:shadow-[0_16px_30px_-16px_rgba(7,13,25,0.22)] text-slate-900'
+                      ? 'bg-[#071A3B] border-[#071A3B] text-white'
+                      : `bg-white border-slate-200/90 ${accent.hover} text-[#101828]`
                   }`}
                 >
+                  {/* Dedicated Uncropped Image Frame */}
                   <div
-                    className={`w-16 h-12 sm:w-20 sm:h-14 mx-auto rounded-xl flex items-center justify-center p-1 mb-2.5 overflow-hidden transition-transform duration-300 group-hover:scale-110 ${
-                      isSelected ? 'bg-white/10 border border-white/15' : 'bg-[#F5F7FA] border border-slate-100'
+                    className={`w-full aspect-[4/3] rounded-xl border flex items-center justify-center overflow-hidden transition-colors ${
+                      hasUploadedImage ? 'p-1.5 bg-white' : 'p-2.5 sm:p-3'
+                    } ${
+                      isSelected
+                        ? 'bg-white/10 border-white/20'
+                        : hasUploadedImage
+                        ? 'border-slate-200/90 group-hover:border-[#0866F5]/40'
+                        : accent.tray
                     }`}
                   >
                     <HardwareArtwork
@@ -90,20 +114,58 @@ export const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
                       className="w-full h-full"
                     />
                   </div>
-                  <h3 className="font-display text-xs sm:text-[13px] font-semibold leading-snug line-clamp-1">
-                    {category.name}
-                  </h3>
-                  <p
-                    className={`text-[10px] sm:text-[11px] mt-0.5 font-mono tabular-nums ${
-                      isSelected ? 'text-blue-300' : 'text-slate-500'
-                    }`}
-                  >
-                    {category.countLabel}
-                  </p>
+
+                  {/* Category Name & Count Directly Below Frame */}
+                  <div className="pt-2.5 px-1 pb-0.5 flex flex-col items-center flex-1 justify-between">
+                    <h3 className="font-display text-xs sm:text-[13px] font-bold leading-snug line-clamp-2 min-h-[2.1rem] flex items-center justify-center">
+                      {category.name}
+                    </h3>
+                    <p
+                      className={`text-[10px] sm:text-[11px] mt-1 font-mono font-medium tabular-nums ${
+                        isSelected ? 'text-[#2DD4BF]' : accent.count
+                      }`}
+                    >
+                      {category.countLabel}
+                    </p>
+                  </div>
                 </button>
               );
             })}
           </div>
+
+          {(mobileRemaining > 0 || desktopRemaining > 0) && (
+            <div
+              className={`mt-5 justify-center ${
+                desktopRemaining > 0 ? 'flex' : 'flex lg:hidden'
+              }`}
+            >
+              <button
+                type="button"
+                onClick={() => setShowAll((prev) => !prev)}
+                aria-expanded={showAll}
+                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-white hover:bg-[#0866F5]/[0.06] border border-slate-200 hover:border-[#0866F5]/55 text-xs sm:text-sm font-semibold text-[#071A3B] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0866F5]"
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-[#EA580C]" aria-hidden="true" />
+                {showAll ? (
+                  <span>Show Less Categories</span>
+                ) : (
+                  <>
+                    <span className="lg:hidden">See All Categories (+{mobileRemaining})</span>
+                    {desktopRemaining > 0 && (
+                      <span className="hidden lg:inline">
+                        See All Categories (+{desktopRemaining})
+                      </span>
+                    )}
+                  </>
+                )}
+                <ChevronDown
+                  className={`w-4 h-4 text-[#0866F5] transition-transform duration-200 ${
+                    showAll ? 'rotate-180' : ''
+                  }`}
+                />
+              </button>
+            </div>
+          )}
         </Reveal>
       </div>
     </section>

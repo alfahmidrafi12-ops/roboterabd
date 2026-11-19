@@ -25,7 +25,7 @@ export const WishlistDrawer: React.FC<WishlistDrawerProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
       <div
-        className="animate-fade-in fixed inset-0 bg-[#06142E]/50 backdrop-blur-[2px]"
+        className="animate-fade-in fixed inset-0 bg-[#071A3B]/50 backdrop-blur-[2px]"
         onClick={onClose}
         aria-hidden="true"
       />
@@ -36,7 +36,7 @@ export const WishlistDrawer: React.FC<WishlistDrawerProps> = ({
         className="animate-drawer-in relative z-10 w-full max-w-md bg-white h-dvh shadow-2xl flex flex-col border-l border-slate-200 pb-[env(safe-area-inset-bottom)]"
       >
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
-          <h2 className="font-display text-lg font-bold text-[#06142E] tabular-nums">
+          <h2 className="font-display text-lg font-bold text-[#071A3B] tabular-nums">
             Saved Hardware ({products.length})
           </h2>
           <button
@@ -51,10 +51,10 @@ export const WishlistDrawer: React.FC<WishlistDrawerProps> = ({
 
         {products.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
-            <div className="w-14 h-14 rounded-2xl bg-[#F4F7FB] border border-slate-200 flex items-center justify-center text-slate-400 mb-4">
+            <div className="w-14 h-14 rounded-2xl bg-[#F1F5F9] border border-slate-200 flex items-center justify-center text-slate-400 mb-4">
               <Heart className="w-6 h-6" />
             </div>
-            <h3 className="font-display text-base font-bold text-[#06142E]">No saved components</h3>
+            <h3 className="font-display text-base font-bold text-[#071A3B]">No saved components</h3>
             <p className="text-sm text-slate-500 mt-1 max-w-xs">
               Click the heart icon on any microcontroller, sensor, or kit to save it for your build BOM.
             </p>
@@ -77,7 +77,7 @@ export const WishlistDrawer: React.FC<WishlistDrawerProps> = ({
                       }
                     }}
                     aria-label={`View ${product.name}`}
-                    className="w-16 h-16 rounded-lg bg-[#F6F8FB] border border-slate-200 p-1.5 shrink-0 flex items-center justify-center overflow-hidden"
+                    className="w-16 h-16 rounded-lg bg-[#F1F5F9] border border-slate-200 p-1.5 shrink-0 flex items-center justify-center overflow-hidden"
                   >
                     <HardwareArtwork
                       kind={product.artwork}
@@ -97,12 +97,12 @@ export const WishlistDrawer: React.FC<WishlistDrawerProps> = ({
                       }}
                       className="text-left w-full"
                     >
-                      <h3 className="font-display text-sm font-semibold text-[#06142E] hover:text-[#0057E7] line-clamp-1">
+                      <h3 className="font-display text-sm font-semibold text-[#071A3B] hover:text-[#0866F5] line-clamp-1">
                         {product.name}
                       </h3>
                     </button>
                     <div className="flex items-center gap-2 mt-1 text-xs">
-                      <span className="font-mono font-bold text-[#0057E7] tabular-nums">
+                      <span className="font-mono font-bold text-[#0866F5] tabular-nums">
                         ৳{product.price.toLocaleString('en-IN')}
                       </span>
                       {outOfStock && (
@@ -114,7 +114,7 @@ export const WishlistDrawer: React.FC<WishlistDrawerProps> = ({
                         type="button"
                         disabled={outOfStock}
                         onClick={() => onMoveToCart(product)}
-                        className="btn-glossy-blue inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg disabled:bg-slate-200 disabled:text-slate-500 disabled:border-transparent disabled:shadow-none disabled:cursor-not-allowed text-xs font-semibold"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0866F5] hover:bg-[#0866F5]/90 border border-[#0866F5] hover:border-[#1685FF] text-white transition-colors disabled:bg-slate-200 disabled:border-slate-200 disabled:text-slate-500 disabled:cursor-not-allowed text-xs font-semibold"
                       >
                         <ShoppingCart className="w-3 h-3" />
                         <span>{outOfStock ? 'Out of Stock' : 'Add to Cart'}</span>

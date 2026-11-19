@@ -22,40 +22,40 @@ const THEME_STYLES: Record<
   }
 > = {
   navy: {
-    card: 'bg-[#070D19] bg-gradient-to-br from-[#070D19] via-[#0B1730] to-[#112650] text-white border-[#183164]',
+    card: 'bg-[#071A3B] bg-gradient-to-br from-[#071A3B] via-[#0B234D] to-[#11336E] text-white border-[#1B3B73]',
     gridClass: 'bg-lab-grid-dark',
-    kicker: 'text-blue-300',
+    kicker: 'text-[#38BDF8]',
     title: 'text-white',
     subtitle: 'text-slate-300',
-    cta: 'btn-glossy-blue',
-    artworkBox: 'bg-white/[0.06] border-white/10 backdrop-blur-xs',
+    cta: 'bg-[#0866F5] hover:bg-[#0866F5]/90 border border-[#1685FF]/40 hover:border-white/50 text-white',
+    artworkBox: 'bg-white/[0.08] border-white/15',
   },
   cobalt: {
-    card: 'bg-[#0048C4] bg-gradient-to-br from-[#0048C4] via-[#0057E7] to-[#1A73FF] text-white border-[#0044BB]',
+    card: 'bg-[#0866F5] bg-gradient-to-br from-[#0654CC] via-[#0866F5] to-[#1685FF] text-white border-[#0654CC]',
     gridClass: 'bg-lab-grid-dark',
-    kicker: 'text-blue-100',
+    kicker: 'text-cyan-200',
     title: 'text-white',
     subtitle: 'text-blue-50/90',
-    cta: 'btn-liquid-glass-dark',
-    artworkBox: 'bg-white/10 border-white/15 backdrop-blur-xs',
+    cta: 'bg-white hover:bg-white/90 border border-white/60 hover:border-white text-[#071A3B]',
+    artworkBox: 'bg-white/10 border-white/20',
   },
   slate: {
-    card: 'bg-[#F4F7FB] bg-gradient-to-br from-[#F4F7FB] to-[#EBF0F7] text-[#070D19] border-slate-200/90',
+    card: 'bg-[#F5F8FC] bg-gradient-to-br from-[#F5F8FC] to-[#EAF1FA] text-[#071A3B] border-slate-200/90',
     gridClass: 'bg-lab-grid',
-    kicker: 'text-[#0057E7]',
-    title: 'text-[#070D19]',
-    subtitle: 'text-slate-600',
-    cta: 'btn-glossy-dark',
-    artworkBox: 'bg-white border-slate-200/90 shadow-2xs',
+    kicker: 'text-[#0891B2]',
+    title: 'text-[#071A3B]',
+    subtitle: 'text-[#64748B]',
+    cta: 'bg-[#071A3B] hover:bg-[#071A3B]/90 border border-[#071A3B] hover:border-[#0866F5]/60 text-white',
+    artworkBox: 'bg-white border-slate-200/90',
   },
   emerald: {
-    card: 'bg-[#06211E] bg-gradient-to-br from-[#06211E] via-[#082B27] to-[#0E3F39] text-white border-[#134F47]',
+    card: 'bg-[#052E2B] bg-gradient-to-br from-[#052E2B] via-[#064E3B] to-[#065F46] text-white border-emerald-700/60',
     gridClass: 'bg-lab-grid-dark',
     kicker: 'text-emerald-300',
     title: 'text-white',
-    subtitle: 'text-emerald-100/85',
-    cta: 'btn-liquid-glass-dark',
-    artworkBox: 'bg-white/10 border-white/15 backdrop-blur-xs',
+    subtitle: 'text-emerald-100/90',
+    cta: 'bg-white hover:bg-white/90 border border-white/60 hover:border-emerald-200 text-[#052E2B]',
+    artworkBox: 'bg-white/10 border-emerald-300/20',
   },
 };
 
@@ -111,7 +111,7 @@ export const ScrollingBannerSection: React.FC<ScrollingBannerSectionProps> = ({
         }
       }
       goToSlide(next);
-    }, 4000);
+    }, 4200);
 
     return () => window.clearInterval(timer);
   }, [count]);
@@ -140,31 +140,36 @@ export const ScrollingBannerSection: React.FC<ScrollingBannerSectionProps> = ({
 
   return (
     <section
-      aria-label="Promotional highlights"
-      className="py-6 sm:py-8 bg-white border-b border-slate-200/70"
+      aria-label="Featured campaigns"
+      className="py-7 sm:py-9 bg-white"
     >
       <div className="w-full max-w-[1760px] mx-auto px-4 sm:px-6 lg:px-10">
         <Reveal>
-          <div className="flex items-center justify-between gap-4 mb-4">
-            <h2 className="font-display text-lg sm:text-xl font-bold text-[#070D19] tracking-tight">
-              Featured Campaigns &amp; Offers
-            </h2>
+          <div className="flex items-end justify-between gap-4 mb-5">
+            <div>
+              <p className="text-xs font-mono font-semibold uppercase tracking-wider text-[#0891B2] mb-1">
+                Engineering Campaigns
+              </p>
+              <h2 className="font-display text-lg sm:text-2xl font-bold text-[#071A3B] tracking-tight">
+                Featured Campaigns &amp; Offers
+              </h2>
+            </div>
 
             {count > 1 && (
               <div className="flex items-center gap-1.5">
                 <button
                   type="button"
                   onClick={() => goToSlide(activeIndex - 1)}
-                  aria-label="Previous banner"
-                  className="btn-liquid-glass w-8 h-8 rounded-xl flex items-center justify-center"
+                  aria-label="Previous campaign"
+                  className="w-8 h-8 rounded-xl bg-white hover:bg-[#F5F8FC] text-[#101828] border border-slate-200 hover:border-slate-300 transition-colors flex items-center justify-center"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
                 <button
                   type="button"
                   onClick={() => goToSlide(activeIndex + 1)}
-                  aria-label="Next banner"
-                  className="btn-liquid-glass w-8 h-8 rounded-xl flex items-center justify-center"
+                  aria-label="Next campaign"
+                  className="w-8 h-8 rounded-xl bg-white hover:bg-[#F5F8FC] text-[#101828] border border-slate-200 hover:border-slate-300 transition-colors flex items-center justify-center"
                 >
                   <ChevronRight className="w-4 h-4" />
                 </button>
@@ -172,7 +177,7 @@ export const ScrollingBannerSection: React.FC<ScrollingBannerSectionProps> = ({
             )}
           </div>
 
-          {/* Smooth Continuous Auto-Scrolling Banner Track */}
+          {/* Continuous Auto-Scrolling Campaign Track (No Pause/Start buttons) */}
           <div
             ref={trackRef}
             onScroll={handleTrackScroll}
@@ -190,13 +195,13 @@ export const ScrollingBannerSection: React.FC<ScrollingBannerSectionProps> = ({
                     type="button"
                     onClick={() => onSelectCategory(banner.targetCategory)}
                     aria-label={banner.title || 'View featured campaign'}
-                    className={`group snap-start shrink-0 ${widthClass} rounded-2xl border border-slate-200/90 bg-[#F8FAFD] overflow-hidden flex items-center justify-center hover:border-[#0057E7] hover:shadow-[0_14px_30px_-14px_rgba(7,13,25,0.2)] transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600`}
+                    className={`group snap-start shrink-0 ${widthClass} rounded-2xl border border-slate-200/90 bg-[#F5F8FC] hover:bg-[#0866F5]/[0.03] overflow-hidden flex items-center justify-center hover:border-[#0866F5]/65 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0866F5]`}
                   >
                     <img
                       src={customImg}
-                      alt={banner.title || 'Promotional banner'}
+                      alt={banner.title || 'Promotional campaign'}
                       referrerPolicy="no-referrer"
-                      className="w-full h-auto max-h-[420px] object-contain block transition-transform duration-300 group-hover:scale-[1.015]"
+                      className="w-full h-auto max-h-[210px] sm:max-h-[280px] lg:max-h-[340px] object-contain block"
                     />
                   </button>
                 );
@@ -205,14 +210,14 @@ export const ScrollingBannerSection: React.FC<ScrollingBannerSectionProps> = ({
               return (
                 <div
                   key={banner.id}
-                  className={`group relative overflow-hidden snap-start shrink-0 ${widthClass} rounded-2xl border p-5 sm:p-7 flex items-center justify-between gap-4 sm:gap-6 shadow-[0_12px_30px_-18px_rgba(7,13,25,0.25)] hover:-translate-y-0.5 transition-all duration-200 ${style.card}`}
+                  className={`group relative overflow-hidden snap-start shrink-0 ${widthClass} rounded-2xl border p-4 sm:p-7 flex items-center justify-between gap-3.5 sm:gap-6 transition-colors duration-200 ${style.card}`}
                 >
                   <div aria-hidden="true" className={`pointer-events-none absolute inset-0 ${style.gridClass}`} />
                   <div className="relative z-10 min-w-0 flex-1">
                     <p className={`text-[11px] sm:text-xs font-mono font-semibold mb-1 sm:mb-1.5 truncate ${style.kicker}`}>
                       {banner.kicker}
                     </p>
-                    <h3 className={`font-display text-base sm:text-[22px] font-bold leading-snug [text-wrap:balance] ${style.title}`}>
+                    <h3 className={`font-display text-base sm:text-[21px] font-bold leading-snug [text-wrap:balance] ${style.title}`}>
                       {banner.title}
                     </h3>
                     <p className={`text-xs sm:text-sm mt-1.5 sm:mt-2 leading-relaxed line-clamp-2 ${style.subtitle}`}>
@@ -221,7 +226,7 @@ export const ScrollingBannerSection: React.FC<ScrollingBannerSectionProps> = ({
                     <button
                       type="button"
                       onClick={() => onSelectCategory(banner.targetCategory)}
-                      className={`mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${style.cta}`}
+                      className={`mt-4 inline-flex items-center gap-1.5 px-3.5 sm:px-4 py-2 rounded-xl text-xs font-semibold transition-colors whitespace-nowrap ${style.cta}`}
                     >
                       <span>{banner.ctaLabel}</span>
                       <ArrowRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
@@ -229,7 +234,7 @@ export const ScrollingBannerSection: React.FC<ScrollingBannerSectionProps> = ({
                   </div>
 
                   <div
-                    className={`relative z-10 w-24 h-20 sm:w-36 sm:h-32 shrink-0 rounded-xl border p-1.5 sm:p-2 flex items-center justify-center overflow-hidden transition-transform duration-300 group-hover:scale-105 ${style.artworkBox}`}
+                    className={`relative z-10 w-20 h-20 sm:w-32 sm:h-28 shrink-0 rounded-xl border p-2 flex items-center justify-center overflow-hidden ${style.artworkBox}`}
                   >
                     <HardwareArtwork
                       kind={banner.artwork}
@@ -252,9 +257,9 @@ export const ScrollingBannerSection: React.FC<ScrollingBannerSectionProps> = ({
                   key={banner.id}
                   type="button"
                   onClick={() => goToSlide(idx)}
-                  aria-label={`Go to banner ${idx + 1}: ${banner.title}`}
+                  aria-label={`Go to campaign ${idx + 1}: ${banner.title}`}
                   className={`h-1.5 rounded-full transition-all duration-200 ${
-                    idx === activeIndex ? 'w-7 bg-[#0057E7]' : 'w-2 bg-slate-300 hover:bg-slate-400'
+                    idx === activeIndex ? 'w-7 bg-[#0866F5]' : 'w-2 bg-slate-300 hover:bg-slate-400'
                   }`}
                 />
               ))}

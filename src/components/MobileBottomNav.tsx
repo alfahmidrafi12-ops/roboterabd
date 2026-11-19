@@ -32,7 +32,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           type="button"
           onClick={onGoHome}
           className={`flex flex-col items-center justify-center gap-1 transition-colors ${
-            activePage === 'shop' ? 'text-[#0057E7]' : 'text-slate-600 hover:text-[#0057E7]'
+            activePage === 'shop' ? 'text-[#0866F5]' : 'text-slate-600 hover:text-[#0866F5]'
           }`}
         >
           <Home className="w-5 h-5" />
@@ -42,7 +42,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
         <button
           type="button"
           onClick={onOpenDepartments}
-          className="flex flex-col items-center justify-center gap-1 text-slate-600 hover:text-[#0057E7] active:text-[#0057E7] transition-colors"
+          className="flex flex-col items-center justify-center gap-1 text-slate-600 hover:text-[#0866F5] active:text-[#0866F5] transition-colors"
         >
           <LayoutGrid className="w-5 h-5" />
           <span className="text-[10px] font-semibold">Depts</span>
@@ -52,7 +52,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           type="button"
           onClick={onTrackOrder}
           className={`flex flex-col items-center justify-center gap-1 transition-colors ${
-            activePage === 'track' ? 'text-[#0057E7]' : 'text-slate-600 hover:text-[#0057E7]'
+            activePage === 'track' ? 'text-[#0866F5]' : 'text-slate-600 hover:text-[#0866F5]'
           }`}
         >
           <PackageSearch className="w-5 h-5" />
@@ -62,12 +62,12 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
         <button
           type="button"
           onClick={onOpenCart}
-          className="relative flex flex-col items-center justify-center gap-1 text-slate-600 hover:text-[#0057E7] active:text-[#0057E7] transition-colors"
+          className="relative flex flex-col items-center justify-center gap-1 text-slate-600 hover:text-[#0866F5] active:text-[#0866F5] transition-colors"
         >
           <div className="relative">
             <ShoppingBag className="w-5 h-5" />
             {cartCount > 0 && (
-              <span className="absolute -top-1.5 -right-2 min-w-[16px] h-4 px-1 rounded-full bg-[#0057E7] text-white text-[9px] font-mono font-bold flex items-center justify-center tabular-nums">
+              <span className="absolute -top-1.5 -right-2 min-w-[16px] h-4 px-1 rounded-full bg-[#EA580C] text-white text-[9px] font-mono font-bold flex items-center justify-center tabular-nums">
                 {cartCount}
               </span>
             )}
@@ -79,7 +79,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           type="button"
           onClick={onOpenAuth}
           className={`flex flex-col items-center justify-center gap-1 transition-colors ${
-            isSignedIn ? 'text-[#0057E7]' : 'text-slate-600 hover:text-[#0057E7]'
+            isSignedIn ? 'text-[#0D9488]' : 'text-slate-600 hover:text-[#0866F5]'
           }`}
         >
           <UserIcon className="w-5 h-5" />

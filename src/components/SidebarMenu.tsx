@@ -41,7 +41,7 @@ export const SidebarMenu: React.FC<SidebarMenuProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex">
       <div
-        className="fixed inset-0 bg-[#06142E]/50 backdrop-blur-[2px] transition-opacity"
+        className="fixed inset-0 bg-[#071A3B]/50 backdrop-blur-[2px] transition-opacity"
         onClick={onClose}
         aria-hidden="true"
       />
@@ -49,7 +49,7 @@ export const SidebarMenu: React.FC<SidebarMenuProps> = ({
         <div className="px-6 py-5 border-b border-slate-200 flex items-center justify-between">
           <div>
             <p className="text-xs font-medium text-slate-500">Hardware Catalog</p>
-            <h2 className="font-display text-lg font-bold text-[#06142E]">All Departments</h2>
+            <h2 className="font-display text-lg font-bold text-[#071A3B]">All Departments</h2>
           </div>
           <button
             type="button"
@@ -67,8 +67,8 @@ export const SidebarMenu: React.FC<SidebarMenuProps> = ({
             onClick={() => handlePick('all')}
             className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-lg text-sm font-medium transition-colors ${
               activeCategory === 'all'
-                ? 'bg-[#0057E7] text-white'
-                : 'text-slate-700 hover:bg-slate-100'
+                ? 'bg-[#0866F5] text-white'
+                : 'text-slate-700 hover:bg-[#F1F5F9]'
             }`}
           >
             <span>All Robotics &amp; Electronics</span>
@@ -84,8 +84,8 @@ export const SidebarMenu: React.FC<SidebarMenuProps> = ({
                 onClick={() => handlePick(cat.id)}
                 className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                   isActive
-                    ? 'bg-[#0057E7] text-white'
-                    : 'text-slate-700 hover:bg-slate-100'
+                    ? 'bg-[#0866F5] text-white'
+                    : 'text-slate-700 hover:bg-[#F1F5F9]'
                 }`}
               >
                 <span className="truncate">{cat.name}</span>
@@ -101,7 +101,7 @@ export const SidebarMenu: React.FC<SidebarMenuProps> = ({
           })}
         </nav>
 
-        <div className="p-4 border-t border-slate-200 bg-[#F6F8FB] space-y-2.5">
+        <div className="p-4 border-t border-slate-200 bg-[#F1F5F9] space-y-2.5">
           <PWAInstallButton variant="sidebar" />
 
           <button
@@ -110,9 +110,9 @@ export const SidebarMenu: React.FC<SidebarMenuProps> = ({
               onClose();
               onOpenTracking();
             }}
-            className="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg bg-white border border-slate-200 hover:border-[#0057E7] text-xs font-semibold text-[#06142E] transition-colors"
+            className="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg bg-white border border-slate-200 hover:border-[#0866F5]/60 text-xs font-semibold text-[#071A3B] transition-colors"
           >
-            <PackageSearch className="w-4 h-4 text-[#0057E7] shrink-0" />
+            <PackageSearch className="w-4 h-4 text-[#0D9488] shrink-0" />
             <span>Track Your Order</span>
           </button>
 
@@ -122,9 +122,9 @@ export const SidebarMenu: React.FC<SidebarMenuProps> = ({
               onClose();
               onOpenAuth();
             }}
-            className="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg bg-white border border-slate-200 hover:border-[#0057E7] text-xs font-semibold text-[#06142E] transition-colors"
+            className="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg bg-white border border-slate-200 hover:border-[#0866F5]/60 text-xs font-semibold text-[#071A3B] transition-colors"
           >
-            <UserIcon className="w-4 h-4 text-[#0057E7] shrink-0" />
+            <UserIcon className="w-4 h-4 text-[#0866F5] shrink-0" />
             <span className="truncate">
               {isSignedIn ? userEmail || 'My Account' : 'Sign In / Create Account'}
             </span>
@@ -134,7 +134,7 @@ export const SidebarMenu: React.FC<SidebarMenuProps> = ({
             href={WHATSAPP_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg bg-[#16A34A] hover:bg-[#15803D] text-white text-xs font-semibold transition-colors"
+            className="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg bg-[#16A34A] hover:bg-[#16A34A]/90 border border-emerald-400/40 text-white text-xs font-semibold transition-colors"
           >
             <MessageCircle className="w-4 h-4 shrink-0" />
             <span>WhatsApp: +880 1624-987366</span>
@@ -148,7 +148,7 @@ export const SidebarMenu: React.FC<SidebarMenuProps> = ({
                 onClose();
                 onOpenAdmin();
               }}
-              className="inline-flex items-center gap-1 font-semibold text-slate-700 hover:text-[#0057E7] whitespace-nowrap shrink-0"
+              className="inline-flex items-center gap-1 font-semibold text-slate-700 hover:text-[#0866F5] whitespace-nowrap shrink-0"
             >
               <ShieldCheck className="w-3.5 h-3.5" />
               <span>Admin Panel</span>

@@ -10,6 +10,7 @@ import { CategoryCarousel } from './components/CategoryCarousel';
 import { DiscountBanner } from './components/DiscountBanner';
 import { FeaturedCarousel } from './components/FeaturedCarousel';
 import { FooterSection } from './components/FooterSection';
+import { FuturisticBootLoader } from './components/FuturisticBootLoader';
 import { Header } from './components/Header';
 import { HeroSection } from './components/HeroSection';
 import { MobileBottomNav } from './components/MobileBottomNav';
@@ -18,6 +19,7 @@ import { OrderTrackingSection } from './components/OrderTrackingSection';
 import { ProductModal } from './components/ProductModal';
 import { PromoBanners } from './components/PromoBanners';
 import { ScrollingBannerSection } from './components/ScrollingBannerSection';
+import { SectionDivider } from './components/SectionDivider';
 import { SidebarMenu } from './components/SidebarMenu';
 import { WhatsAppButton } from './components/WhatsAppButton';
 import { WishlistDrawer } from './components/WishlistDrawer';
@@ -631,9 +633,12 @@ export default function App() {
   const totalCartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
-    <div className="min-h-screen flex flex-col bg-white text-slate-900 pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:pb-0">
+    <div className="min-h-screen flex flex-col bg-[#F5F8FC] text-[#101828] pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:pb-0">
+      <FuturisticBootLoader />
+
       <Header
         activePage={activePage}
+        categories={categories}
         cartCount={totalCartCount}
         wishlistCount={wishlistedProducts.length}
         isSignedIn={Boolean(authUser)}
@@ -648,6 +653,7 @@ export default function App() {
         onMaxPriceChange={setMaxPrice}
         onAvailabilityChange={setAvailabilityFilter}
         onClearFilters={handleClearFilters}
+        onSelectCategory={handleSelectCategory}
         onSelectProduct={(product) => setSelectedProduct(product)}
         onOpenSidebar={() => setSidebarOpen(true)}
         onOpenCart={() => {
@@ -672,11 +678,21 @@ export default function App() {
           <>
             <HeroSection
               siteSettings={siteSettings}
+              products={products}
               onShopNow={() => scrollToSection('best-selling')}
               onExploreKits={() => {
                 const hasKits = categories.some((c) => c.id === 'robotics-kits');
                 handleSelectCategory(hasKits ? 'robotics-kits' : 'all');
               }}
+              onSelectProduct={(product) => setSelectedProduct(product)}
+            />
+
+            <SectionDivider
+              indexCode="01"
+              label="Featured Campaigns"
+              fromBg="#F1F5F9"
+              toBg="#FFFFFF"
+              accent="cyan"
             />
 
             <ScrollingBannerSection
@@ -684,10 +700,26 @@ export default function App() {
               onSelectCategory={handleSelectCategory}
             />
 
+            <SectionDivider
+              indexCode="02"
+              label="Hardware Departments"
+              fromBg="#FFFFFF"
+              toBg="#F1F5F9"
+              accent="blue"
+            />
+
             <CategoryCarousel
               categories={categories}
               activeCategory={activeCategory}
               onSelectCategory={handleSelectCategory}
+            />
+
+            <SectionDivider
+              indexCode="03"
+              label="Product Catalog"
+              fromBg="#F1F5F9"
+              toBg="#FFFFFF"
+              accent="emerald"
             />
 
             <BestSellingSection
@@ -712,8 +744,17 @@ export default function App() {
               onOpenDetail={setSelectedProduct}
             />
 
+            <SectionDivider
+              indexCode="04"
+              label="Curated Spotlights"
+              fromBg="#FFFFFF"
+              toBg="#F1F5F9"
+              accent="amber"
+            />
+
             <FeaturedCarousel
               products={justArrivedProducts}
+              allProducts={products}
               categoryLabels={categoryLabels}
               wishlistIds={wishlistIds}
               onToggleWishlist={handleToggleWishlist}
@@ -721,9 +762,27 @@ export default function App() {
               onOpenDetail={setSelectedProduct}
             />
 
+            <SectionDivider
+              indexCode="05"
+              label="Engineering Ecosystem"
+              fromBg="#F1F5F9"
+              toBg="#071A3B"
+              accent="cyan"
+              dark
+            />
+
             <PromoBanners
               siteSettings={siteSettings}
               onSelectCategory={handleSelectCategory}
+            />
+
+            <SectionDivider
+              indexCode="06"
+              label="First-Order Benefit"
+              fromBg="#071A3B"
+              toBg="#FFFFFF"
+              accent="emerald"
+              dark
             />
 
             <DiscountBanner
@@ -732,6 +791,14 @@ export default function App() {
               hasPlacedOrderBefore={hasPlacedOrderBefore}
               onOpenAuth={() => setAuthModalOpen(true)}
               onApplyCoupon={(code) => setAppliedCoupon(code)}
+            />
+
+            <SectionDivider
+              indexCode="07"
+              label="Knowledge Center"
+              fromBg="#FFFFFF"
+              toBg="#F1F5F9"
+              accent="indigo"
             />
 
             <BlogSection blogImages={siteSettings.blogImages} />
@@ -764,6 +831,7 @@ export default function App() {
 
       <ProductModal
         product={selectedProduct}
+        allProducts={products}
         categoryDisplayName={
           selectedProduct
             ? categoryLabels[selectedProduct.category] || selectedProduct.categoryLabel
@@ -780,12 +848,14 @@ export default function App() {
         onToggleWishlist={handleToggleWishlist}
         onAddToCart={handleAddToCart}
         onBuyNow={handleBuyNow}
+        onSelectProduct={setSelectedProduct}
         onSubscribePriceDrop={handleSubscribePriceDrop}
       />
 
       <CartDrawer
         isOpen={cartOpen}
         items={cartItems}
+        recommendedProducts={products}
         appliedCoupon={appliedCoupon}
         startInCheckout={startInCheckout}
         user={authUser}
@@ -797,6 +867,7 @@ export default function App() {
         }}
         onUpdateQty={handleUpdateCartQty}
         onRemoveItem={handleRemoveCartItem}
+        onQuickAdd={(prod) => handleAddToCart(prod, 1, undefined, true)}
         onApplyCoupon={setAppliedCoupon}
         onClearCart={() => setCartItems([])}
         onOrderCreated={(orderId) => {
@@ -903,7 +974,7 @@ export default function App() {
         <div
           role="status"
           aria-live="polite"
-          className="animate-pop-in fixed bottom-[calc(8.25rem+env(safe-area-inset-bottom))] md:bottom-6 left-3 right-3 sm:right-auto sm:left-6 z-40 sm:max-w-sm bg-[#070D19] text-white rounded-xl shadow-2xl border border-white/10 p-3.5 flex items-center justify-between gap-3"
+          className="animate-pop-in fixed bottom-[calc(8.25rem+env(safe-area-inset-bottom))] md:bottom-6 left-3 right-3 sm:right-auto sm:left-6 z-40 sm:max-w-sm bg-[#071A3B] text-white rounded-xl shadow-2xl border border-white/15 p-3.5 flex items-center justify-between gap-3"
         >
           <div className="flex items-center gap-2.5 min-w-0">
             <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
@@ -922,8 +993,9 @@ export default function App() {
                 setStartInCheckout(false);
                 setCartOpen(true);
               }}
-              className="px-2.5 py-1.5 rounded-lg bg-[#0057E7] hover:bg-[#0044BB] text-white text-xs font-semibold inline-flex items-center gap-1 whitespace-nowrap"
+              className="px-2.5 py-1.5 rounded-lg bg-[#0866F5] hover:bg-[#0866F5]/90 border border-[#1685FF]/40 text-white text-xs font-semibold inline-flex items-center gap-1.5 whitespace-nowrap transition-colors"
             >
+              <span className="w-1.5 h-1.5 rounded-full bg-[#FB923C]" aria-hidden="true" />
               <ShoppingBag className="w-3.5 h-3.5" />
               <span>View Cart</span>
             </button>

@@ -11,7 +11,7 @@ export const WhatsAppButton: React.FC = () => {
       target="_blank"
       rel="noopener noreferrer"
       aria-label="Chat with Robotera BD on WhatsApp (+880 1624-987366)"
-      className="btn-glossy-emerald fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] md:bottom-4 right-3 sm:right-4 z-30 inline-flex items-center gap-1.5 sm:gap-2 h-10 sm:h-11 px-3.5 sm:px-4 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
+      className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] md:bottom-5 right-3 sm:right-5 z-40 inline-flex items-center gap-1.5 sm:gap-2 h-10 sm:h-11 px-3.5 sm:px-4 rounded-xl bg-[#16A34A] hover:bg-[#16A34A]/90 active:bg-[#15803D] border border-emerald-400/40 hover:border-emerald-200/70 text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
     >
       <MessageCircle className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
       <span className="hidden sm:inline text-sm font-semibold whitespace-nowrap">
