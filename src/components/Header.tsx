@@ -157,14 +157,14 @@ export const Header: React.FC<HeaderProps> = ({
           : 'bg-white/92 backdrop-blur-xl border-slate-200/75'
       }`}
     >
-      <div className="max-w-[1760px] mx-auto px-3 sm:px-6 lg:px-8 xl:px-10 h-16 flex items-center justify-between gap-1.5 sm:gap-4 xl:gap-6">
+      <div className="max-w-[1440px] mx-auto px-3 sm:px-6 lg:px-10 h-16 flex items-center justify-between gap-2 sm:gap-4 xl:gap-8">
         {/* Zone 1: Menu Trigger + Geometric Robotera BD Brand Lockup */}
         <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
           <button
             type="button"
             onClick={onOpenSidebar}
             aria-label="Open department categories menu"
-            className="p-2 -ml-1 sm:-ml-2 rounded-xl text-[#101828] hover:text-[#0866F5] hover:bg-[#F5F8FC] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0866F5]"
+            className="p-2 -ml-1 sm:-ml-2 rounded-xl text-[#101828] hover:text-[#0866F5] hover:bg-[#F1F5F9] border border-transparent hover:border-slate-200/80 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0866F5]"
           >
             <Menu className="w-5 h-5" />
           </button>
@@ -175,18 +175,18 @@ export const Header: React.FC<HeaderProps> = ({
               e.preventDefault();
               onGoHome();
             }}
-            className="font-display text-[15px] sm:text-[19px] font-extrabold tracking-tight text-[#071A3B] whitespace-nowrap shrink-0 flex items-center gap-1.5 sm:gap-2 group"
+            className="font-display text-[15px] sm:text-[18px] font-bold tracking-tight text-[#071A3B] whitespace-nowrap shrink-0 flex items-center gap-2 group"
           >
             <span className="w-7 h-7 rounded-lg bg-[#071A3B] flex items-center justify-center group-hover:bg-[#0866F5] transition-colors">
               <svg viewBox="0 0 24 24" className="w-4 h-4 text-white" fill="none" aria-hidden="true">
                 <rect x="6" y="6" width="12" height="12" rx="2.5" stroke="currentColor" strokeWidth="2" />
-                <circle cx="12" cy="12" r="2.2" fill="#06B6D4" />
+                <circle cx="12" cy="12" r="2.2" fill="#2DD4BF" />
                 <path d="M9 2.5V6M15 2.5V6M9 18V21.5M15 18V21.5M2.5 9H6M2.5 15H6M18 9H21.5M18 15H21.5" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
               </svg>
             </span>
-            <span className="flex items-center gap-1 sm:gap-1.5">
+            <span className="flex items-center gap-1.5">
               <span>ROBOTERA</span>
-              <span className="bg-[#0866F5] text-white text-[10px] sm:text-[11px] font-mono font-bold px-1.5 py-0.5 rounded-md">
+              <span className="bg-[#0866F5] text-white text-[10px] font-mono font-bold px-1.5 py-0.5 rounded">
                 BD
               </span>
             </span>
@@ -194,14 +194,14 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
         {/* Zone 2: Clean Single-Line Navigation Links + Interactive Categories Dropdown */}
-        <nav className="hidden lg:flex items-center gap-3.5 xl:gap-6 text-[13px] xl:text-[13.5px] font-semibold text-[#64748B]">
+        <nav className="hidden lg:flex items-center gap-4 xl:gap-6 text-[13px] font-semibold text-[#1E293B]">
           <div ref={dropdownRef} className="relative">
             <button
               type="button"
               onClick={() => setCategoriesOpen((prev) => !prev)}
               aria-expanded={categoriesOpen}
               className={`inline-flex items-center gap-1 py-1.5 whitespace-nowrap shrink-0 transition-colors ${
-                categoriesOpen ? 'text-[#0866F5]' : 'hover:text-[#071A3B]'
+                categoriesOpen ? 'text-[#0866F5]' : 'hover:text-[#0866F5]'
               }`}
             >
               <span>Categories</span>
@@ -213,9 +213,9 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
 
             {categoriesOpen && (
-              <div className="animate-slide-down absolute left-0 top-full mt-2 w-[540px] bg-white rounded-2xl border border-slate-200/90 shadow-[0_24px_48px_-16px_rgba(7,26,59,0.22)] p-4 z-50">
+              <div className="animate-slide-down absolute left-0 top-full mt-2.5 w-[540px] bg-white rounded-2xl border border-slate-200 shadow-[0_20px_44px_-16px_rgba(7,26,59,0.2)] p-4 z-50">
                 <div className="flex items-center justify-between pb-2.5 mb-3 border-b border-slate-100">
-                  <span className="text-xs font-mono font-semibold uppercase tracking-wider text-[#64748B]">
+                  <span className="text-[11px] font-mono font-semibold uppercase tracking-wider text-[#64748B]">
                     Hardware Departments
                   </span>
                   <button
@@ -274,7 +274,7 @@ export const Header: React.FC<HeaderProps> = ({
             { label: 'Shop Hardware', action: () => onNavigateSection('best-selling'), active: false },
             { label: 'New Arrivals', action: () => onNavigateSection('just-arrived'), active: false },
             { label: 'Robotics Kits', action: () => onNavigateSection('bundles'), active: false },
-            { label: 'Engineering Guides', action: () => onNavigateSection('lab-guides'), active: false },
+            { label: 'Guides', action: () => onNavigateSection('lab-guides'), active: false },
             { label: 'Track Order', action: onOpenTracking, active: activePage === 'track' },
           ].map((navItem) => (
             <button
@@ -283,7 +283,7 @@ export const Header: React.FC<HeaderProps> = ({
               onClick={navItem.action}
               className={`relative py-1.5 whitespace-nowrap shrink-0 transition-colors after:content-[''] after:absolute after:left-0 after:bottom-0 after:h-[2px] after:w-full after:rounded-full after:bg-[#0866F5] after:origin-left after:transition-transform after:duration-200 ${
                 navItem.active
-                  ? 'text-[#0866F5] after:scale-x-100'
+                  ? 'text-[#0866F5] font-semibold after:scale-x-100'
                   : 'hover:text-[#071A3B] after:scale-x-0 hover:after:scale-x-100'
               }`}
             >
@@ -303,12 +303,12 @@ export const Header: React.FC<HeaderProps> = ({
             aria-expanded={searchOpen}
             className={`h-9 sm:h-10 px-2.5 sm:px-3.5 rounded-xl inline-flex items-center gap-2 border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0866F5] ${
               searchOpen || hasActiveSearchFilters
-                ? 'text-[#0866F5] bg-[#EFF6FF] border-blue-200'
-                : 'bg-[#F1F5F9] hover:bg-slate-200/70 border-slate-200 text-[#101828]'
+                ? 'text-[#0866F5] bg-[#DBEAFE] border-[#0866F5]/45'
+                : 'bg-[#E6ECF4] hover:bg-[#DCE4F0] border-slate-300 text-[#0F172A]'
             }`}
           >
             {searchOpen ? <X className="w-4 h-4 sm:w-[18px] sm:h-[18px]" /> : <Search className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />}
-            <span className="hidden xl:inline text-xs font-medium text-[#64748B]">
+            <span className="hidden xl:inline text-xs font-medium text-[#334155]">
               Search ESP32, LiDAR...
             </span>
           </button>
@@ -365,10 +365,10 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Expandable Live Technical Catalog Search Panel */}
       {searchOpen && (
-        <div className="animate-slide-down border-t border-slate-200 bg-[#F1F5F9] shadow-xl max-h-[calc(100dvh-4rem)] overflow-y-auto overscroll-contain">
-          <div className="max-w-[1760px] mx-auto px-4 sm:px-6 lg:px-10 py-3.5 space-y-3">
+        <div className="animate-slide-down border-t border-slate-300 bg-[#E6ECF4] shadow-xl max-h-[calc(100dvh-4rem)] overflow-y-auto overscroll-contain">
+          <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10 py-3.5 space-y-3">
             <form onSubmit={handleSearchSubmit} className="flex flex-col md:flex-row gap-2.5">
-              <div className="relative flex-1 flex items-center bg-white border border-slate-200 rounded-lg px-3 h-10 focus-within:ring-2 focus-within:ring-[#0866F5]">
+              <div className="relative flex-1 flex items-center bg-white border border-slate-300 rounded-lg px-3 h-10 focus-within:ring-2 focus-within:ring-[#0866F5]">
                 <Search className="w-4 h-4 text-[#64748B] shrink-0 mr-2.5" />
                 <input
                   type="text"
@@ -481,7 +481,7 @@ export const Header: React.FC<HeaderProps> = ({
             {/* Real-Time Instant Search Suggestions */}
             {hasActiveSearchFilters && (
               <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                <div className="px-4 py-2 bg-[#F5F8FC] border-b border-slate-100 flex items-center justify-between text-xs text-[#64748B]">
+                <div className="px-4 py-2 bg-[#F8FAFC] border-b border-slate-100 flex items-center justify-between text-xs text-[#64748B]">
                   <span>
                     Real-time matches:{' '}
                     <strong className="font-mono text-[#071A3B] tabular-nums">
@@ -520,9 +520,9 @@ export const Header: React.FC<HeaderProps> = ({
                             setSearchOpen(false);
                             onSelectProduct(product);
                           }}
-                          className="w-full px-4 py-2.5 flex items-center gap-3 hover:bg-[#F5F8FC] transition-colors text-left"
+                          className="w-full px-4 py-2.5 flex items-center gap-3 hover:bg-[#F8FAFC] transition-colors text-left"
                         >
-                          <div className="w-11 h-11 rounded-lg bg-[#F5F8FC] border border-slate-200/70 p-1 flex items-center justify-center shrink-0">
+                          <div className="w-11 h-11 rounded-lg bg-[#F1F5F9] border border-slate-200/70 p-1 flex items-center justify-center shrink-0">
                             <HardwareArtwork
                               kind={product.artwork}
                               imageUrl={product.imageUrl}

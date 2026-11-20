@@ -10,9 +10,9 @@ import {
   ShieldCheck,
   Truck,
 } from 'lucide-react';
+import { BRAND_STUDIO_MEDIA } from '../data/brandMedia';
 import { DEFAULT_SITE_SETTINGS } from '../data/catalog';
 import { Product, SiteImagesConfig } from '../types/store';
-import { HardwareArtwork } from './HardwareArtwork';
 
 interface HeroSectionProps {
   siteSettings?: SiteImagesConfig;
@@ -37,7 +37,7 @@ interface AnimatedCounterProps {
 const AnimatedCounter: React.FC<AnimatedCounterProps> = ({
   target,
   suffix = '',
-  durationMs = 1150,
+  durationMs = 1100,
   startReady,
 }) => {
   const ref = useRef<HTMLSpanElement>(null);
@@ -68,7 +68,6 @@ const AnimatedCounter: React.FC<AnimatedCounterProps> = ({
       const step = (now: number) => {
         const elapsed = now - startTime;
         const progress = Math.min(1, elapsed / durationMs);
-        // Smooth easeOutQuart curve
         const eased = 1 - Math.pow(1 - progress, 4);
         const current = Math.round(eased * target);
         setDisplayValue(current);
@@ -117,8 +116,17 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
   onExploreKits,
   onSelectProduct,
 }) => {
-  const configuredHeroImg = siteSettings.heroImageUrl?.trim() || DEFAULT_SITE_SETTINGS.heroImageUrl;
-  const [heroSrc, setHeroSrc] = useState(configuredHeroImg);
+  const rawHeroUrl = siteSettings.heroImageUrl?.trim() || '';
+  const hasCustomAdminHero =
+    Boolean(rawHeroUrl) && rawHeroUrl !== DEFAULT_SITE_SETTINGS.heroImageUrl;
+
+  const resolvedHeroSrc = hasCustomAdminHero ? rawHeroUrl : BRAND_STUDIO_MEDIA.heroShowcase;
+  const [heroSrc, setHeroSrc] = useState(resolvedHeroSrc);
+
+  useEffect(() => {
+    setHeroSrc(resolvedHeroSrc);
+  }, [resolvedHeroSrc]);
+
   const [countersReady, setCountersReady] = useState<boolean>(() => {
     if (typeof window === 'undefined') return true;
     const prefersReduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
@@ -141,10 +149,6 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
     };
   }, [countersReady]);
 
-  useEffect(() => {
-    setHeroSrc(configuredHeroImg);
-  }, [configuredHeroImg]);
-
   const rawKicker = siteSettings.heroKicker?.trim();
   const displayKicker =
     !rawKicker || rawKicker === LEGACY_KICKER ? DEFAULT_SITE_SETTINGS.heroKicker : rawKicker;
@@ -159,14 +163,9 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
       ? DEFAULT_SITE_SETTINGS.heroSubtitle
       : rawSubtitle;
 
-  const isCustomHeroImg =
-    Boolean(siteSettings.heroImageUrl?.trim()) &&
-    siteSettings.heroImageUrl?.trim() !== DEFAULT_SITE_SETTINGS.heroImageUrl &&
-    heroSrc !== DEFAULT_SITE_SETTINGS.heroImageUrl;
-
   const showcaseProducts = useMemo(() => {
     if (products.length === 0) return [];
-    const preferredIds = ['esp32-s3', 'rplidar-a1m8', 'rpi-5-8gb', 'dof6-arm-kit'];
+    const preferredIds = ['esp32-s3-devkit', 'rplidar-a1m8', 'raspberry-pi-5-8gb', '6dof-robot-arm-kit'];
     const picks: Product[] = [];
     for (const id of preferredIds) {
       const match = products.find((p) => p.id === id);
@@ -186,78 +185,71 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
       target: 1000,
       suffix: '+',
       label: 'Components',
-      sub: 'Verified Stock',
-      accentClass: 'text-[#0866F5]',
-      dotClass: 'bg-[#0866F5]',
+      accentClass: 'text-[#60A5FA]',
     },
     {
       target: 500,
       suffix: '+',
       label: 'Shipments',
-      sub: 'Nationwide Delivery',
-      accentClass: 'text-[#0D9488]',
-      dotClass: 'bg-[#0D9488]',
+      accentClass: 'text-[#2DD4BF]',
     },
     {
       target: 64,
       suffix: '',
       label: 'Districts',
-      sub: 'Courier Reach',
-      accentClass: 'text-[#071A3B]',
-      dotClass: 'bg-[#0866F5]',
+      accentClass: 'text-white',
     },
     {
       target: 99,
       suffix: '%',
       label: 'QC Pass',
-      sub: 'Engineering Support',
-      accentClass: 'text-[#EA580C]',
-      dotClass: 'bg-[#EA580C]',
+      accentClass: 'text-[#FB923C]',
     },
   ];
+
+  const isStudioPhoto = heroSrc === BRAND_STUDIO_MEDIA.heroShowcase;
 
   return (
     <>
       <section
         id="top"
-        className="relative overflow-hidden bg-[#F1F5F9]"
+        className="relative z-20 overflow-hidden bg-[#071A3B] bg-gradient-to-br from-[#06142E] via-[#071A3B] to-[#0C2B5E] text-white"
       >
-        {/* Subtle technical grid & restrained multi-tone atmospheric lighting */}
-        <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-lab-grid" />
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-lab-grid-dark opacity-75" />
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute -top-28 -right-24 w-[520px] h-[520px] rounded-full bg-[radial-gradient(circle,rgba(8,102,245,0.1)_0%,rgba(13,148,136,0.05)_45%,rgba(8,102,245,0)_72%)] animate-float-drift"
+          className="animate-ambient-pulse pointer-events-none absolute -top-28 -right-20 w-[560px] h-[560px] rounded-full bg-[radial-gradient(circle,rgba(8,102,245,0.28)_0%,rgba(13,148,136,0.12)_48%,transparent_72%)]"
         />
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute -bottom-32 -left-24 w-[420px] h-[420px] rounded-full bg-[radial-gradient(circle,rgba(234,88,12,0.05)_0%,rgba(7,26,59,0)_70%)] animate-ambient-pulse"
+          className="animate-spin-slow pointer-events-none hidden lg:block absolute -top-44 -right-32 w-[620px] h-[620px] rounded-full border border-dashed border-white/[0.06]"
         />
 
-        <div className="relative z-10 w-full max-w-[1760px] mx-auto px-4 sm:px-6 lg:px-10 py-7 sm:py-11 lg:py-14">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-7 lg:gap-11 items-center">
-            {/* Left Engineering Narrative */}
+        <div className="relative z-10 w-full max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10 py-8 sm:py-12 lg:py-16">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-stretch">
+            {/* Left Rich Deep-Navy Flagship Copy & Metric Rail */}
             <div className="lg:col-span-6 flex flex-col justify-center">
-              <div className="animate-hero-rise flex items-center gap-2.5 mb-3">
-                <span className="h-[2px] w-8 rounded-full bg-gradient-to-r from-[#0866F5] to-[#0D9488]" aria-hidden="true" />
-                <p className="text-[11px] sm:text-xs font-mono font-semibold tracking-widest uppercase text-[#0D9488]">
+              <div className="animate-hero-rise flex items-center gap-2.5 mb-3.5">
+                <span className="h-[2px] w-7 bg-[#2DD4BF]" aria-hidden="true" />
+                <p className="text-[11px] font-mono font-semibold tracking-[0.14em] uppercase text-[#2DD4BF]">
                   {displayKicker}
                 </p>
               </div>
 
-              <h1 className="animate-hero-rise-delay-1 font-display text-[28px] sm:text-5xl lg:text-[54px] font-extrabold text-[#071A3B] leading-[1.08] tracking-[-0.03em] [text-wrap:balance]">
+              <h1 className="animate-hero-rise-delay-1 font-display text-[32px] sm:text-5xl lg:text-[56px] font-bold text-white leading-[1.06] tracking-[-0.025em] [text-wrap:balance] max-w-xl">
                 {displayTitle}
               </h1>
 
-              <p className="animate-hero-rise-delay-2 mt-3 sm:mt-5 text-sm sm:text-[16.5px] text-[#64748B] max-w-2xl leading-relaxed">
+              <p className="animate-hero-rise-delay-2 mt-4 sm:mt-5 text-[15px] sm:text-[17px] text-slate-300 max-w-xl leading-relaxed">
                 {displaySubtitle}
               </p>
 
-              {/* Primary CTAs — Full-width stack on narrow mobile, inline on sm+ */}
-              <div className="animate-hero-rise-delay-2 mt-5 sm:mt-6 flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-3">
+              {/* High-Contrast Flat-Premium CTA Pair */}
+              <div className="animate-hero-rise-delay-2 mt-6 sm:mt-7 flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-3">
                 <button
                   type="button"
                   onClick={onShopNow}
-                  className="group inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-xl bg-[#0866F5] hover:bg-[#0866F5]/90 active:bg-[#0654CC] border border-[#0866F5] hover:border-[#1685FF] text-white text-sm font-semibold transition-colors whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0866F5] focus-visible:ring-offset-2"
+                  className="group inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-xl bg-[#0866F5] hover:bg-[#1685FF] border border-[#1685FF]/60 hover:border-white/60 text-white text-sm font-semibold transition-colors whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#38BDF8] focus-visible:ring-offset-2 focus-visible:ring-offset-[#071A3B]"
                 >
                   <span className="w-2 h-2 rounded-full bg-[#FB923C]" aria-hidden="true" />
                   <span>Explore Hardware</span>
@@ -266,173 +258,187 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                 <button
                   type="button"
                   onClick={onExploreKits}
-                  className="group inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-white hover:bg-[#0866F5]/[0.05] text-[#071A3B] border border-slate-200 hover:border-[#0D9488]/60 transition-colors text-sm font-semibold whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0866F5] focus-visible:ring-offset-2"
+                  className="group inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-white/[0.08] hover:bg-white/[0.15] text-white border border-white/25 hover:border-[#2DD4BF] transition-colors text-sm font-semibold whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2DD4BF] focus-visible:ring-offset-2 focus-visible:ring-offset-[#071A3B]"
                 >
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#0D9488]" aria-hidden="true" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#2DD4BF]" aria-hidden="true" />
                   <span>Discover Robotics Kits</span>
-                  <ArrowRight className="w-3.5 h-3.5 text-[#0D9488] transition-transform duration-200 group-hover:translate-x-1" />
+                  <ArrowRight className="w-3.5 h-3.5 text-[#2DD4BF] transition-transform duration-200 group-hover:translate-x-1" />
                 </button>
               </div>
 
-              {/* Animated Scroll-Triggered Trust Counters */}
-              <div className="animate-hero-rise-delay-3 mt-7 pt-5 border-t border-slate-200/90 space-y-3.5">
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-                  {trustCounters.map((stat) => (
+              {/* Unboxed High-Contrast Metric Rail */}
+              <div className="animate-hero-rise-delay-3 mt-8 pt-6 border-t border-white/15 space-y-4">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-y-4 sm:gap-y-0 sm:divide-x divide-white/15">
+                  {trustCounters.map((stat, idx) => (
                     <div
                       key={stat.label}
-                      className="bg-white rounded-xl border border-slate-200/90 px-3 py-2.5"
+                      className={`${idx === 0 ? 'sm:pr-4' : 'sm:px-4'} min-w-0`}
                     >
-                      <div className="flex items-center gap-1.5">
-                        <span className={`w-1.5 h-1.5 rounded-full ${stat.dotClass}`} aria-hidden="true" />
-                        <p className={`font-mono text-base sm:text-lg font-extrabold tracking-tight ${stat.accentClass}`}>
-                          <AnimatedCounter
-                            target={stat.target}
-                            suffix={stat.suffix}
-                            startReady={countersReady}
-                          />
-                        </p>
-                      </div>
-                      <p className="font-display text-xs font-bold text-[#071A3B] mt-0.5 truncate">
+                      <p className={`font-mono text-xl sm:text-[23px] font-bold tracking-tight ${stat.accentClass}`}>
+                        <AnimatedCounter
+                          target={stat.target}
+                          suffix={stat.suffix}
+                          startReady={countersReady}
+                        />
+                      </p>
+                      <p className="text-xs font-medium text-slate-300 mt-0.5 truncate">
                         {stat.label}
                       </p>
-                      <p className="text-[10px] text-[#64748B] truncate">{stat.sub}</p>
                     </div>
                   ))}
                 </div>
 
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] sm:text-xs font-medium text-[#64748B]">
-                  <span className="inline-flex items-center gap-1.5 text-[#101828]">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-[#0D9488]" />
+                <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs font-medium text-slate-200">
+                  <span className="inline-flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-[#2DD4BF]" />
                     Verified Components
                   </span>
-                  <span className="inline-flex items-center gap-1.5 text-[#101828]">
-                    <PackageCheck className="w-3.5 h-3.5 text-[#0866F5]" />
+                  <span className="inline-flex items-center gap-1.5">
+                    <PackageCheck className="w-3.5 h-3.5 text-[#60A5FA]" />
                     Nationwide Delivery
                   </span>
-                  <span className="inline-flex items-center gap-1.5 text-[#101828]">
-                    <Radar className="w-3.5 h-3.5 text-[#EA580C]" />
+                  <span className="inline-flex items-center gap-1.5">
+                    <Radar className="w-3.5 h-3.5 text-[#FB923C]" />
                     Engineering Support
                   </span>
                 </div>
               </div>
             </div>
 
-            {/* Right Robotics Hardware Showroom */}
-            <div className="lg:col-span-6 animate-hero-rise-delay-2 space-y-3.5">
-              <div className="group relative p-2 sm:p-3 rounded-[20px] sm:rounded-[24px] bg-white border border-slate-200/90">
-                <div className="w-full rounded-[14px] sm:rounded-[16px] overflow-hidden bg-[#F8FAFC] flex items-center justify-center relative">
+            {/* Right Flagship Hardware Showroom Frame */}
+            <div className="lg:col-span-6 animate-hero-rise-delay-2 flex">
+              <div className="group relative w-full rounded-2xl overflow-hidden bg-[#06132B] border border-white/15 hover:border-[#38BDF8]/40 transition-colors flex flex-col justify-between min-h-[260px] sm:min-h-[360px] lg:min-h-[430px]">
+                {/* Animated Telemetry Sweep along Top Edge */}
+                <div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-x-0 top-0 h-px z-20 overflow-hidden"
+                >
+                  <div className="animate-trace-sweep w-40 h-full bg-gradient-to-r from-transparent via-[#38BDF8] to-transparent" />
+                </div>
+
+                <div className="relative flex-1 w-full bg-[#06132B] flex items-center justify-center overflow-hidden">
                   <img
                     src={heroSrc}
-                    alt="Robotera BD — Robotics and Embedded Electronics Showroom"
+                    alt="Robotera BD — Precision Robotics & Embedded Electronics Showroom"
                     referrerPolicy="no-referrer"
                     onError={() => {
-                      if (heroSrc !== DEFAULT_SITE_SETTINGS.heroImageUrl) {
-                        setHeroSrc(DEFAULT_SITE_SETTINGS.heroImageUrl);
+                      if (heroSrc !== BRAND_STUDIO_MEDIA.heroShowcase) {
+                        setHeroSrc(BRAND_STUDIO_MEDIA.heroShowcase);
                       }
                     }}
                     className={
-                      isCustomHeroImg
-                        ? 'w-full h-auto max-h-[260px] sm:max-h-[360px] lg:max-h-[420px] object-contain block'
-                        : 'w-full h-auto max-h-[260px] sm:max-h-[360px] lg:max-h-[400px] object-contain block'
+                      isStudioPhoto
+                        ? 'w-full h-full object-cover object-center block transition-transform duration-700 ease-out group-hover:scale-[1.03]'
+                        : 'w-full h-full max-h-[400px] object-contain bg-[#F8FAFC] block transition-transform duration-500 group-hover:scale-[1.02]'
                     }
                   />
-                </div>
-              </div>
 
-              {/* Interactive Featured Hardware Strip */}
-              {showcaseProducts.length > 0 && (
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                  {showcaseProducts.map((item) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => (onSelectProduct ? onSelectProduct(item) : onShopNow())}
-                      className="group bg-white hover:bg-[#071A3B]/95 border border-slate-200/90 hover:border-[#0866F5]/70 rounded-xl p-2.5 text-left transition-colors duration-200 flex flex-col justify-between gap-2"
-                    >
-                      <div className="flex items-center justify-between gap-1.5">
-                        <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-[#F1F5F9] group-hover:bg-white/10 p-1 flex items-center justify-center shrink-0 transition-colors">
-                          <HardwareArtwork
-                            kind={item.artwork}
-                            imageUrl={item.imageUrl}
-                            alt={item.name}
-                            fit="contain"
-                            className="w-full h-full"
-                          />
-                        </div>
-                        <span className="font-mono text-[11px] font-bold text-[#0866F5] group-hover:text-[#38BDF8] tabular-nums">
-                          ৳{item.price.toLocaleString('en-IN')}
-                        </span>
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-[11px] font-display font-semibold text-[#101828] group-hover:text-white line-clamp-1 transition-colors">
-                          {item.name}
-                        </p>
-                        <p className="text-[10px] font-mono text-[#64748B] group-hover:text-slate-300 truncate">
-                          {item.sku}
-                        </p>
-                      </div>
-                    </button>
-                  ))}
+                  {isStudioPhoto && (
+                    <div
+                      aria-hidden="true"
+                      className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-[#06132B]/90 via-[#06132B]/40 to-transparent"
+                    />
+                  )}
                 </div>
-              )}
+
+                {/* Integrated Bottom Showroom Quick-Jump Bar */}
+                {showcaseProducts.length > 0 && (
+                  <div className="bg-[#081C3E] border-t border-white/15 px-3.5 sm:px-5 py-3">
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-slate-300">
+                        Featured Bench Components
+                      </span>
+                      <button
+                        type="button"
+                        onClick={onShopNow}
+                        className="text-[11px] font-semibold text-[#38BDF8] hover:text-white transition-colors inline-flex items-center gap-1"
+                      >
+                        <span>Full Catalog</span>
+                        <ArrowRight className="w-3 h-3" />
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {showcaseProducts.map((item) => (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => (onSelectProduct ? onSelectProduct(item) : onShopNow())}
+                          className="group text-left px-2.5 py-2 rounded-lg bg-white/[0.08] hover:bg-white/[0.15] border border-white/15 hover:border-[#38BDF8]/65 transition-colors min-w-0"
+                        >
+                          <p className="text-[11px] font-display font-semibold text-white group-hover:text-[#38BDF8] truncate transition-colors">
+                            {item.name}
+                          </p>
+                          <p className="font-mono text-[10px] text-[#2DD4BF] tabular-nums mt-0.5">
+                            ৳{item.price.toLocaleString('en-IN')}
+                          </p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* C. Minimal Trust & Service Highlights Strip Directly Below Hero */}
-      <section aria-label="Service highlights" className="bg-white border-t border-slate-200/80">
-        <div className="w-full max-w-[1760px] mx-auto px-4 sm:px-6 lg:px-10 py-3.5 sm:py-4">
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+      {/* Crisp High-Contrast Trust & Service Strip */}
+      <section
+        aria-label="Service highlights"
+        className="bg-white min-[1500px]:bg-transparent min-[1500px]:pointer-events-none border-b border-slate-300/80 min-[1500px]:border-b-0"
+      >
+        <div className="relative z-20 pointer-events-auto w-full max-w-[1440px] mx-auto bg-white min-[1500px]:border-x min-[1500px]:border-b min-[1500px]:border-slate-300/90 px-4 sm:px-6 lg:px-10 py-3.5 sm:py-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-0 sm:divide-x divide-slate-200">
             {[
               {
                 icon: Cpu,
                 title: 'Authentic Components',
                 desc: 'Original silicon & ESD-safe packing',
-                tone: 'bg-[#EFF6FF] text-[#0866F5]',
+                iconColor: 'text-[#0866F5]',
               },
               {
                 icon: Truck,
                 title: 'Nationwide Delivery',
                 desc: 'Dhaka 2–3d (৳80) · Outside 2–4d (৳150)',
-                tone: 'bg-[#ECFEFF] text-[#0891B2]',
+                iconColor: 'text-[#0F766E]',
               },
               {
                 icon: ShieldCheck,
                 title: 'Secure Payments',
                 desc: 'bKash, Nagad, Cards & COD',
-                tone: 'bg-[#ECFDF5] text-[#059669]',
+                iconColor: 'text-[#0F766E]',
               },
               {
                 icon: Headphones,
                 title: 'Engineering Support',
                 desc: 'Pinout & integration guidance',
-                tone: 'bg-[#EEF2FF] text-[#4F46E5]',
+                iconColor: 'text-[#0866F5]',
               },
               {
                 icon: Award,
                 title: 'Quality Assurance',
                 desc: 'Bench-tested & 7-day replacement',
-                tone: 'bg-[#FFFBEB] text-[#D97706]',
+                iconColor: 'text-[#C2410C]',
                 spanFullMobile: true,
               },
-            ].map((item) => {
+            ].map((item, idx) => {
               const Icon = item.icon;
               return (
                 <div
                   key={item.title}
-                  className={`flex items-center gap-2.5 py-1 ${
-                    item.spanFullMobile ? 'col-span-2 sm:col-span-1' : ''
-                  }`}
+                  className={`group flex items-center gap-2.5 py-1 ${
+                    idx === 0 ? 'sm:pr-4' : 'sm:px-4'
+                  } ${item.spanFullMobile ? 'col-span-2 sm:col-span-1' : ''}`}
                 >
-                  <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-lg ${item.tone} flex items-center justify-center shrink-0`}>
-                    <Icon className="w-4 h-4" />
-                  </div>
+                  <Icon
+                    className={`w-4 h-4 shrink-0 ${item.iconColor} transition-transform duration-200 group-hover:scale-110`}
+                    strokeWidth={2}
+                  />
                   <div className="min-w-0">
                     <p className="font-display text-xs font-bold text-[#071A3B] truncate">
                       {item.title}
                     </p>
-                    <p className="text-[11px] text-[#64748B] truncate">{item.desc}</p>
+                    <p className="text-[11px] font-medium text-[#475569] truncate">{item.desc}</p>
                   </div>
                 </div>
               );

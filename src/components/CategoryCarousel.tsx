@@ -10,15 +10,6 @@ interface CategoryCarouselProps {
   onSelectCategory: (id: CategoryId) => void;
 }
 
-const DEPT_ACCENTS = [
-  { tray: 'bg-[#F1F5F9] border-slate-200/90', hover: 'hover:border-[#0866F5]/60 hover:bg-[#0866F5]/[0.03]', count: 'text-[#0866F5]' },
-  { tray: 'bg-[#F1F5F9] border-slate-200/90', hover: 'hover:border-[#0D9488]/60 hover:bg-[#0D9488]/[0.03]', count: 'text-[#0D9488]' },
-  { tray: 'bg-[#F1F5F9] border-slate-200/90', hover: 'hover:border-[#0866F5]/60 hover:bg-[#0866F5]/[0.03]', count: 'text-[#0866F5]' },
-  { tray: 'bg-[#F1F5F9] border-slate-200/90', hover: 'hover:border-[#EA580C]/55 hover:bg-[#EA580C]/[0.03]', count: 'text-[#EA580C]' },
-  { tray: 'bg-[#F1F5F9] border-slate-200/90', hover: 'hover:border-[#0D9488]/60 hover:bg-[#0D9488]/[0.03]', count: 'text-[#0D9488]' },
-  { tray: 'bg-[#F1F5F9] border-slate-200/90', hover: 'hover:border-[#0866F5]/60 hover:bg-[#0866F5]/[0.03]', count: 'text-[#0866F5]' },
-];
-
 const MOBILE_INITIAL_COUNT = 4;
 const DESKTOP_INITIAL_COUNT = 6;
 
@@ -43,16 +34,15 @@ export const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
   }, [activeCategory, visibleCategories]);
 
   return (
-    <section id="categories" className="scroll-mt-20 py-8 sm:py-11 bg-[#F1F5F9]">
-      <div className="w-full max-w-[1760px] mx-auto px-4 sm:px-6 lg:px-10">
+    <section id="categories" className="scroll-mt-20 bg-[#E6ECF4] min-[1500px]:bg-transparent min-[1500px]:pointer-events-none">
+      <div className="relative z-20 pointer-events-auto w-full max-w-[1440px] mx-auto bg-[#E6ECF4] min-[1500px]:border-x min-[1500px]:border-slate-300/90 px-4 sm:px-6 lg:px-10 py-9 sm:py-12">
         <Reveal>
-          <div className="flex items-end justify-between gap-4 mb-5 sm:mb-6">
+          <div className="flex items-end justify-between gap-4 mb-6">
             <div>
-              <p className="text-xs font-mono font-semibold uppercase tracking-wider text-[#0D9488] mb-1 inline-flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#0D9488]" aria-hidden="true" />
-                <span>Hardware Departments</span>
+              <p className="text-[11px] font-mono font-bold uppercase tracking-[0.14em] text-[#0F766E] mb-1">
+                Hardware Departments
               </p>
-              <h2 className="font-display text-xl sm:text-2xl lg:text-[26px] font-bold text-[#071A3B] tracking-tight">
+              <h2 className="font-display text-xl sm:text-2xl lg:text-[28px] font-bold text-[#071A3B] tracking-tight">
                 Shop by Category
               </h2>
             </div>
@@ -60,17 +50,16 @@ export const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
             <button
               type="button"
               onClick={() => onSelectCategory('all')}
-              className="px-3 py-1.5 rounded-lg border border-transparent hover:border-[#0866F5]/35 bg-transparent hover:bg-[#0866F5]/[0.06] text-xs sm:text-sm font-semibold text-[#0866F5] hover:text-[#071A3B] transition-colors inline-flex items-center gap-1.5 whitespace-nowrap shrink-0"
+              className="px-3.5 py-1.5 rounded-lg border border-slate-300/80 hover:border-[#0866F5]/60 bg-white/80 hover:bg-white text-xs sm:text-sm font-semibold text-[#0866F5] hover:text-[#071A3B] transition-colors inline-flex items-center gap-1.5 whitespace-nowrap shrink-0"
             >
               <span>Shop All Hardware</span>
               <ArrowRight className="w-3.5 h-3.5 text-[#EA580C]" />
             </button>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-3.5">
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3.5">
             {visibleCategories.map((category, idx) => {
               const isSelected = activeCategory === category.id;
-              const accent = DEPT_ACCENTS[idx % DEPT_ACCENTS.length];
               const hasUploadedImage = Boolean(category.imageUrl?.trim());
 
               // Mobile/tablet (<lg): 4 cards initially (2x2); Desktop (lg+): 6 cards in 1 row initially
@@ -88,13 +77,14 @@ export const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
                   key={category.id}
                   type="button"
                   onClick={() => onSelectCategory(isSelected ? 'all' : category.id)}
-                  className={`group w-full rounded-2xl p-2.5 sm:p-3 text-center border transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0866F5] flex-col items-stretch ${visibilityClass} ${
+                  style={{ animationDelay: `${Math.min(idx * 40, 220)}ms` }}
+                  className={`animate-cart-enter group w-full rounded-2xl p-2.5 sm:p-3 text-center border transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0866F5] flex-col items-stretch ${visibilityClass} ${
                     isSelected
                       ? 'bg-[#071A3B] border-[#071A3B] text-white'
-                      : `bg-white border-slate-200/90 ${accent.hover} text-[#101828]`
+                      : 'bg-white border-slate-300/85 hover:border-[#0866F5] hover:bg-white text-[#0F172A]'
                   }`}
                 >
-                  {/* Dedicated Uncropped Image Frame */}
+                  {/* Dedicated Uncropped 4:3 Image Frame */}
                   <div
                     className={`w-full aspect-[4/3] rounded-xl border flex items-center justify-center overflow-hidden transition-colors ${
                       hasUploadedImage ? 'p-1.5 bg-white' : 'p-2.5 sm:p-3'
@@ -102,27 +92,29 @@ export const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
                       isSelected
                         ? 'bg-white/10 border-white/20'
                         : hasUploadedImage
-                        ? 'border-slate-200/90 group-hover:border-[#0866F5]/40'
-                        : accent.tray
+                        ? 'border-slate-300/80 group-hover:border-[#0866F5]/55'
+                        : 'bg-[#EDF2F8] border-slate-300/75 group-hover:border-[#0866F5]/50'
                     }`}
                   >
-                    <HardwareArtwork
-                      kind={category.artwork}
-                      imageUrl={category.imageUrl}
-                      alt={category.name}
-                      fit="contain"
-                      className="w-full h-full"
-                    />
+                    <div className="w-full h-full transition-transform duration-300 ease-out group-hover:scale-[1.06]">
+                      <HardwareArtwork
+                        kind={category.artwork}
+                        imageUrl={category.imageUrl}
+                        alt={category.name}
+                        fit="contain"
+                        className="w-full h-full"
+                      />
+                    </div>
                   </div>
 
-                  {/* Category Name & Count Directly Below Frame */}
+                  {/* Category Name & Item Count Below Frame */}
                   <div className="pt-2.5 px-1 pb-0.5 flex flex-col items-center flex-1 justify-between">
                     <h3 className="font-display text-xs sm:text-[13px] font-bold leading-snug line-clamp-2 min-h-[2.1rem] flex items-center justify-center">
                       {category.name}
                     </h3>
                     <p
-                      className={`text-[10px] sm:text-[11px] mt-1 font-mono font-medium tabular-nums ${
-                        isSelected ? 'text-[#2DD4BF]' : accent.count
+                      className={`text-[11px] mt-1 font-mono font-semibold tabular-nums transition-colors ${
+                        isSelected ? 'text-[#2DD4BF]' : 'text-[#475569] group-hover:text-[#0866F5]'
                       }`}
                     >
                       {category.countLabel}
@@ -135,7 +127,7 @@ export const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
 
           {(mobileRemaining > 0 || desktopRemaining > 0) && (
             <div
-              className={`mt-5 justify-center ${
+              className={`mt-6 justify-center ${
                 desktopRemaining > 0 ? 'flex' : 'flex lg:hidden'
               }`}
             >
@@ -143,7 +135,7 @@ export const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
                 type="button"
                 onClick={() => setShowAll((prev) => !prev)}
                 aria-expanded={showAll}
-                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-white hover:bg-[#0866F5]/[0.06] border border-slate-200 hover:border-[#0866F5]/55 text-xs sm:text-sm font-semibold text-[#071A3B] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0866F5]"
+                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-white hover:bg-[#071A3B] border border-slate-300 hover:border-[#071A3B] text-xs sm:text-sm font-semibold text-[#071A3B] hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0866F5]"
               >
                 <span className="w-1.5 h-1.5 rounded-full bg-[#EA580C]" aria-hidden="true" />
                 {showAll ? (

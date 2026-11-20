@@ -77,19 +77,19 @@ export const DiscountBanner: React.FC<DiscountBannerProps> = ({
   };
 
   return (
-    <section className="py-10 sm:py-12 bg-white">
-      <div className="w-full max-w-[1760px] mx-auto px-4 sm:px-6 lg:px-10">
+    <section id="first-order" className="scroll-mt-20 bg-white min-[1500px]:bg-transparent min-[1500px]:pointer-events-none">
+      <div className="relative z-20 pointer-events-auto w-full max-w-[1440px] mx-auto bg-white min-[1500px]:border-x min-[1500px]:border-slate-300/90 px-4 sm:px-6 lg:px-10 py-10 sm:py-14">
         <Reveal direction="up">
           {/* Compact First-Order Offer Banner */}
-          <div className="relative overflow-hidden rounded-[22px] sm:rounded-[24px] bg-[#071A3B] bg-gradient-to-br from-[#071A3B] via-[#0B2859] to-[#0866F5] text-white border border-[#1B3E78]">
-            <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-lab-grid-dark" />
+          <div className="relative overflow-hidden rounded-2xl bg-[#071A3B] bg-gradient-to-br from-[#071A3B] via-[#0B2859] to-[#0866F5] text-white border border-[#1B3E78]">
+            <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-lab-grid-dark opacity-70" />
             <div
               aria-hidden="true"
-              className="pointer-events-none absolute -top-20 -right-16 w-72 h-72 rounded-full bg-[radial-gradient(circle,rgba(16,185,129,0.22)_0%,rgba(6,182,212,0.08)_45%,transparent_72%)]"
+              className="pointer-events-none absolute -top-20 -right-16 w-72 h-72 rounded-full bg-[radial-gradient(circle,rgba(13,148,136,0.22)_0%,rgba(8,102,245,0.08)_45%,transparent_72%)]"
             />
 
             {bannerImageUrl && bannerImageUrl.trim().length > 0 && (
-              <div className="relative z-10 w-full bg-[#F5F8FC] border-b border-slate-200/80">
+              <div className="relative z-10 w-full bg-[#F8FAFC] border-b border-slate-200/80">
                 <img
                   src={bannerImageUrl.trim()}
                   alt="Promotional Lab Discount Banner"
@@ -99,12 +99,12 @@ export const DiscountBanner: React.FC<DiscountBannerProps> = ({
               </div>
             )}
 
-            <div className="relative z-10 p-5 sm:p-9 lg:p-12 grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-7 lg:gap-10 items-center">
+            <div className="relative z-10 p-6 sm:p-9 lg:p-12 grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 lg:gap-10 items-center">
               <div className="lg:col-span-6 space-y-3">
-                <p className="text-xs font-mono font-semibold uppercase tracking-wider text-emerald-300">
+                <p className="text-[11px] font-mono font-semibold uppercase tracking-[0.14em] text-[#2DD4BF]">
                   First-Order Engineering Benefit
                 </p>
-                <h2 className="font-display text-2xl sm:text-4xl font-extrabold text-white leading-tight [text-wrap:balance]">
+                <h2 className="font-display text-2xl sm:text-4xl font-bold text-white leading-tight [text-wrap:balance]">
                   Save 15% on Your First Hardware Order
                 </h2>
                 <p className="text-sm sm:text-base text-blue-100/90 leading-relaxed max-w-xl">

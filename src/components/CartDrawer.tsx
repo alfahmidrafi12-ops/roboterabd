@@ -2,15 +2,22 @@ import React, { useEffect, useState } from 'react';
 import { User } from 'firebase/auth';
 import {
   ArrowLeft,
+  ArrowRight,
   Check,
   CheckCircle2,
+  ClipboardCheck,
   Copy,
   Lock,
   LogIn,
+  MapPin,
   Minus,
+  PackageCheck,
   Plus,
   Printer,
+  Radio,
+  ShieldCheck,
   Trash2,
+  Truck,
   X,
 } from 'lucide-react';
 import { createOrderInFirestore } from '../lib/firebase';
@@ -40,6 +47,12 @@ function isValidBdPhone(raw: string): boolean {
   const digits = raw.replace(/[\s\-()]/g, '');
   return /^(\+?880|0)1[3-9]\d{8}$/.test(digits);
 }
+
+const DISPATCH_STAGES = [
+  'Verifying Dhaka inventory & stock count',
+  'Assigning ESD packaging & lab QC slot',
+  'Generating live Firestore tracking waybill',
+];
 
 export const CartDrawer: React.FC<CartDrawerProps> = ({
   isOpen,
@@ -71,6 +84,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   const [paymentMethod, setPaymentMethod] = useState('Cash on Delivery');
   const [orderNotes, setOrderNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [dispatchStageIdx, setDispatchStageIdx] = useState(0);
+  const [pendingOrderId, setPendingOrderId] = useState('');
   const [checkoutError, setCheckoutError] = useState('');
   const [receipt, setReceipt] = useState<OrderReceipt | null>(null);
   const [copiedId, setCopiedId] = useState(false);
@@ -113,6 +128,9 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   const total = discountedSubtotal + deliveryFee;
 
   const hasOutOfStockInCart = items.some((item) => item.product.stock <= 0);
+
+  const stepIndex = step === 'cart' ? 0 : step === 'checkout' ? 1 : 2;
+  const stepBarPct = step === 'cart' ? 33 : step === 'checkout' ? 68 : 100;
 
   const handleCouponSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -165,12 +183,18 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
       return;
     }
 
+    const orderNumber = `RBD-${Math.floor(1000 + Math.random() * 9000)}-${Date.now().toString().slice(-4)}`;
+    setPendingOrderId(orderNumber);
+    setDispatchStageIdx(0);
     setSubmitting(true);
     setCheckoutError('');
 
-    const orderNumber = `RBD-${Math.floor(1000 + Math.random() * 9000)}-${Date.now().toString().slice(-4)}`;
+    const stageTimer1 = window.setTimeout(() => setDispatchStageIdx(1), 240);
+    const stageTimer2 = window.setTimeout(() => setDispatchStageIdx(2), 480);
+
     try {
-      await createOrderInFirestore({
+      const minAnimPromise = new Promise<void>((resolve) => window.setTimeout(resolve, 750));
+      const writePromise = createOrderInFirestore({
         orderId: orderNumber,
         customerName: trimmedName,
         phone: trimmedPhone,
@@ -193,6 +217,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
         couponCode: effectiveCoupon ?? undefined,
         notes: orderNotes.trim() || undefined,
       });
+
+      await Promise.all([writePromise, minAnimPromise]);
 
       const newReceipt: OrderReceipt = {
         orderId: orderNumber,
@@ -220,11 +246,14 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
       console.error('Order submission error:', err);
       setCheckoutError('Could not submit order. Please check your details and try again.');
     } finally {
+      window.clearTimeout(stageTimer1);
+      window.clearTimeout(stageTimer2);
       setSubmitting(false);
     }
   };
 
   const handleResetAndClose = () => {
+    if (submitting) return;
     setStep('cart');
     setReceipt(null);
     setCheckoutError('');
@@ -243,7 +272,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
       <div
-        className="animate-fade-in fixed inset-0 bg-[#071A3B]/55 backdrop-blur-[2px]"
+        className="animate-fade-in fixed inset-0 bg-[#071A3B]/60 backdrop-blur-[2px]"
         onClick={handleResetAndClose}
         aria-hidden="true"
       />
@@ -251,78 +280,203 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
         role="dialog"
         aria-modal="true"
         aria-label="Shopping cart and checkout"
-        className="animate-drawer-in relative z-10 w-full max-w-md bg-white h-dvh shadow-2xl flex flex-col border-l border-slate-200"
+        className="animate-drawer-in relative z-10 w-full max-w-md bg-white h-dvh shadow-2xl flex flex-col border-l border-slate-200 overflow-hidden"
       >
         {/* Drawer Header */}
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-[#F1F5F9]">
-          <div className="flex items-center gap-2">
-            {step === 'checkout' && (
-              <button
-                type="button"
-                onClick={() => setStep('cart')}
-                aria-label="Back to cart"
-                className="p-1.5 -ml-2 rounded-lg text-[#64748B] hover:text-[#101828] hover:bg-white"
-              >
-                <ArrowLeft className="w-4 h-4" />
-              </button>
-            )}
-            <h2 className="font-display text-lg font-bold text-[#071A3B]">
-              {step === 'cart' && 'Your Hardware Cart'}
-              {step === 'checkout' && 'Delivery & Payment'}
-              {step === 'receipt' && 'Order Confirmed'}
-            </h2>
+        <div className="bg-[#F1F5F9] border-b border-slate-200 shrink-0">
+          <div className="px-6 py-4 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {step === 'checkout' && !submitting && (
+                <button
+                  type="button"
+                  onClick={() => setStep('cart')}
+                  aria-label="Back to cart"
+                  className="p-1.5 -ml-2 rounded-lg text-[#64748B] hover:text-[#101828] hover:bg-white transition-colors"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                </button>
+              )}
+              <h2 className="font-display text-lg font-bold text-[#071A3B]">
+                {step === 'cart' && 'Your Hardware Cart'}
+                {step === 'checkout' && 'Delivery & Payment'}
+                {step === 'receipt' && 'Order Confirmed'}
+              </h2>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleResetAndClose}
+              disabled={submitting}
+              aria-label="Close cart drawer"
+              className="p-1.5 rounded-lg text-[#64748B] hover:text-[#101828] hover:bg-white transition-colors disabled:opacity-40"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
 
-          <button
-            type="button"
-            onClick={handleResetAndClose}
-            aria-label="Close cart drawer"
-            className="p-1.5 rounded-lg text-[#64748B] hover:text-[#101828] hover:bg-white transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          {/* 3-Step Animated Order Journey Bar */}
+          {(items.length > 0 || step === 'receipt') && (
+            <div className="px-6 pb-3 space-y-1.5">
+              <div className="flex items-center justify-between text-[10px] font-mono font-bold uppercase tracking-wider">
+                {['01 Cart', '02 Checkout', '03 Confirmed'].map((label, idx) => (
+                  <span
+                    key={label}
+                    className={`transition-colors ${
+                      idx === stepIndex
+                        ? 'text-[#0866F5]'
+                        : idx < stepIndex
+                        ? 'text-[#0F766E]'
+                        : 'text-slate-400'
+                    }`}
+                  >
+                    {label}
+                  </span>
+                ))}
+              </div>
+              <div className="h-1 w-full rounded-full bg-slate-200 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-[#0866F5] to-[#0F766E] transition-all duration-500 ease-out"
+                  style={{ width: `${stepBarPct}%` }}
+                />
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Body Content */}
         {step === 'receipt' && receipt ? (
-          <div className="flex-1 overflow-y-auto p-6 space-y-5">
-            <div className="bg-[#EFF6FF] border border-blue-200 rounded-xl p-5 flex items-start gap-3.5">
-              <CheckCircle2 className="w-6 h-6 text-[#0866F5] shrink-0 mt-0.5" />
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="font-mono text-xs font-semibold text-[#0866F5] truncate">
-                    Order #{receipt.orderId}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => handleCopyOrderId(receipt.orderId)}
-                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#0866F5] hover:underline shrink-0"
-                  >
-                    {copiedId ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                    <span>{copiedId ? 'Copied' : 'Copy ID'}</span>
-                  </button>
+          <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-4">
+            {/* Heroic Post-Order Animated Confirmation Card */}
+            <div className="relative overflow-hidden rounded-2xl bg-[#071A3B] text-white p-5 sm:p-6 border border-[#1B3E78]">
+              <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-lab-grid-dark opacity-65" />
+
+              {/* Geometric animated celebratory corner sparks */}
+              <span
+                aria-hidden="true"
+                className="animate-spark-pop pointer-events-none absolute top-4 right-8 w-2 h-2 rounded-full bg-[#38BDF8]"
+              />
+              <span
+                aria-hidden="true"
+                className="animate-spark-pop pointer-events-none absolute top-10 right-5 w-1.5 h-1.5 rounded-full bg-[#FB923C]"
+                style={{ animationDelay: '0.42s' }}
+              />
+              <span
+                aria-hidden="true"
+                className="animate-spark-pop pointer-events-none absolute bottom-5 right-10 w-2 h-2 rounded-sm rotate-45 bg-[#2DD4BF]"
+                style={{ animationDelay: '0.5s' }}
+              />
+
+              <div className="relative z-10 flex items-start gap-4">
+                {/* Animated SVG Circle + Checkmark Draw */}
+                <div className="relative w-12 h-12 shrink-0 flex items-center justify-center">
+                  <span
+                    aria-hidden="true"
+                    className="animate-ring-expand absolute inset-0 rounded-full border border-[#2DD4BF]/60"
+                  />
+                  <svg viewBox="0 0 56 56" className="w-12 h-12" fill="none" aria-hidden="true">
+                    <circle
+                      cx="28"
+                      cy="28"
+                      r="24"
+                      stroke="#2DD4BF"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      className="animate-circle-draw"
+                    />
+                    <path
+                      d="M17.5 28.5L24.5 35.5L38.5 21.5"
+                      stroke="#FFFFFF"
+                      strokeWidth="3"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="animate-check-draw"
+                    />
+                  </svg>
                 </div>
-                <h3 className="font-display text-lg font-bold text-[#071A3B] mt-0.5">
-                  Preparing Shipment from Dhaka Lab
-                </h3>
-                <p className="text-xs text-[#64748B] mt-1">{receipt.createdAt}</p>
+
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-mono text-xs font-bold text-[#38BDF8] truncate">
+                      Order #{receipt.orderId}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyOrderId(receipt.orderId)}
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white/10 hover:bg-white/20 border border-white/15 text-[11px] font-semibold text-white shrink-0 transition-colors"
+                    >
+                      {copiedId ? (
+                        <Check className="w-3 h-3 text-[#2DD4BF] animate-icon-pop" />
+                      ) : (
+                        <Copy className="w-3 h-3" />
+                      )}
+                      <span>{copiedId ? 'Copied' : 'Copy ID'}</span>
+                    </button>
+                  </div>
+                  <h3 className="font-display text-lg font-bold text-white mt-1 leading-snug">
+                    Order Confirmed &amp; Queued
+                  </h3>
+                  <p className="text-xs text-slate-300 mt-1">{receipt.createdAt}</p>
+                </div>
+              </div>
+
+              {/* Mini Animated Live Dispatch Strip */}
+              <div className="relative z-10 mt-4 pt-3.5 border-t border-white/15 grid grid-cols-4 gap-1.5 text-center">
+                {[
+                  { icon: ClipboardCheck, label: 'Placed', active: true },
+                  { icon: PackageCheck, label: 'Lab QC', active: false },
+                  { icon: Truck, label: 'Courier', active: false },
+                  { icon: CheckCircle2, label: 'Delivered', active: false },
+                ].map((stage) => {
+                  const Icon = stage.icon;
+                  return (
+                    <div
+                      key={stage.label}
+                      className={`rounded-lg py-1.5 px-1 border text-[10px] font-mono ${
+                        stage.active
+                          ? 'bg-[#0866F5]/30 border-[#38BDF8]/60 text-white font-bold'
+                          : 'bg-white/[0.04] border-white/10 text-slate-400'
+                      }`}
+                    >
+                      <Icon
+                        className={`w-3.5 h-3.5 mx-auto mb-0.5 ${
+                          stage.active ? 'text-[#2DD4BF]' : 'text-slate-500'
+                        }`}
+                      />
+                      {stage.label}
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
-            <div className="border border-slate-200 rounded-xl p-4 space-y-1.5 text-xs">
-              <p className="font-semibold text-[#071A3B]">Recipient Details</p>
-              <p className="text-[#101828]">
+            <div
+              className="animate-cart-enter border border-slate-200 rounded-xl p-4 space-y-1.5 text-xs bg-[#F8FAFC]"
+              style={{ animationDelay: '100ms' }}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <p className="font-bold text-[#071A3B] inline-flex items-center gap-1.5">
+                  <MapPin className="w-3.5 h-3.5 text-[#0866F5]" />
+                  <span>Recipient &amp; Dispatch Details</span>
+                </p>
+                <span className="font-mono text-[10px] font-bold text-[#0F766E]">
+                  {receipt.district === 'Dhaka Metro' ? '2–3 Days' : '2–4 Days'}
+                </span>
+              </div>
+              <p className="text-[#101828] font-medium">
                 {receipt.customerName} · <span className="font-mono">{receipt.phone}</span>
               </p>
-              <p className="text-[#64748B]">
+              <p className="text-[#475569]">
                 {receipt.address}, {receipt.district}
               </p>
-              <p className="text-[#64748B]">
-                Payment: <strong className="text-[#101828]">{receipt.paymentMethod}</strong>
+              <p className="text-[#475569]">
+                Payment: <strong className="text-[#071A3B]">{receipt.paymentMethod}</strong>
               </p>
             </div>
 
-            <div className="border border-slate-200 rounded-xl divide-y divide-slate-100">
+            <div
+              className="animate-cart-enter border border-slate-200 rounded-xl divide-y divide-slate-100 overflow-hidden"
+              style={{ animationDelay: '180ms' }}
+            >
               {receipt.items.map((item) => (
                 <div
                   key={`${item.product.id}-${item.variant ?? ''}`}
@@ -347,7 +501,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   </span>
                 </div>
                 {receipt.discount > 0 && (
-                  <div className="flex justify-between text-emerald-700">
+                  <div className="flex justify-between text-emerald-700 font-medium">
                     <span>Discount (ROBOTERA15)</span>
                     <span className="font-mono tabular-nums">
                       -৳{receipt.discount.toLocaleString('en-IN')}
@@ -369,7 +523,10 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <div
+              className="animate-cart-enter grid grid-cols-1 sm:grid-cols-2 gap-2.5"
+              style={{ animationDelay: '240ms' }}
+            >
               {onTrackOrder && (
                 <button
                   type="button"
@@ -378,15 +535,17 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                     handleResetAndClose();
                     onTrackOrder(id);
                   }}
-                  className="w-full h-11 rounded-xl bg-[#0866F5] hover:bg-[#0654CC] text-white text-sm font-semibold transition-colors"
+                  className="group w-full h-11 rounded-xl bg-[#0866F5] hover:bg-[#0654CC] border border-[#0866F5] text-white text-sm font-semibold inline-flex items-center justify-center gap-2 transition-colors"
                 >
-                  Track This Order
+                  <Radio className="w-4 h-4 text-[#2DD4BF] animate-pulse" />
+                  <span>Track Order Live</span>
+                  <ArrowRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
                 </button>
               )}
               <button
                 type="button"
                 onClick={handleResetAndClose}
-                className="w-full h-11 rounded-xl bg-[#071A3B] hover:bg-[#0D2B5E] text-white text-sm font-semibold transition-colors"
+                className="w-full h-11 rounded-xl bg-[#071A3B] hover:bg-[#0D2B5E] border border-[#071A3B] text-white text-sm font-semibold transition-colors"
               >
                 Continue Shopping
               </button>
@@ -404,8 +563,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
         ) : items.length === 0 ? (
           <div className="flex-1 overflow-y-auto p-6 flex flex-col justify-between gap-6">
             <div className="flex-1 flex flex-col items-center justify-center text-center py-6">
-              {/* Custom Engineering Cart Illustration */}
-              <div className="w-24 h-24 rounded-3xl bg-[#F5F8FC] border border-slate-200 flex items-center justify-center mb-5 shadow-2xs">
+              {/* Custom Engineering Cart Illustration with Smooth Hover Float */}
+              <div className="animate-float-slow w-24 h-24 rounded-3xl bg-[#F5F8FC] border border-slate-200 flex items-center justify-center mb-5">
                 <svg viewBox="0 0 80 80" className="w-14 h-14" fill="none" aria-hidden="true">
                   <rect x="14" y="20" width="52" height="36" rx="6" fill="#FFFFFF" stroke="#0866F5" strokeWidth="2.5" />
                   <path d="M24 38H56M32 28V48M48 28V48" stroke="#DBEAFE" strokeWidth="2" strokeLinecap="round" />
@@ -424,7 +583,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
               <button
                 type="button"
                 onClick={handleResetAndClose}
-                className="mt-5 px-6 py-2.5 rounded-xl bg-[#0866F5] hover:bg-[#0654CC] text-white text-sm font-semibold transition-colors"
+                className="mt-5 px-6 py-2.5 rounded-xl bg-[#0866F5] hover:bg-[#0654CC] border border-[#0866F5] text-white text-sm font-semibold transition-colors"
               >
                 Browse Hardware
               </button>
@@ -436,10 +595,11 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   Recommended for Makers
                 </p>
                 <div className="space-y-2.5">
-                  {emptyRecommendations.map((prod) => (
+                  {emptyRecommendations.map((prod, idx) => (
                     <div
                       key={prod.id}
-                      className="flex items-center gap-3 p-2.5 rounded-xl border border-slate-200 bg-[#F5F8FC]"
+                      style={{ animationDelay: `${idx * 65}ms` }}
+                      className="animate-cart-enter flex items-center gap-3 p-2.5 rounded-xl border border-slate-200 bg-[#F5F8FC] hover:border-[#0866F5]/50 transition-colors"
                     >
                       <div className="w-11 h-11 rounded-lg bg-white border border-slate-200 p-1 shrink-0 flex items-center justify-center">
                         <HardwareArtwork
@@ -479,8 +639,9 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
               {/* Free Delivery Progress Bar */}
               <div className="rounded-xl bg-[#F5F8FC] border border-slate-200 px-4 py-3 text-xs text-[#101828] space-y-2">
                 {freeShipping ? (
-                  <p className="font-semibold text-emerald-700">
-                    Unlocked Free Nationwide Courier (Orders ≥ ৳3,000)
+                  <p className="font-semibold text-emerald-700 inline-flex items-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 animate-icon-pop" />
+                    <span>Unlocked Free Nationwide Courier (Orders ≥ ৳3,000)</span>
                   </p>
                 ) : (
                   <p>
@@ -493,21 +654,24 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 )}
                 <div className="h-1.5 w-full rounded-full bg-slate-200 overflow-hidden">
                   <div
-                    className={`h-full rounded-full transition-all duration-300 ${
+                    className={`relative h-full rounded-full transition-all duration-500 overflow-hidden ${
                       freeShipping ? 'bg-emerald-600' : 'bg-[#0866F5]'
                     }`}
                     style={{ width: `${shippingProgress}%` }}
-                  />
+                  >
+                    <div className="animate-bar-shimmer absolute inset-y-0 w-16 bg-gradient-to-r from-transparent via-white/45 to-transparent" />
+                  </div>
                 </div>
               </div>
 
-              {items.map((item) => {
+              {items.map((item, idx) => {
                 const outOfStock = item.product.stock <= 0;
                 const atStockLimit = item.quantity >= item.product.stock;
                 return (
                   <div
                     key={`${item.product.id}-${item.variant ?? ''}`}
-                    className="flex gap-3.5 pb-4 border-b border-slate-100"
+                    style={{ animationDelay: `${Math.min(idx * 50, 220)}ms` }}
+                    className="animate-cart-enter flex gap-3.5 pb-4 border-b border-slate-100"
                   >
                     <div className="w-20 h-20 rounded-xl bg-[#F5F8FC] border border-slate-200 p-1.5 shrink-0 flex items-center justify-center overflow-hidden">
                       <HardwareArtwork
@@ -527,7 +691,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                           type="button"
                           onClick={() => onRemoveItem(item.product.id, item.variant)}
                           aria-label={`Remove ${item.product.name}`}
-                          className="text-slate-400 hover:text-red-600 p-1 shrink-0"
+                          className="text-slate-400 hover:text-red-600 p-1 shrink-0 transition-colors"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -577,7 +741,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
               {/* Promo Code Input */}
               <div className="pt-1">
                 {effectiveCoupon ? (
-                  <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-lg px-3.5 py-2.5 text-xs">
+                  <div className="animate-pop-in flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-lg px-3.5 py-2.5 text-xs">
                     <span className="text-emerald-800 font-medium">
                       Coupon <strong className="font-mono">{effectiveCoupon}</strong> (-15% 1st order) applied
                     </span>
@@ -656,7 +820,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 type="button"
                 disabled={hasOutOfStockInCart}
                 onClick={() => setStep('checkout')}
-                className="w-full h-11 rounded-xl bg-[#0866F5] hover:bg-[#0866F5]/90 border border-[#0866F5] hover:border-[#1685FF] text-white transition-colors disabled:bg-slate-300 disabled:border-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed text-sm font-semibold inline-flex items-center justify-center gap-2"
+                className="group w-full h-11 rounded-xl bg-[#0866F5] hover:bg-[#0866F5]/90 border border-[#0866F5] hover:border-[#1685FF] text-white transition-colors disabled:bg-slate-300 disabled:border-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed text-sm font-semibold inline-flex items-center justify-center gap-2"
               >
                 {!hasOutOfStockInCart && (
                   <span className="w-1.5 h-1.5 rounded-full bg-[#FB923C]" aria-hidden="true" />
@@ -668,6 +832,9 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                     ? 'Sign In & Proceed to Checkout'
                     : 'Proceed to Checkout'}
                 </span>
+                {!hasOutOfStockInCart && (
+                  <ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+                )}
               </button>
             </div>
           </>
@@ -705,9 +872,71 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
             </div>
           </div>
         ) : (
-          /* Bangladesh Checkout Step */
-          <form onSubmit={handlePlaceOrder} className="flex-1 flex flex-col overflow-hidden">
-            <div className="flex-1 overflow-y-auto p-5 space-y-4">
+          /* Bangladesh Pre-Order Checkout Step + Embedded Verification Sequence Overlay */
+          <form onSubmit={handlePlaceOrder} className="relative flex-1 flex flex-col overflow-hidden">
+            {submitting && (
+              <div className="animate-fade-in absolute inset-0 z-20 bg-[#071A3B]/95 backdrop-blur-sm text-white flex flex-col items-center justify-center p-6 text-center">
+                <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-lab-grid-dark opacity-70" />
+                <div className="relative z-10 w-full max-w-xs space-y-5">
+                  <div className="relative w-16 h-16 mx-auto flex items-center justify-center">
+                    <span
+                      aria-hidden="true"
+                      className="animate-spin-slow absolute inset-0 rounded-full border-2 border-dashed border-[#38BDF8]/65"
+                    />
+                    <span
+                      aria-hidden="true"
+                      className="animate-spin-reverse-slow absolute inset-2 rounded-full border-2 border-[#2DD4BF]/50 border-t-transparent"
+                    />
+                    <ShieldCheck className="w-6 h-6 text-[#38BDF8]" />
+                  </div>
+
+                  <div>
+                    <p className="font-mono text-[11px] font-bold uppercase tracking-widest text-[#2DD4BF]">
+                      Preparing Order #{pendingOrderId}
+                    </p>
+                    <h3 className="font-display text-lg font-bold text-white mt-1">
+                      Confirming Dispatch...
+                    </h3>
+                  </div>
+
+                  <div className="space-y-2 text-left bg-white/[0.06] border border-white/15 rounded-xl p-3.5">
+                    {DISPATCH_STAGES.map((stageLabel, idx) => {
+                      const done = idx < dispatchStageIdx;
+                      const current = idx === dispatchStageIdx;
+                      return (
+                        <div
+                          key={stageLabel}
+                          className={`flex items-center gap-2.5 text-xs transition-opacity duration-300 ${
+                            done || current ? 'opacity-100' : 'opacity-45'
+                          }`}
+                        >
+                          <span
+                            className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 border ${
+                              done
+                                ? 'bg-[#0F766E] border-[#2DD4BF] text-white'
+                                : current
+                                ? 'bg-[#0866F5] border-[#38BDF8] text-white animate-pulse'
+                                : 'bg-white/10 border-white/20 text-slate-400'
+                            }`}
+                          >
+                            {done ? (
+                              <Check className="w-2.5 h-2.5 animate-icon-pop" />
+                            ) : (
+                              <span className="w-1.5 h-1.5 rounded-full bg-current" />
+                            )}
+                          </span>
+                          <span className={current ? 'font-semibold text-white' : 'text-slate-200'}>
+                            {stageLabel}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="animate-slide-down flex-1 overflow-y-auto p-5 space-y-4">
               <div>
                 <label htmlFor="chk-name" className="block text-xs font-semibold text-[#101828] mb-1">
                   Full Name
@@ -720,7 +949,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   value={customerName}
                   onChange={(e) => setCustomerName(e.target.value)}
                   placeholder="Md. Fahim Chowdhury"
-                  className="w-full h-10 px-3.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#0866F5]"
+                  className="w-full h-10 px-3.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#0866F5] transition-colors"
                 />
               </div>
 
@@ -736,7 +965,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="017XXXXXXXX"
-                  className="w-full h-10 px-3.5 rounded-lg border border-slate-200 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#0866F5]"
+                  className="w-full h-10 px-3.5 rounded-lg border border-slate-200 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#0866F5] transition-colors"
                 />
               </div>
 
@@ -748,7 +977,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   id="chk-district"
                   value={district}
                   onChange={(e) => setDistrict(e.target.value)}
-                  className="w-full h-10 px-3 rounded-lg border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#0866F5]"
+                  className="w-full h-10 px-3 rounded-lg border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#0866F5] transition-colors"
                 >
                   <option value="Dhaka Metro">Inside Dhaka — Dhaka Metro (2–3 days · {freeShipping ? 'Free' : '৳80'})</option>
                   <option value="Chattogram">Outside Dhaka — Chattogram (2–4 days · {freeShipping ? 'Free' : '৳150'})</option>
@@ -776,32 +1005,38 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
                   placeholder="House, Road, Block / Campus Hall"
-                  className="w-full p-3 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#0866F5]"
+                  className="w-full p-3 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#0866F5] transition-colors"
                 />
               </div>
 
               <div>
                 <p className="block text-xs font-semibold text-[#101828] mb-2">Payment Method</p>
                 <div className="grid grid-cols-2 gap-2">
-                  {['Cash on Delivery', 'bKash', 'Nagad', 'Card / SSLCommerz'].map((method) => (
-                    <button
-                      key={method}
-                      type="button"
-                      onClick={() => setPaymentMethod(method)}
-                      className={`px-3 py-2.5 rounded-lg border text-xs font-semibold text-left transition-colors ${
-                        paymentMethod === method
-                          ? 'bg-[#071A3B] border-[#071A3B] text-white'
-                          : 'bg-white border-slate-200 text-[#101828] hover:border-slate-300'
-                      }`}
-                    >
-                      {method}
-                    </button>
-                  ))}
+                  {['Cash on Delivery', 'bKash', 'Nagad', 'Card / SSLCommerz'].map((method) => {
+                    const selected = paymentMethod === method;
+                    return (
+                      <button
+                        key={method}
+                        type="button"
+                        onClick={() => setPaymentMethod(method)}
+                        className={`px-3 py-2.5 rounded-lg border text-xs font-semibold text-left transition-colors flex items-center justify-between gap-2 ${
+                          selected
+                            ? 'bg-[#071A3B] border-[#071A3B] text-white'
+                            : 'bg-white border-slate-200 text-[#101828] hover:border-[#0866F5]/55'
+                        }`}
+                      >
+                        <span className="truncate">{method}</span>
+                        {selected && (
+                          <span className="w-2 h-2 rounded-full bg-[#2DD4BF] animate-icon-pop shrink-0" />
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
               {(paymentMethod === 'bKash' || paymentMethod === 'Nagad') && (
-                <div className="rounded-xl bg-[#EFF6FF] border border-blue-200 p-3.5 text-xs text-[#64748B] space-y-1">
+                <div className="animate-pop-in rounded-xl bg-[#EFF6FF] border border-blue-200 p-3.5 text-xs text-[#64748B] space-y-1">
                   <p className="font-semibold text-[#071A3B]">
                     {paymentMethod} Payment Instructions
                   </p>
@@ -837,7 +1072,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
             <div className="p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] border-t border-slate-200 bg-[#F1F5F9] space-y-3 shrink-0">
               {checkoutError && (
-                <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                <p className="animate-pop-in text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
                   {checkoutError}
                 </p>
               )}
@@ -854,14 +1089,17 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full h-11 rounded-xl bg-[#0866F5] hover:bg-[#0866F5]/90 border border-[#0866F5] hover:border-[#1685FF] text-white transition-colors disabled:opacity-60 text-sm font-semibold inline-flex items-center justify-center gap-2"
+                className="group w-full h-11 rounded-xl bg-[#0866F5] hover:bg-[#0866F5]/90 border border-[#0866F5] hover:border-[#1685FF] text-white transition-colors disabled:opacity-60 text-sm font-semibold inline-flex items-center justify-center gap-2"
               >
                 <span className="w-1.5 h-1.5 rounded-full bg-[#FB923C]" aria-hidden="true" />
                 <span>
                   {submitting
-                    ? 'Placing Order...'
+                    ? 'Confirming Order...'
                     : `Confirm Order (৳${total.toLocaleString('en-IN')})`}
                 </span>
+                {!submitting && (
+                  <ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+                )}
               </button>
             </div>
           </form>

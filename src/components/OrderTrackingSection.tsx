@@ -1,22 +1,28 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeft,
   Check,
   CheckCircle2,
   ClipboardCheck,
+  Clock,
   Copy,
+  MapPin,
   MessageCircle,
+  Package,
   PackageCheck,
+  Radio,
   Search,
   ShieldCheck,
   Truck,
   XCircle,
 } from 'lucide-react';
-import { fetchOrderTracking } from '../lib/firebase';
-import { OrderStatus, OrderTrackingInfo } from '../types/store';
+import { subscribeOrderTracking } from '../lib/firebase';
+import { OrderStatus, OrderTrackingInfo, StoredOrder } from '../types/store';
 
 interface OrderTrackingSectionProps {
   recentOrderIds: string[];
+  userOrders?: StoredOrder[];
+  isSignedIn?: boolean;
   autoTrackOrderId?: string | null;
   onBackToStore?: () => void;
 }
@@ -27,6 +33,14 @@ const STEPS: { status: Exclude<OrderStatus, 'Cancelled'>; label: string; desc: s
   { status: 'Shipped', label: 'In Transit', desc: 'Handed to Dhaka / Steadfast rider' },
   { status: 'Delivered', label: 'Delivered', desc: 'Signed & completed' },
 ];
+
+const STATUS_BADGE_STYLE: Record<OrderStatus, string> = {
+  Pending: 'bg-amber-50 border-amber-200 text-amber-800',
+  Confirmed: 'bg-blue-50 border-blue-200 text-[#0866F5]',
+  Shipped: 'bg-teal-50 border-teal-200 text-[#0F766E]',
+  Delivered: 'bg-emerald-50 border-emerald-200 text-emerald-700',
+  Cancelled: 'bg-red-50 border-red-200 text-red-700',
+};
 
 function formatFirestoreTimestamp(ts: unknown): string {
   if (!ts) return 'Just now';
@@ -49,53 +63,125 @@ function formatFirestoreTimestamp(ts: unknown): string {
 
 export const OrderTrackingSection: React.FC<OrderTrackingSectionProps> = ({
   recentOrderIds,
+  userOrders = [],
+  isSignedIn = false,
   autoTrackOrderId,
   onBackToStore,
 }) => {
   const [queryId, setQueryId] = useState('');
+  const [activeTrackId, setActiveTrackId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [searchedId, setSearchedId] = useState<string | null>(null);
   const [trackingResult, setTrackingResult] = useState<OrderTrackingInfo | null>(null);
   const [errorMsg, setErrorMsg] = useState('');
   const [copiedLink, setCopiedLink] = useState(false);
+  const [liveUpdateFlash, setLiveUpdateFlash] = useState(false);
 
-  const runLookup = async (idToTrack: string) => {
+  const prevSnapshotRef = useRef<{ status?: OrderStatus; courierNote?: string } | null>(null);
+
+  const startLiveTracking = (idToTrack: string, pushUrl = true) => {
     const clean = idToTrack.trim().replace(/^#/, '');
     if (!clean) return;
-    setLoading(true);
+    setQueryId(clean);
     setErrorMsg('');
-    setSearchedId(clean);
+    setLoading(true);
+    prevSnapshotRef.current = null;
+    setActiveTrackId(clean);
 
-    try {
-      const result = await fetchOrderTracking(clean);
-      setTrackingResult(result);
-    } catch {
-      setErrorMsg('Unable to check shipment status right now. Please try again.');
-      setTrackingResult(null);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (autoTrackOrderId) {
-      setQueryId(autoTrackOrderId);
-      void runLookup(autoTrackOrderId);
-    }
-  }, [autoTrackOrderId]);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const clean = queryId.trim().replace(/^#/, '');
-    if (!clean) return;
-    if (typeof window !== 'undefined') {
+    if (pushUrl && typeof window !== 'undefined') {
       window.history.replaceState(
         null,
         '',
         `${window.location.pathname}${window.location.search}#track=${encodeURIComponent(clean)}`
       );
     }
-    void runLookup(clean);
+  };
+
+  useEffect(() => {
+    if (autoTrackOrderId) {
+      startLiveTracking(autoTrackOrderId, false);
+    }
+  }, [autoTrackOrderId]);
+
+  // Real-time Firestore onSnapshot subscription for the active tracked order
+  useEffect(() => {
+    if (!activeTrackId) {
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    setErrorMsg('');
+
+    const unsubscribe = subscribeOrderTracking(
+      activeTrackId,
+      (data) => {
+        setLoading(false);
+        setTrackingResult(data);
+
+        if (data) {
+          const prev = prevSnapshotRef.current;
+          if (
+            prev &&
+            (prev.status !== data.status || prev.courierNote !== data.courierNote)
+          ) {
+            setLiveUpdateFlash(true);
+            window.setTimeout(() => setLiveUpdateFlash(false), 2800);
+          }
+          prevSnapshotRef.current = {
+            status: data.status,
+            courierNote: data.courierNote,
+          };
+        }
+      },
+      () => {
+        setLoading(false);
+        setErrorMsg('Unable to sync live shipment status right now. Please check your connection.');
+        setTrackingResult(null);
+      }
+    );
+
+    return () => {
+      unsubscribe();
+    };
+  }, [activeTrackId]);
+
+  // Combine signed-in Firestore orders + local recent order IDs cleanly without duplicates
+  const quickTrackOrders = useMemo(() => {
+    const seen = new Set<string>();
+    const list: {
+      orderId: string;
+      status?: OrderStatus;
+      total?: number;
+      district?: string;
+      itemCount?: number;
+      fromAccount: boolean;
+    }[] = [];
+
+    for (const o of userOrders.slice(0, 6)) {
+      if (!o.orderId || seen.has(o.orderId)) continue;
+      seen.add(o.orderId);
+      list.push({
+        orderId: o.orderId,
+        status: o.status,
+        total: o.total,
+        district: o.district,
+        itemCount: o.items?.reduce((sum, item) => sum + item.quantity, 0),
+        fromAccount: true,
+      });
+    }
+
+    for (const id of recentOrderIds) {
+      if (!id || seen.has(id)) continue;
+      seen.add(id);
+      list.push({ orderId: id, fromAccount: false });
+    }
+
+    return list;
+  }, [userOrders, recentOrderIds]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    startLiveTracking(queryId, true);
   };
 
   const handleCopyTrackingLink = (orderId: string) => {
@@ -110,56 +196,70 @@ export const OrderTrackingSection: React.FC<OrderTrackingSectionProps> = ({
     ? STEPS.findIndex((s) => s.status === trackingResult.status)
     : -1;
 
+  const progressPct =
+    activeStepIndex >= 0 ? Math.round((activeStepIndex / (STEPS.length - 1)) * 100) : 0;
+
   const whatsappTrackUrl = `https://wa.me/8801624987366?text=${encodeURIComponent(
     trackingResult
       ? `Hello Robotera BD, I am checking shipment status for Order #${trackingResult.orderId}.`
-      : searchedId
-      ? `Hello Robotera BD, I need help tracking Order #${searchedId}.`
+      : activeTrackId
+      ? `Hello Robotera BD, I need help tracking Order #${activeTrackId}.`
       : 'Hello Robotera BD, I need help tracking my order.'
   )}`;
+
+  const courierPartnerLabel = trackingResult
+    ? trackingResult.district === 'Dhaka Metro'
+      ? 'Dhaka Express Lab Rider (2–3 days)'
+      : `Steadfast / Pathao (${trackingResult.district}, 2–4 days)`
+    : '';
 
   return (
     <section
       id="order-tracking"
-      className="py-6 sm:py-10 lg:py-12 bg-[#F1F5F9] min-h-[calc(100dvh-14rem)]"
+      className="bg-[#E6ECF4] min-[1500px]:bg-transparent min-[1500px]:pointer-events-none min-h-[calc(100dvh-14rem)]"
     >
-      <div className="w-full max-w-[1760px] mx-auto px-4 sm:px-6 lg:px-10 space-y-6">
+      <div className="relative z-20 pointer-events-auto w-full max-w-[1440px] mx-auto bg-[#E6ECF4] min-[1500px]:border-x min-[1500px]:border-slate-300/90 px-4 sm:px-6 lg:px-10 py-6 sm:py-10 lg:py-12 space-y-6">
         {/* Top Page Breadcrumb & Return to Storefront */}
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="animate-fade-in flex flex-wrap items-center justify-between gap-3">
           {onBackToStore && (
             <button
               type="button"
               onClick={onBackToStore}
-              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-white hover:bg-[#0866F5]/[0.05] border border-slate-200 hover:border-[#0866F5]/60 text-xs sm:text-sm font-semibold text-[#071A3B] hover:text-[#0866F5] transition-colors"
+              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-white hover:bg-[#071A3B] border border-slate-300 hover:border-[#071A3B] text-xs sm:text-sm font-semibold text-[#071A3B] hover:text-white transition-colors"
             >
               <ArrowLeft className="w-4 h-4" />
               <span>Back to Storefront</span>
             </button>
           )}
-          <span className="text-xs font-mono text-slate-500">
-            Dhaka Dispatch &amp; Steadfast / Pathao Courier Lookup
+          <span className="text-xs font-mono text-[#475569]">
+            Dhaka Dispatch &amp; Steadfast / Pathao Real-Time Lookup
           </span>
         </div>
 
         {/* Dedicated Full-Page Order Tracker Card */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-8 lg:p-10 grid grid-cols-1 lg:grid-cols-12 gap-7 lg:gap-9 items-start">
-          {/* Left Lookup Form */}
-          <div className="lg:col-span-5 space-y-4">
-            <p className="text-xs font-mono font-semibold text-[#0D9488] tracking-wide inline-flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#0D9488]" aria-hidden="true" />
-              <span>Real-Time Shipment Status</span>
-            </p>
-            <h1 className="font-display text-2xl sm:text-4xl font-extrabold text-[#071A3B] tracking-tight">
-              Track Your Order
-            </h1>
-            <p className="text-sm text-slate-600 leading-relaxed">
-              Enter your Robotera BD Order ID from your checkout confirmation to view live
-              bench-testing, courier dispatch, and delivery progress across Bangladesh.
-            </p>
+        <div className="animate-pop-in bg-white rounded-2xl border border-slate-300/85 p-5 sm:p-8 lg:p-10 grid grid-cols-1 lg:grid-cols-12 gap-7 lg:gap-9 items-start">
+          {/* Left Lookup Form + User Account Orders */}
+          <div className="lg:col-span-5 space-y-5">
+            <div className="space-y-3">
+              <p className="text-xs font-mono font-semibold text-[#0F766E] tracking-wide inline-flex items-center gap-2">
+                <span className="relative flex h-2 w-2" aria-hidden="true">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#0F766E] opacity-70" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-[#0F766E]" />
+                </span>
+                <span>Live Real-Time Firestore Tracking</span>
+              </p>
+              <h1 className="font-display text-2xl sm:text-4xl font-extrabold text-[#071A3B] tracking-tight">
+                Track Your Order
+              </h1>
+              <p className="text-sm text-[#334155] leading-relaxed">
+                Enter your Robotera BD Order ID or select one of your orders below to stream live
+                bench-testing, courier dispatch, and delivery status updates automatically.
+              </p>
+            </div>
 
             <form onSubmit={handleSubmit} className="pt-1 flex flex-col sm:flex-row gap-2.5">
               <div className="relative flex-1">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <Search className="w-4 h-4 text-[#475569] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   type="text"
                   required
@@ -167,95 +267,166 @@ export const OrderTrackingSection: React.FC<OrderTrackingSectionProps> = ({
                   onChange={(e) => setQueryId(e.target.value)}
                   placeholder="e.g. RBD-4821-9034"
                   aria-label="Order ID"
-                  className="w-full h-11 pl-10 pr-3.5 rounded-lg border border-slate-200 bg-[#F8FAFC] text-base sm:text-sm font-mono text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0866F5] focus:bg-white"
+                  className="w-full h-11 pl-10 pr-3.5 rounded-lg border border-slate-300 bg-[#EDF2F8] text-base sm:text-sm font-mono text-[#0F172A] placeholder:text-[#475569] focus:outline-none focus:ring-2 focus:ring-[#0866F5] focus:bg-white transition-colors"
                 />
               </div>
               <button
                 type="submit"
                 disabled={loading}
-                className="h-11 px-6 rounded-lg bg-[#0866F5] hover:bg-[#0866F5]/90 border border-[#0866F5] hover:border-[#1685FF] disabled:opacity-60 text-white text-sm font-semibold inline-flex items-center justify-center gap-2 transition-colors whitespace-nowrap shrink-0"
+                className="h-11 px-6 rounded-lg bg-[#0866F5] hover:bg-[#0654CC] border border-[#0866F5] disabled:opacity-60 text-white text-sm font-semibold inline-flex items-center justify-center gap-2 transition-colors whitespace-nowrap shrink-0"
               >
                 <span className="w-1.5 h-1.5 rounded-full bg-[#FB923C]" aria-hidden="true" />
-                <span>{loading ? 'Checking...' : 'Track Order'}</span>
+                <span>{loading ? 'Syncing...' : 'Track Order'}</span>
               </button>
             </form>
 
-            {recentOrderIds.length > 0 && (
-              <div className="pt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1.5 text-xs text-slate-600">
-                <span>Your recent orders:</span>
-                {recentOrderIds.map((id) => (
-                  <button
-                    key={id}
-                    type="button"
-                    onClick={() => {
-                      setQueryId(id);
-                      void runLookup(id);
-                    }}
-                    className="px-2 py-0.5 rounded bg-[#EFF6FF] border border-blue-100 font-mono font-semibold text-[#0866F5] hover:bg-blue-100 transition-colors"
-                  >
-                    #{id}
-                  </button>
-                ))}
+            {/* Quick-Track Signed-In Orders & Local Recent Orders */}
+            {quickTrackOrders.length > 0 && (
+              <div className="space-y-2.5 pt-1">
+                <p className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#475569]">
+                  {isSignedIn && userOrders.length > 0
+                    ? 'Your Account Orders (Click for Live Stream)'
+                    : 'Recent Checkout Orders'}
+                </p>
+                <div className="space-y-2 max-h-60 overflow-y-auto pr-0.5">
+                  {quickTrackOrders.map((item, idx) => {
+                    const isSelected =
+                      activeTrackId?.toUpperCase() === item.orderId.toUpperCase();
+                    return (
+                      <button
+                        key={item.orderId}
+                        type="button"
+                        onClick={() => startLiveTracking(item.orderId, true)}
+                        style={{ animationDelay: `${idx * 45}ms` }}
+                        className={`animate-cart-enter w-full text-left p-3 rounded-xl border transition-colors flex items-center justify-between gap-3 ${
+                          isSelected
+                            ? 'bg-[#071A3B] border-[#071A3B] text-white'
+                            : 'bg-[#EDF2F8] hover:bg-white border-slate-300/85 hover:border-[#0866F5] text-[#071A3B]'
+                        }`}
+                      >
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <Package
+                              className={`w-3.5 h-3.5 shrink-0 ${
+                                isSelected ? 'text-[#38BDF8]' : 'text-[#0866F5]'
+                              }`}
+                            />
+                            <span className="font-mono text-xs font-bold truncate">
+                              #{item.orderId}
+                            </span>
+                          </div>
+                          {(item.district || item.total !== undefined) && (
+                            <p
+                              className={`text-[11px] mt-0.5 truncate tabular-nums ${
+                                isSelected ? 'text-slate-300' : 'text-[#475569]'
+                              }`}
+                            >
+                              {item.district ?? ''}
+                              {item.itemCount ? ` · ${item.itemCount} item${item.itemCount > 1 ? 's' : ''}` : ''}
+                              {item.total !== undefined ? ` · ৳${item.total.toLocaleString('en-IN')}` : ''}
+                            </p>
+                          )}
+                        </div>
+                        {item.status && (
+                          <span
+                            className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-md border shrink-0 ${
+                              isSelected
+                                ? 'bg-white/15 border-white/25 text-white'
+                                : STATUS_BADGE_STYLE[item.status]
+                            }`}
+                          >
+                            {item.status}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             )}
 
-            <div className="pt-3 border-t border-slate-100 flex flex-col gap-2 text-xs text-slate-600">
+            <div className="pt-3 border-t border-slate-300/70 flex flex-col gap-2 text-xs text-[#334155]">
               <div className="flex items-center gap-2">
                 <Truck className="w-4 h-4 text-[#0866F5] shrink-0" />
                 <span>Inside Dhaka: 2–3 days delivery (৳80 charge)</span>
               </div>
               <div className="flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4 text-[#0D9488] shrink-0" />
+                <ShieldCheck className="w-4 h-4 text-[#0F766E] shrink-0" />
                 <span>Outside Dhaka: 2–4 days delivery via Steadfast &amp; Pathao (৳150 charge)</span>
               </div>
             </div>
           </div>
 
           {/* Right Live Status Panel */}
-          <div className="lg:col-span-7 bg-[#F1F5F9] rounded-xl border border-slate-200 p-4 sm:p-6">
+          <div className="lg:col-span-7 bg-[#EDF2F8] rounded-2xl border border-slate-300/85 p-4 sm:p-6">
             {errorMsg ? (
-              <div className="py-8 text-center text-sm text-red-600">{errorMsg}</div>
+              <div className="animate-pop-in py-8 text-center text-sm text-red-600">{errorMsg}</div>
             ) : loading ? (
-              <div className="py-10 text-center text-sm text-slate-500">
-                Fetching shipment status for <span className="font-mono">#{searchedId}</span>...
-              </div>
-            ) : searchedId && !trackingResult ? (
-              <div className="py-8 text-center space-y-2.5">
-                <p className="font-display text-base font-bold text-[#071A3B]">
-                  Order #{searchedId} Not Found
+              <div className="py-12 flex flex-col items-center justify-center gap-3 text-center">
+                <div className="relative w-12 h-12 rounded-2xl bg-[#071A3B] text-[#38BDF8] flex items-center justify-center">
+                  <Radio className="w-5 h-5 animate-pulse" />
+                  <span
+                    aria-hidden="true"
+                    className="animate-ring-expand absolute inset-0 rounded-2xl border border-[#0866F5]"
+                  />
+                </div>
+                <p className="text-sm font-medium text-[#334155]">
+                  Connecting live stream for <span className="font-mono font-bold text-[#071A3B]">#{activeTrackId}</span>...
                 </p>
-                <p className="text-xs sm:text-sm text-slate-500 max-w-md mx-auto">
-                  Please double-check your Order ID (for example <span className="font-mono">RBD-XXXX-XXXX</span>)
+              </div>
+            ) : activeTrackId && !trackingResult ? (
+              <div className="animate-pop-in py-10 text-center space-y-2.5">
+                <p className="font-display text-base font-bold text-[#071A3B]">
+                  Order #{activeTrackId} Not Found
+                </p>
+                <p className="text-xs sm:text-sm text-slate-600 max-w-md mx-auto leading-relaxed">
+                  Please double-check your Order ID (for example <span className="font-mono font-semibold">RBD-XXXX-XXXX</span>)
                   from your checkout confirmation receipt.
                 </p>
               </div>
             ) : trackingResult ? (
-              <div className="space-y-5">
-                <div className="flex flex-wrap items-start justify-between gap-3 pb-4 border-b border-slate-200">
+              <div className="animate-pop-in space-y-5">
+                {/* Real-time live update notification strip when admin modifies status */}
+                {liveUpdateFlash && (
+                  <div className="animate-slide-down rounded-xl bg-emerald-600 text-white px-3.5 py-2 text-xs font-semibold flex items-center gap-2">
+                    <Radio className="w-4 h-4 shrink-0" />
+                    <span>Live status update received from dispatch desk!</span>
+                  </div>
+                )}
+
+                {/* Order Header & Live Sync Indicator */}
+                <div className="flex flex-wrap items-start justify-between gap-3 pb-4 border-b border-slate-300/75">
                   <div>
-                    <div className="flex items-center gap-2">
-                      <p className="font-mono text-xs font-semibold text-[#0866F5]">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-mono text-xs font-bold text-[#0866F5]">
                         Order #{trackingResult.orderId}
                       </p>
                       <button
                         type="button"
                         onClick={() => handleCopyTrackingLink(trackingResult.orderId)}
-                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white border border-slate-200 text-[11px] font-semibold text-slate-600 hover:text-[#0866F5]"
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white border border-slate-300 text-[11px] font-semibold text-[#334155] hover:text-[#0866F5] hover:border-[#0866F5]/60 transition-colors"
                       >
                         {copiedLink ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
                         <span>{copiedLink ? 'Link Copied' : 'Share Link'}</span>
                       </button>
+                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-emerald-50 border border-emerald-200 text-[10px] font-mono font-bold text-emerald-700">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" aria-hidden="true" />
+                        Live Sync Active
+                      </span>
                     </div>
-                    <h2 className="font-display text-lg sm:text-xl font-bold text-[#071A3B] mt-1">
-                      Status: {trackingResult.status}
+                    <h2 className="font-display text-lg sm:text-xl font-bold text-[#071A3B] mt-1.5">
+                      Current Stage: {trackingResult.status}
                     </h2>
                   </div>
 
-                  <div className="text-left sm:text-right text-xs text-slate-600 space-y-0.5">
-                    <p>
-                      Destination: <strong className="text-[#071A3B]">{trackingResult.district}</strong>
+                  <div className="text-left sm:text-right text-xs text-[#334155] space-y-0.5">
+                    <p className="inline-flex sm:justify-end items-center gap-1">
+                      <MapPin className="w-3.5 h-3.5 text-[#0866F5] shrink-0" />
+                      <span>
+                        <strong className="text-[#071A3B]">{trackingResult.district}</strong>
+                      </span>
                     </p>
-                    <p className="font-mono tabular-nums">
+                    <p className="font-mono tabular-nums font-semibold">
                       {trackingResult.itemCount} item{trackingResult.itemCount > 1 ? 's' : ''} · ৳
                       {trackingResult.total.toLocaleString('en-IN')} ({trackingResult.paymentMethod})
                     </p>
@@ -263,7 +434,7 @@ export const OrderTrackingSection: React.FC<OrderTrackingSectionProps> = ({
                 </div>
 
                 {trackingResult.status === 'Cancelled' ? (
-                  <div className="rounded-lg bg-red-50 border border-red-200 p-4 flex items-start gap-3 text-xs text-red-800">
+                  <div className="rounded-xl bg-red-50 border border-red-200 p-4 flex items-start gap-3 text-xs text-red-800">
                     <XCircle className="w-5 h-5 text-red-600 shrink-0" />
                     <div>
                       <p className="font-semibold">This order has been cancelled.</p>
@@ -273,108 +444,152 @@ export const OrderTrackingSection: React.FC<OrderTrackingSectionProps> = ({
                     </div>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                    {STEPS.map((step, idx) => {
-                      const completed = idx <= activeStepIndex;
-                      const isCurrent = idx === activeStepIndex;
-                      const StepIcon =
-                        idx === 0
-                          ? ClipboardCheck
-                          : idx === 1
-                          ? PackageCheck
-                          : idx === 2
-                          ? Truck
-                          : CheckCircle2;
-
-                      return (
+                  <div className="space-y-4">
+                    {/* Animated Horizontal Progress Pipeline Connector (Desktop sm+) */}
+                    <div className="hidden sm:block px-8 pt-2">
+                      <div className="relative h-1.5 rounded-full bg-slate-300/75 overflow-hidden">
                         <div
-                          key={step.status}
-                          className={`rounded-xl p-3.5 border transition-colors ${
-                            isCurrent
-                              ? 'bg-[#071A3B] border-[#071A3B] text-white'
-                              : completed
-                              ? 'bg-white border-blue-200 text-[#071A3B]'
-                              : 'bg-white/60 border-slate-200 text-slate-400'
-                          }`}
+                          className="relative h-full rounded-full bg-gradient-to-r from-[#0866F5] via-[#0EA5E9] to-[#0F766E] transition-all duration-700 ease-out overflow-hidden"
+                          style={{ width: `${Math.max(8, progressPct)}%` }}
                         >
-                          <div className="flex items-center justify-between mb-2">
-                            <StepIcon
-                              className={`w-4 h-4 ${
-                                isCurrent
-                                  ? 'text-blue-300'
-                                  : completed
-                                  ? 'text-[#0866F5]'
-                                  : 'text-slate-300'
-                              }`}
-                            />
-                            <span className="font-mono text-[10px]">0{idx + 1}</span>
-                          </div>
-                          <p className="font-display text-xs font-bold">{step.label}</p>
-                          <p
-                            className={`text-[11px] mt-1 leading-snug ${
+                          {trackingResult.status !== 'Delivered' && (
+                            <div className="animate-bar-shimmer absolute inset-y-0 w-24 bg-gradient-to-r from-transparent via-white/45 to-transparent" />
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 4-Stage Pipeline Cards */}
+                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                      {STEPS.map((step, idx) => {
+                        const completed = idx <= activeStepIndex;
+                        const isCurrent = idx === activeStepIndex;
+                        const StepIcon =
+                          idx === 0
+                            ? ClipboardCheck
+                            : idx === 1
+                            ? PackageCheck
+                            : idx === 2
+                            ? Truck
+                            : CheckCircle2;
+
+                        return (
+                          <div
+                            key={step.status}
+                            style={{ animationDelay: `${idx * 65}ms` }}
+                            className={`animate-cart-enter relative rounded-xl p-3.5 border transition-colors duration-300 ${
                               isCurrent
-                                ? 'text-slate-300'
+                                ? 'bg-[#071A3B] border-[#071A3B] text-white'
                                 : completed
-                                ? 'text-slate-500'
-                                : 'text-slate-400'
+                                ? 'bg-white border-[#0866F5]/45 text-[#071A3B]'
+                                : 'bg-white/65 border-slate-300/75 text-slate-400'
                             }`}
                           >
-                            {step.desc}
-                          </p>
-                        </div>
-                      );
-                    })}
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="relative flex items-center justify-center">
+                                {isCurrent && trackingResult.status !== 'Delivered' && (
+                                  <span
+                                    aria-hidden="true"
+                                    className="animate-ring-expand absolute -inset-1.5 rounded-full border border-[#38BDF8]"
+                                  />
+                                )}
+                                <StepIcon
+                                  className={`relative w-4 h-4 ${
+                                    isCurrent
+                                      ? 'text-[#38BDF8]'
+                                      : completed
+                                      ? 'text-[#0866F5]'
+                                      : 'text-slate-300'
+                                  }`}
+                                />
+                              </div>
+                              <span className="font-mono text-[10px]">0{idx + 1}</span>
+                            </div>
+                            <p className="font-display text-xs font-bold">{step.label}</p>
+                            <p
+                              className={`text-[11px] mt-1 leading-snug ${
+                                isCurrent
+                                  ? 'text-slate-200'
+                                  : completed
+                                  ? 'text-[#475569]'
+                                  : 'text-slate-400'
+                              }`}
+                            >
+                              {step.desc}
+                            </p>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
 
-                <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500 pt-1">
-                  <span>
-                    Last updated:{' '}
-                    <strong className="text-slate-700">
-                      {formatFirestoreTimestamp(trackingResult.updatedAt)}
-                    </strong>
-                  </span>
-                  {trackingResult.courierNote && (
-                    <span className="font-medium text-[#0866F5]">
-                      Dispatch Note: {trackingResult.courierNote}
+                {/* Real Timestamp Telemetry & Dispatch Notes */}
+                <div className="rounded-xl bg-white border border-slate-300/80 p-3.5 space-y-2 text-xs">
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-[#475569]">
+                    <span className="inline-flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 text-[#0866F5]" />
+                      Placed:{' '}
+                      <strong className="text-[#071A3B]">
+                        {formatFirestoreTimestamp(trackingResult.createdAt)}
+                      </strong>
                     </span>
-                  )}
+                    <span className="inline-flex items-center gap-1.5">
+                      <Truck className="w-3.5 h-3.5 text-[#0F766E]" />
+                      Last updated:{' '}
+                      <strong className="text-[#071A3B]">
+                        {formatFirestoreTimestamp(trackingResult.updatedAt)}
+                      </strong>
+                    </span>
+                  </div>
+                  <div className="pt-2 border-t border-slate-200/80 flex flex-wrap items-center justify-between gap-2 text-[#334155]">
+                    <span>
+                      Logistics:{' '}
+                      <strong className="text-[#071A3B]">{courierPartnerLabel}</strong>
+                    </span>
+                    {trackingResult.courierNote && (
+                      <span className="font-semibold text-[#0866F5]">
+                        Dispatch Note: {trackingResult.courierNote}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             ) : (
               /* Clean 4-Step Fulfillment Preview before search */
               <div className="space-y-4">
-                <p className="text-xs font-semibold text-slate-500">
+                <p className="text-xs font-mono font-bold uppercase tracking-wider text-[#475569]">
                   How Robotera BD Fulfillment Works
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                   {STEPS.map((step, idx) => (
                     <div
                       key={step.status}
-                      className="rounded-xl p-3.5 bg-white border border-slate-200"
+                      style={{ animationDelay: `${idx * 55}ms` }}
+                      className="animate-cart-enter rounded-xl p-3.5 bg-white border border-slate-300/80"
                     >
-                      <span className="font-mono text-[11px] font-semibold text-[#0866F5]">
+                      <span className="font-mono text-[11px] font-bold text-[#0866F5]">
                         Step 0{idx + 1}
                       </span>
                       <p className="font-display text-xs font-bold text-[#071A3B] mt-1">
                         {step.label}
                       </p>
-                      <p className="text-[11px] text-slate-500 mt-1 leading-snug">{step.desc}</p>
+                      <p className="text-[11px] text-[#475569] mt-1 leading-snug">{step.desc}</p>
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
-            <div className="mt-5 pt-4 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <p className="text-xs text-slate-600">
+            <div className="mt-5 pt-4 border-t border-slate-300/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <p className="text-xs text-[#334155]">
                 Need urgent courier updates or campus gate delivery coordination?
               </p>
               <a
                 href={whatsappTrackUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#16A34A] hover:bg-[#15803D] text-white text-xs font-semibold whitespace-nowrap shrink-0 transition-colors"
+                className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#16A34A] hover:bg-[#15803D] border border-[#16A34A] text-white text-xs font-semibold whitespace-nowrap shrink-0 transition-colors"
               >
                 <MessageCircle className="w-3.5 h-3.5" />
                 <span>Ask Support on WhatsApp</span>

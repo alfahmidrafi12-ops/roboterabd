@@ -49,9 +49,9 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
   };
 
   return (
-    <footer className="bg-white border-t border-slate-200">
+    <footer className="bg-white min-[1500px]:bg-transparent min-[1500px]:pointer-events-none border-t border-slate-300 min-[1500px]:border-t-0">
       {/* Popular Engineering Queries & Store Guarantees */}
-      <div className="w-full max-w-[1760px] mx-auto px-4 sm:px-6 lg:px-10 py-10 border-b border-slate-200">
+      <div className="relative z-20 pointer-events-auto w-full max-w-[1440px] mx-auto bg-white min-[1500px]:border-x min-[1500px]:border-t min-[1500px]:border-slate-300/90 px-4 sm:px-6 lg:px-10 py-10 border-b border-slate-300/80">
         <Reveal>
           <h2 className="font-display text-lg sm:text-xl font-bold text-[#071A3B] mb-4">
             Popular Hardware Searches
@@ -62,7 +62,7 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
                 key={term}
                 type="button"
                 onClick={() => onQuickSearch(term)}
-                className="px-3.5 py-2 rounded-xl bg-[#F5F8FC] hover:bg-[#0866F5]/[0.08] text-[#101828] hover:text-[#0866F5] text-xs sm:text-sm font-medium border border-slate-200/80 hover:border-[#0866F5]/55 transition-colors whitespace-nowrap"
+                className="px-3.5 py-2 rounded-xl bg-[#EDF2F8] hover:bg-[#0866F5] text-[#0F172A] hover:text-white text-xs sm:text-sm font-medium border border-slate-300/90 hover:border-[#0866F5] transition-colors whitespace-nowrap"
               >
                 {term}
               </button>
@@ -71,43 +71,41 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
         </Reveal>
 
         {/* Store Guarantees */}
-        <div className="mt-10 pt-10 border-t border-slate-200 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="mt-10 pt-10 border-t border-slate-300/80 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-0 lg:divide-x divide-slate-300/85">
           {[
             {
               icon: Truck,
               title: 'Nationwide Delivery',
               desc: 'Inside Dhaka: 2–3 days (৳80) · Outside Dhaka: 2–4 days (৳150). Free over ৳3,000.',
-              tone: 'bg-[#ECFEFF] text-[#0891B2]',
+              iconColor: 'text-[#0F766E]',
             },
             {
               icon: ShieldCheck,
               title: '100% Authentic Hardware',
               desc: 'Direct-sourced MCUs, LiDAR, and power ICs with ESD-safe packaging.',
-              tone: 'bg-[#EFF6FF] text-[#0866F5]',
+              iconColor: 'text-[#0866F5]',
             },
             {
               icon: Award,
               title: '7-Day Lab Replacement',
               desc: 'Instant hardware replacement for verified manufacturing defects.',
-              tone: 'bg-[#FFFBEB] text-[#D97706]',
+              iconColor: 'text-[#C2410C]',
             },
             {
               icon: Banknote,
               title: 'bKash, Nagad & COD',
               desc: 'Pay securely via mobile banking, SSLCommerz cards, or Cash on Delivery.',
-              tone: 'bg-[#ECFDF5] text-[#059669]',
+              iconColor: 'text-[#0F766E]',
             },
           ].map((item, idx) => {
             const Icon = item.icon;
             return (
-              <Reveal key={item.title} delayMs={idx * 65}>
-                <div className="group flex items-start gap-3.5">
-                  <div className={`w-10 h-10 rounded-xl ${item.tone} flex items-center justify-center shrink-0`}>
-                    <Icon className="w-5 h-5" />
-                  </div>
+              <Reveal key={item.title} delayMs={idx * 55}>
+                <div className={`group flex items-start gap-3 ${idx === 0 ? 'lg:pr-6' : 'lg:px-6'}`}>
+                  <Icon className={`w-5 h-5 shrink-0 mt-0.5 ${item.iconColor}`} strokeWidth={1.75} />
                   <div>
                     <h3 className="font-display text-sm font-bold text-[#071A3B]">{item.title}</h3>
-                    <p className="text-xs text-[#64748B] mt-1 leading-relaxed">{item.desc}</p>
+                    <p className="text-xs text-[#475569] mt-1 leading-relaxed">{item.desc}</p>
                   </div>
                 </div>
               </Reveal>
@@ -117,8 +115,8 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
       </div>
 
       {/* Multi-Column Deep Navy Footer */}
-      <div className="bg-[#071A3B] text-slate-300">
-        <div className="w-full max-w-[1760px] mx-auto px-4 sm:px-6 lg:px-10 py-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-8">
+      <div className="relative z-20 pointer-events-auto bg-[#071A3B] text-slate-300">
+        <div className="w-full max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10 py-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-8">
           <div className="lg:col-span-4 space-y-4">
             <div className="font-display text-xl font-extrabold text-white tracking-tight flex items-center gap-2">
               <span className="w-7 h-7 rounded-lg bg-[#0866F5] flex items-center justify-center">
@@ -270,7 +268,7 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
         </div>
 
         <div className="border-t border-white/10">
-          <div className="w-full max-w-[1760px] mx-auto px-4 sm:px-6 lg:px-10 py-5 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-400">
+          <div className="w-full max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10 py-5 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-400">
             <p onClick={handleSecretTap} className="select-none cursor-default">
               © {new Date().getFullYear()} Robotera BD. All rights reserved.
             </p>

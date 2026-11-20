@@ -678,6 +678,67 @@ export async function fetchOrderTracking(orderId: string): Promise<OrderTracking
   }
 }
 
+export function subscribeOrderTracking(
+  orderId: string,
+  onData: (tracking: OrderTrackingInfo | null) => void,
+  onError?: (err: unknown) => void
+): () => void {
+  const cleanId = orderId.trim().replace(/^#/, '');
+  if (!/^[a-zA-Z0-9_-]{1,40}$/.test(cleanId)) {
+    onData(null);
+    return () => {};
+  }
+
+  const upperId = cleanId.toUpperCase();
+  let unsubFallback: (() => void) | null = null;
+  let active = true;
+
+  const primaryPath = `order_tracking/${cleanId}`;
+  const unsubPrimary = onSnapshot(
+    doc(db, 'order_tracking', cleanId),
+    (snapshot) => {
+      if (!active) return;
+      if (snapshot.exists()) {
+        if (unsubFallback) {
+          unsubFallback();
+          unsubFallback = null;
+        }
+        onData(snapshot.data() as OrderTrackingInfo);
+        return;
+      }
+
+      if (upperId !== cleanId && !unsubFallback) {
+        const fallbackPath = `order_tracking/${upperId}`;
+        unsubFallback = onSnapshot(
+          doc(db, 'order_tracking', upperId),
+          (fallbackSnap) => {
+            if (!active) return;
+            onData(fallbackSnap.exists() ? (fallbackSnap.data() as OrderTrackingInfo) : null);
+          },
+          (error) => {
+            if (!active) return;
+            if (onError) onError(error);
+            else handleFirestoreError(error, OperationType.GET, fallbackPath);
+          }
+        );
+      } else if (upperId === cleanId) {
+        onData(null);
+      }
+    },
+    (error) => {
+      if (!active) return;
+      if (onError) onError(error);
+      else handleFirestoreError(error, OperationType.GET, primaryPath);
+    }
+  );
+
+  return () => {
+    active = false;
+    unsubPrimary();
+    if (unsubFallback) unsubFallback();
+  };
+}
+
 export async function createPriceAlert(params: {
   productId: string;
   productName: string;

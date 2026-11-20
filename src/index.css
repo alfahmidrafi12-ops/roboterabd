@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 @theme {
-  --font-display: "Plus Jakarta Sans", system-ui, sans-serif;
-  --font-sans: "Inter", system-ui, sans-serif;
+  --font-display: "Outfit", system-ui, sans-serif;
+  --font-sans: "DM Sans", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
 }
 
@@ -12,8 +12,8 @@
     font-family: var(--font-sans);
     overflow-x: clip;
     -webkit-tap-highlight-color: transparent;
-    color: #101828;
-    background-color: #F1F5F9;
+    color: #0F172A;
+    background-color: #E6ECF4;
   }
 
   body {
@@ -186,6 +186,148 @@
   }
 }
 
+@keyframes traceSweep {
+  0% {
+    transform: translateX(-140%);
+    opacity: 0;
+  }
+  15% {
+    opacity: 0.95;
+  }
+  85% {
+    opacity: 0.95;
+  }
+  100% {
+    transform: translateX(340%);
+    opacity: 0;
+  }
+}
+
+@keyframes checkDraw {
+  from {
+    stroke-dashoffset: 48;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes circleDraw {
+  from {
+    stroke-dashoffset: 164;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes ringExpand {
+  0% {
+    transform: scale(0.85);
+    opacity: 0.75;
+  }
+  70% {
+    transform: scale(1.45);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1.45);
+    opacity: 0;
+  }
+}
+
+@keyframes sparkPop {
+  0% {
+    opacity: 0;
+    transform: scale(0.3) translateY(6px);
+  }
+  45% {
+    opacity: 1;
+    transform: scale(1.12) translateY(-2px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes cartLineEnter {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes iconPop {
+  0% {
+    transform: scale(0.65);
+  }
+  55% {
+    transform: scale(1.22);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes barShimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(220%);
+  }
+}
+
+@keyframes bannerSlideInRight {
+  from {
+    transform: translate3d(100%, 0, 0);
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes bannerSlideOutLeft {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-100%, 0, 0);
+  }
+}
+
+@keyframes bannerSlideInLeft {
+  from {
+    transform: translate3d(-100%, 0, 0);
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes bannerSlideOutRight {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(100%, 0, 0);
+  }
+}
+
+@keyframes bannerProgressFill {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
 .animate-hero-rise {
   animation: heroRise 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
@@ -250,6 +392,63 @@
   animation: ambientPulse 7s ease-in-out infinite;
 }
 
+.animate-trace-sweep {
+  animation: traceSweep 3.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.animate-check-draw {
+  stroke-dasharray: 48;
+  stroke-dashoffset: 48;
+  animation: checkDraw 0.48s cubic-bezier(0.22, 1, 0.36, 1) 0.25s forwards;
+}
+
+.animate-circle-draw {
+  stroke-dasharray: 164;
+  stroke-dashoffset: 164;
+  animation: circleDraw 0.52s cubic-bezier(0.22, 1, 0.36, 1) 0.05s forwards;
+}
+
+.animate-ring-expand {
+  animation: ringExpand 2.2s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+
+.animate-spark-pop {
+  animation: sparkPop 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.32s both;
+}
+
+.animate-cart-enter {
+  animation: cartLineEnter 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-icon-pop {
+  animation: iconPop 0.34s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-bar-shimmer {
+  animation: barShimmer 2.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.animate-banner-in-right {
+  animation: bannerSlideInRight 0.65s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-banner-out-left {
+  animation: bannerSlideOutLeft 0.65s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-banner-in-left {
+  animation: bannerSlideInLeft 0.65s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-banner-out-right {
+  animation: bannerSlideOutRight 0.65s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-banner-progress {
+  transform-origin: left center;
+  animation: bannerProgressFill 4.5s linear both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-hero-rise,
   .animate-hero-rise-delay-1,
@@ -266,8 +465,24 @@
   .animate-drawer-in,
   .animate-drawer-up,
   .animate-badge-bounce,
-  .animate-ambient-pulse {
+  .animate-ambient-pulse,
+  .animate-trace-sweep,
+  .animate-ring-expand,
+  .animate-spark-pop,
+  .animate-cart-enter,
+  .animate-icon-pop,
+  .animate-bar-shimmer,
+  .animate-banner-in-right,
+  .animate-banner-out-left,
+  .animate-banner-in-left,
+  .animate-banner-out-right,
+  .animate-banner-progress {
     animation: none !important;
+  }
+  .animate-check-draw,
+  .animate-circle-draw {
+    animation: none !important;
+    stroke-dashoffset: 0 !important;
   }
 }
 

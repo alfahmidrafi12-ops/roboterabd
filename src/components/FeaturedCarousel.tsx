@@ -51,14 +51,13 @@ export const FeaturedCarousel: React.FC<FeaturedCarouselProps> = ({
   };
 
   return (
-    <section id="just-arrived" className="scroll-mt-20 py-10 sm:py-14 bg-[#F1F5F9]">
-      <div className="w-full max-w-[1760px] mx-auto px-4 sm:px-6 lg:px-10">
+    <section id="just-arrived" className="scroll-mt-20 bg-[#E6ECF4] min-[1500px]:bg-transparent min-[1500px]:pointer-events-none">
+      <div className="relative z-20 pointer-events-auto w-full max-w-[1440px] mx-auto bg-[#E6ECF4] min-[1500px]:border-x min-[1500px]:border-slate-300/90 px-4 sm:px-6 lg:px-10 py-10 sm:py-14">
         <Reveal>
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6 sm:mb-7">
             <div>
-              <p className="text-xs font-mono font-semibold uppercase tracking-wider text-[#EA580C] mb-1 inline-flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#EA580C]" aria-hidden="true" />
-                <span>Curated Hardware Spotlights</span>
+              <p className="text-[11px] font-mono font-bold uppercase tracking-[0.14em] text-[#C2410C] mb-1">
+                Curated Hardware Spotlights
               </p>
               <h2 className="font-display text-2xl sm:text-3xl font-bold text-[#071A3B] tracking-tight">
                 {activeTab === 'new'
@@ -70,7 +69,7 @@ export const FeaturedCarousel: React.FC<FeaturedCarouselProps> = ({
             </div>
 
             <div className="flex flex-wrap items-center justify-between sm:justify-end gap-3">
-              <div className="inline-flex p-1 rounded-xl bg-white border border-slate-200/90">
+              <div className="inline-flex p-1 rounded-xl bg-white border border-slate-300/90">
                 {(
                   [
                     { id: 'new', label: 'New Arrivals' },
@@ -85,7 +84,7 @@ export const FeaturedCarousel: React.FC<FeaturedCarouselProps> = ({
                     className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap ${
                       activeTab === tab.id
                         ? 'bg-[#0866F5] text-white'
-                        : 'text-[#64748B] hover:text-[#101828] hover:bg-[#0866F5]/[0.05]'
+                        : 'text-[#334155] hover:text-[#071A3B] hover:bg-[#EDF2F8]'
                     }`}
                   >
                     {tab.label}
@@ -98,7 +97,7 @@ export const FeaturedCarousel: React.FC<FeaturedCarouselProps> = ({
                   type="button"
                   onClick={() => scrollByAmount('left')}
                   aria-label="Scroll products left"
-                  className="w-9 h-9 rounded-xl bg-white hover:bg-[#0866F5]/[0.05] text-[#101828] border border-slate-200 hover:border-[#0866F5]/45 transition-colors flex items-center justify-center"
+                  className="w-9 h-9 rounded-xl bg-white hover:bg-[#071A3B] text-[#071A3B] hover:text-white border border-slate-300 hover:border-[#071A3B] transition-colors flex items-center justify-center"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
@@ -106,7 +105,7 @@ export const FeaturedCarousel: React.FC<FeaturedCarouselProps> = ({
                   type="button"
                   onClick={() => scrollByAmount('right')}
                   aria-label="Scroll products right"
-                  className="w-9 h-9 rounded-xl bg-white hover:bg-[#0866F5]/[0.05] text-[#101828] border border-slate-200 hover:border-[#0866F5]/45 transition-colors flex items-center justify-center"
+                  className="w-9 h-9 rounded-xl bg-white hover:bg-[#071A3B] text-[#071A3B] hover:text-white border border-slate-300 hover:border-[#071A3B] transition-colors flex items-center justify-center"
                 >
                   <ChevronRight className="w-4 h-4" />
                 </button>

@@ -207,13 +207,13 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
                 className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-colors text-left ${
                   selected
                     ? 'bg-[#0866F5] text-white font-semibold'
-                    : 'text-[#101828] hover:bg-[#F5F8FC]'
+                    : 'text-[#0F172A] hover:bg-white'
                 }`}
               >
                 <span className="truncate">{cat.name}</span>
                 <span
                   className={`font-mono text-[10px] shrink-0 ml-2 ${
-                    selected ? 'text-blue-100' : 'text-[#64748B]'
+                    selected ? 'text-blue-100' : 'text-[#475569]'
                   }`}
                 >
                   {cat.countLabel.split(' ')[0]}
@@ -226,7 +226,7 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
 
       {/* Brand / Platform Filter */}
       {availableBrands.length > 0 && (
-        <div className="pt-5 border-t border-slate-200/80">
+        <div className="pt-5 border-t border-slate-300/80">
           <h3 className="font-display text-xs font-bold uppercase tracking-wider text-[#071A3B] mb-2.5">
             Brand &amp; Ecosystem
           </h3>
@@ -237,7 +237,7 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
               className={`px-2.5 py-1 rounded-md text-[11px] font-semibold border transition-colors ${
                 selectedBrand === 'all'
                   ? 'bg-[#071A3B] border-[#071A3B] text-white'
-                  : 'bg-[#F5F8FC] border-slate-200 text-[#101828] hover:border-slate-300'
+                  : 'bg-white border-slate-300 text-[#0F172A] hover:border-[#0866F5]/60'
               }`}
             >
               All
@@ -252,7 +252,7 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
                   className={`px-2.5 py-1 rounded-md text-[11px] font-semibold border transition-colors ${
                     active
                       ? 'bg-[#0866F5] border-[#0866F5] text-white'
-                      : 'bg-[#F5F8FC] border-slate-200 text-[#101828] hover:border-[#0866F5]/50'
+                      : 'bg-white border-slate-300 text-[#0F172A] hover:border-[#0866F5]/60'
                   }`}
                 >
                   {brand}
@@ -264,13 +264,13 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
       )}
 
       {/* Price Range Filter */}
-      <div className="pt-5 border-t border-slate-200/80 space-y-2.5">
+      <div className="pt-5 border-t border-slate-300/80 space-y-2.5">
         <h3 className="font-display text-xs font-bold uppercase tracking-wider text-[#071A3B]">
           Price Range (BDT)
         </h3>
         <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-1.5">
-          <div className="flex items-center gap-1 bg-[#F5F8FC] border border-slate-200 rounded-lg px-2.5 h-9 min-w-0">
-            <span className="text-xs text-[#64748B]">৳</span>
+          <div className="flex items-center gap-1 bg-white border border-slate-300 rounded-lg px-2.5 h-9 min-w-0">
+            <span className="text-xs text-[#475569]">৳</span>
             <input
               type="number"
               min={0}
@@ -278,12 +278,12 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
               onChange={(e) => onMinPriceChange(e.target.value)}
               placeholder="Min"
               aria-label="Minimum price"
-              className="w-full bg-transparent text-base sm:text-xs font-mono text-[#101828] focus:outline-none"
+              className="w-full bg-transparent text-base sm:text-xs font-mono text-[#0F172A] focus:outline-none"
             />
           </div>
-          <span className="text-xs text-slate-400">–</span>
-          <div className="flex items-center gap-1 bg-[#F5F8FC] border border-slate-200 rounded-lg px-2.5 h-9 min-w-0">
-            <span className="text-xs text-[#64748B]">৳</span>
+          <span className="text-xs text-[#475569]">–</span>
+          <div className="flex items-center gap-1 bg-white border border-slate-300 rounded-lg px-2.5 h-9 min-w-0">
+            <span className="text-xs text-[#475569]">৳</span>
             <input
               type="number"
               min={0}
@@ -291,7 +291,7 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
               onChange={(e) => onMaxPriceChange(e.target.value)}
               placeholder="Max"
               aria-label="Maximum price"
-              className="w-full bg-transparent text-base sm:text-xs font-mono text-[#101828] focus:outline-none"
+              className="w-full bg-transparent text-base sm:text-xs font-mono text-[#0F172A] focus:outline-none"
             />
           </div>
         </div>
@@ -314,7 +314,7 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
                 className={`px-2.5 py-1 rounded-md text-[11px] font-mono font-semibold border transition-colors ${
                   active
                     ? 'bg-[#0866F5] border-[#0866F5] text-white'
-                    : 'bg-[#F5F8FC] border-slate-200 text-[#101828] hover:border-slate-300'
+                    : 'bg-white border-slate-300 text-[#0F172A] hover:border-[#0866F5]'
                 }`}
               >
                 {preset.label}
@@ -325,7 +325,7 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
       </div>
 
       {/* Availability Filter */}
-      <div className="pt-5 border-t border-slate-200/80 space-y-2.5">
+      <div className="pt-5 border-t border-slate-300/80 space-y-2.5">
         <h3 className="font-display text-xs font-bold uppercase tracking-wider text-[#071A3B]">
           Availability
         </h3>
@@ -345,7 +345,7 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
               className={`px-2.5 py-1.5 rounded-lg text-[11px] font-semibold border transition-colors ${
                 availabilityFilter === opt.id
                   ? 'bg-[#071A3B] border-[#071A3B] text-white'
-                  : 'bg-[#F5F8FC] border-slate-200 text-[#101828] hover:border-slate-300'
+                  : 'bg-white border-slate-300 text-[#0F172A] hover:border-[#071A3B]'
               }`}
             >
               {opt.label}
@@ -355,7 +355,7 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
       </div>
 
       {/* Technical Specs Keywords */}
-      <div className="pt-5 border-t border-slate-200/80 space-y-2.5">
+      <div className="pt-5 border-t border-slate-300/80 space-y-2.5">
         <h3 className="font-display text-xs font-bold uppercase tracking-wider text-[#071A3B] flex items-center gap-1.5">
           <Cpu className="w-3.5 h-3.5 text-[#0866F5]" />
           <span>Interfaces &amp; Voltage</span>
@@ -374,7 +374,7 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
                 className={`px-2 py-1 rounded-md text-[11px] font-mono font-semibold border transition-colors ${
                   active
                     ? 'bg-[#0866F5] border-[#0866F5] text-white'
-                    : 'bg-[#F5F8FC] border-slate-200 text-[#101828] hover:border-[#0866F5]/60'
+                    : 'bg-white border-slate-300 text-[#0F172A] hover:border-[#0866F5]'
                 }`}
               >
                 {kw}
@@ -385,11 +385,11 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
       </div>
 
       {hasAnyFilter && (
-        <div className="pt-4 border-t border-slate-200/80">
+        <div className="pt-4 border-t border-slate-300/80">
           <button
             type="button"
             onClick={handleResetAll}
-            className="w-full h-9 rounded-xl border border-slate-200 hover:bg-[#F5F8FC] text-xs font-semibold text-[#0866F5] inline-flex items-center justify-center gap-1.5 transition-colors"
+            className="w-full h-9 rounded-xl bg-white border border-slate-300 hover:bg-[#071A3B] hover:text-white hover:border-[#071A3B] text-xs font-semibold text-[#0866F5] inline-flex items-center justify-center gap-1.5 transition-colors"
           >
             <RotateCcw className="w-3.5 h-3.5" />
             <span>Clear All Filters</span>
@@ -402,25 +402,25 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
   return (
     <section
       id="best-selling"
-      className="scroll-mt-20 py-10 sm:py-14 lg:py-16 bg-white"
+      className="scroll-mt-20 bg-white min-[1500px]:bg-transparent min-[1500px]:pointer-events-none"
     >
-      <div className="w-full max-w-[1760px] mx-auto px-4 sm:px-6 lg:px-10">
+      <div className="relative z-20 pointer-events-auto w-full max-w-[1440px] mx-auto bg-white min-[1500px]:border-x min-[1500px]:border-slate-300/90 px-4 sm:px-6 lg:px-10 py-11 sm:py-14 lg:py-16">
         {/* Top Page Heading & Discovery Controls */}
-        <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4 pb-6 border-b border-slate-200/80 mb-6">
+        <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4 pb-6 border-b border-slate-300/80 mb-6">
           <div>
-            <p className="text-xs font-mono font-semibold uppercase tracking-wider text-[#059669] mb-1">
+            <p className="text-[11px] font-mono font-bold uppercase tracking-[0.14em] text-[#0F766E] mb-1">
               Product Discovery Catalog
             </p>
             <div className="flex items-baseline gap-3">
               <h2 className="font-display text-2xl sm:text-3xl font-bold text-[#071A3B] tracking-tight">
                 {activeCategoryName ? activeCategoryName : 'Shop Hardware'}
               </h2>
-              <span className="text-xs font-mono text-[#64748B] tabular-nums">
+              <span className="text-xs font-mono font-semibold text-[#475569] tabular-nums">
                 {displayedProducts.length} {displayedProducts.length === 1 ? 'item' : 'items'}
               </span>
             </div>
             {hasAnyFilter && (
-              <div className="mt-1.5 flex flex-wrap items-center gap-3 text-xs text-[#64748B]">
+              <div className="mt-1.5 flex flex-wrap items-center gap-3 text-xs text-[#475569]">
                 <span>
                   Filtered view
                   {searchQuery ? ` · "${searchQuery}"` : ''}
@@ -445,21 +445,21 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
           {/* Search, Mobile Filters, View Mode & Sort */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full lg:w-auto">
             <div className="relative flex-1 sm:w-64">
-              <Search className="w-4 h-4 text-[#64748B] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <Search className="w-4 h-4 text-[#475569] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => onSearchChange(e.target.value)}
                 placeholder="Search model, SKU, specs..."
                 aria-label="Filter hardware catalog by name, SKU, or technical keywords"
-                className="w-full h-10 pl-9 pr-8 rounded-xl bg-[#F1F5F9] border border-slate-200/90 text-base sm:text-sm text-[#101828] placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0866F5] transition-colors"
+                className="w-full h-10 pl-9 pr-8 rounded-xl bg-[#EDF2F8] border border-slate-300 text-base sm:text-sm text-[#0F172A] placeholder:text-[#475569] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0866F5] transition-colors"
               />
               {searchQuery && (
                 <button
                   type="button"
                   onClick={() => onSearchChange('')}
                   aria-label="Clear filter search"
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-0.5"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#475569] hover:text-[#071A3B] p-0.5"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -473,7 +473,7 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
                 className={`lg:hidden h-10 px-3.5 rounded-xl border text-xs font-semibold inline-flex items-center gap-2 transition-colors whitespace-nowrap shrink-0 ${
                   activeAdvancedCount > 0
                     ? 'bg-[#071A3B] border-[#071A3B] text-white'
-                    : 'bg-[#F1F5F9] border-slate-200 text-[#101828]'
+                    : 'bg-[#EDF2F8] border-slate-300 text-[#0F172A]'
                 }`}
               >
                 <SlidersHorizontal className="w-3.5 h-3.5" />
@@ -487,23 +487,23 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
 
               {/* Sort Dropdown */}
               <div className="relative flex-1 min-w-0 sm:flex-initial shrink-0">
-                <ArrowUpDown className="w-3.5 h-3.5 text-[#64748B] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <ArrowUpDown className="w-3.5 h-3.5 text-[#475569] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <select
                   value={sortBy}
                   onChange={(e) => onSortChange(e.target.value as SortOption)}
                   aria-label="Sort products"
-                  className="w-full min-w-0 sm:w-48 h-10 pl-8 pr-8 rounded-xl bg-[#F5F8FC] border border-slate-200/90 text-xs sm:text-sm font-medium text-[#101828] appearance-none cursor-pointer focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0866F5] hover:border-slate-300 transition-colors"
+                  className="w-full min-w-0 sm:w-48 h-10 pl-8 pr-8 rounded-xl bg-[#EDF2F8] border border-slate-300 text-xs sm:text-sm font-medium text-[#0F172A] appearance-none cursor-pointer focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0866F5] hover:border-[#071A3B]/40 transition-colors"
                 >
                   <option value="featured">Sort: Best Selling</option>
                   <option value="price-asc">Price: Low to High</option>
                   <option value="price-desc">Price: High to Low</option>
                   <option value="newest">Newest Arrivals</option>
                 </select>
-                <ChevronDown className="w-4 h-4 text-[#64748B] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <ChevronDown className="w-4 h-4 text-[#475569] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
 
               {/* Grid / List Toggle */}
-              <div className="hidden sm:flex items-center p-1 rounded-xl bg-[#F5F8FC] border border-slate-200/90">
+              <div className="hidden sm:flex items-center p-1 rounded-xl bg-[#EDF2F8] border border-slate-300">
                 <button
                   type="button"
                   onClick={() => setViewMode('grid')}
@@ -511,8 +511,8 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
                   aria-pressed={viewMode === 'grid'}
                   className={`p-1.5 rounded-lg border transition-colors ${
                     viewMode === 'grid'
-                      ? 'bg-white text-[#0866F5] border-slate-200/80'
-                      : 'border-transparent text-[#64748B] hover:text-[#101828] hover:bg-white/60'
+                      ? 'bg-[#071A3B] text-white border-[#071A3B]'
+                      : 'border-transparent text-[#475569] hover:text-[#0F172A] hover:bg-white/70'
                   }`}
                 >
                   <LayoutGrid className="w-4 h-4" />
@@ -524,8 +524,8 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
                   aria-pressed={viewMode === 'list'}
                   className={`p-1.5 rounded-lg border transition-colors ${
                     viewMode === 'list'
-                      ? 'bg-white text-[#0866F5] border-slate-200/80'
-                      : 'border-transparent text-[#64748B] hover:text-[#101828] hover:bg-white/60'
+                      ? 'bg-[#071A3B] text-white border-[#071A3B]'
+                      : 'border-transparent text-[#475569] hover:text-[#0F172A] hover:bg-white/70'
                   }`}
                 >
                   <List className="w-4 h-4" />
@@ -554,7 +554,7 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
                 className={`px-4 py-2 rounded-xl border text-xs font-semibold transition-colors whitespace-nowrap shrink-0 ${
                   active
                     ? 'bg-[#071A3B] border-[#071A3B] text-white'
-                    : 'bg-[#F5F8FC] hover:bg-[#0866F5]/[0.06] text-[#64748B] border-slate-200/80 hover:border-[#0866F5]/45 hover:text-[#101828]'
+                    : 'bg-[#EDF2F8] hover:bg-[#DCE4F0] text-[#334155] border-slate-300/85 hover:border-[#0866F5]/60 hover:text-[#071A3B]'
                 }`}
               >
                 {tab.label}
@@ -564,47 +564,52 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
         </div>
 
         {/* Desktop Sidebar + Product Discovery Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 xl:gap-7 items-start">
-          <aside className="hidden lg:block lg:col-span-3 2xl:col-span-2 bg-[#F8FAFC] rounded-2xl border border-slate-200/90 p-5 sticky top-20">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 xl:gap-8 items-start">
+          <aside className="hidden lg:block lg:col-span-3 bg-[#EDF2F8] rounded-2xl border border-slate-300/85 p-5 sticky top-20">
             {filterSidebarContent}
           </aside>
 
-          <div className="lg:col-span-9 2xl:col-span-10">
+          <div className="lg:col-span-9">
             {displayedProducts.length === 0 ? (
-              <div className="bg-[#F5F8FC] rounded-2xl border border-slate-200 p-8 sm:p-14 text-center">
+              <div className="bg-[#EDF2F8] rounded-2xl border border-slate-300 p-8 sm:p-14 text-center">
                 <h3 className="font-display text-lg font-bold text-[#071A3B]">
                   No matching components found
                 </h3>
-                <p className="text-sm text-[#64748B] mt-1.5">
+                <p className="text-sm text-[#475569] mt-1.5">
                   Try adjusting your brand, price range, availability filter, or technical keywords.
                 </p>
                 <button
                   type="button"
                   onClick={handleResetAll}
-                  className="mt-5 px-5 py-2.5 rounded-xl bg-[#0866F5] hover:bg-[#0654CC] text-white text-sm font-semibold transition-colors"
+                  className="mt-5 px-5 py-2.5 rounded-xl bg-[#0866F5] hover:bg-[#0654CC] border border-[#0866F5] text-white text-sm font-semibold transition-colors"
                 >
                   Show All Hardware
                 </button>
               </div>
             ) : viewMode === 'list' ? (
               <div className="space-y-4">
-                {displayedProducts.map((product) => (
-                  <ProductCard
+                {displayedProducts.map((product, idx) => (
+                  <div
                     key={product.id}
-                    product={product}
-                    layout="list"
-                    categoryDisplayName={categoryLabels[product.category]}
-                    isWishlisted={wishlistIds.includes(product.id)}
-                    onToggleWishlist={onToggleWishlist}
-                    onAddToCart={onAddToCart}
-                    onOpenDetail={onOpenDetail}
-                  />
+                    style={{ animationDelay: `${Math.min(idx * 35, 200)}ms` }}
+                    className="animate-cart-enter"
+                  >
+                    <ProductCard
+                      product={product}
+                      layout="list"
+                      categoryDisplayName={categoryLabels[product.category]}
+                      isWishlisted={wishlistIds.includes(product.id)}
+                      onToggleWishlist={onToggleWishlist}
+                      onAddToCart={onAddToCart}
+                      onOpenDetail={onOpenDetail}
+                    />
+                  </div>
                 ))}
               </div>
             ) : (
-              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-4 xl:gap-5">
+              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3.5 sm:gap-5">
                 {displayedProducts.map((product, idx) => (
-                  <Reveal key={product.id} delayMs={Math.min(idx * 30, 210)} className="h-full">
+                  <Reveal key={product.id} delayMs={Math.min(idx * 25, 180)} className="h-full">
                     <ProductCard
                       product={product}
                       layout="grid"
@@ -630,20 +635,20 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
             onClick={() => setMobileFiltersOpen(false)}
             aria-hidden="true"
           />
-          <div className="animate-drawer-up relative z-10 w-full max-h-[85dvh] bg-white rounded-t-3xl border-t border-slate-200 flex flex-col overflow-hidden shadow-2xl">
-            <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
+          <div className="animate-drawer-up relative z-10 w-full max-h-[85dvh] bg-white rounded-t-3xl border-t border-slate-300 flex flex-col overflow-hidden shadow-2xl">
+            <div className="px-5 py-4 border-b border-slate-300 flex items-center justify-between">
               <h3 className="font-display text-base font-bold text-[#071A3B]">Filter Hardware</h3>
               <button
                 type="button"
                 onClick={() => setMobileFiltersOpen(false)}
                 aria-label="Close filters"
-                className="p-1.5 rounded-lg text-[#64748B] hover:text-[#101828]"
+                className="p-1.5 rounded-lg text-[#475569] hover:text-[#071A3B]"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
             <div className="flex-1 overflow-y-auto p-5">{filterSidebarContent}</div>
-            <div className="p-4 border-t border-slate-200 bg-[#F5F8FC] pb-[max(1rem,env(safe-area-inset-bottom))]">
+            <div className="p-4 border-t border-slate-300 bg-[#EDF2F8] pb-[max(1rem,env(safe-area-inset-bottom))]">
               <button
                 type="button"
                 onClick={() => setMobileFiltersOpen(false)}

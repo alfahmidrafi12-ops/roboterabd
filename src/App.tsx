@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { User } from 'firebase/auth';
 import { BellRing, CheckCircle2, ShoppingBag, X } from 'lucide-react';
 import { AdminPanel } from './components/AdminPanel';
+import { ArchitecturalSideRails } from './components/ArchitecturalSideRails';
 import { AuthModal } from './components/AuthModal';
 import { BestSellingSection } from './components/BestSellingSection';
 import { BlogSection } from './components/BlogSection';
@@ -633,8 +634,10 @@ export default function App() {
   const totalCartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#F5F8FC] text-[#101828] pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:pb-0">
+    <div className="min-h-screen flex flex-col bg-[#E6ECF4] text-[#0F172A] pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:pb-0">
       <FuturisticBootLoader />
+
+      <ArchitecturalSideRails />
 
       <Header
         activePage={activePage}
@@ -671,6 +674,8 @@ export default function App() {
         {activePage === 'track' ? (
           <OrderTrackingSection
             recentOrderIds={recentOrderIds}
+            userOrders={userOrders}
+            isSignedIn={Boolean(authUser)}
             autoTrackOrderId={autoTrackOrderId}
             onBackToStore={() => scrollToSection()}
           />
@@ -690,7 +695,7 @@ export default function App() {
             <SectionDivider
               indexCode="01"
               label="Featured Campaigns"
-              fromBg="#F1F5F9"
+              fromBg="#FFFFFF"
               toBg="#FFFFFF"
               accent="cyan"
             />
@@ -704,7 +709,7 @@ export default function App() {
               indexCode="02"
               label="Hardware Departments"
               fromBg="#FFFFFF"
-              toBg="#F1F5F9"
+              toBg="#E6ECF4"
               accent="blue"
             />
 
@@ -717,7 +722,7 @@ export default function App() {
             <SectionDivider
               indexCode="03"
               label="Product Catalog"
-              fromBg="#F1F5F9"
+              fromBg="#E6ECF4"
               toBg="#FFFFFF"
               accent="emerald"
             />
@@ -748,7 +753,7 @@ export default function App() {
               indexCode="04"
               label="Curated Spotlights"
               fromBg="#FFFFFF"
-              toBg="#F1F5F9"
+              toBg="#E6ECF4"
               accent="amber"
             />
 
@@ -765,7 +770,7 @@ export default function App() {
             <SectionDivider
               indexCode="05"
               label="Engineering Ecosystem"
-              fromBg="#F1F5F9"
+              fromBg="#E6ECF4"
               toBg="#071A3B"
               accent="cyan"
               dark
@@ -797,7 +802,7 @@ export default function App() {
               indexCode="07"
               label="Knowledge Center"
               fromBg="#FFFFFF"
-              toBg="#F1F5F9"
+              toBg="#E6ECF4"
               accent="indigo"
             />
 

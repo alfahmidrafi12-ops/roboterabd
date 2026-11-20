@@ -1235,7 +1235,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 <div className="space-y-5">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <p className="text-xs text-slate-600">
-                      Manage banners shown in the auto-scrolling promotional carousel on the homepage.
+                      Manage banners shown in the dual-screen 16:9 display wall. Recommended banner size: <strong className="font-mono text-[#071A3B]">1280 × 720 px (16:9)</strong> — rendered completely uncropped.
                     </p>
                     <button
                       type="button"
@@ -2301,7 +2301,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
               <div className="sm:col-span-2">
                 <ImageSourceField
-                  label="Custom Banner Image (Shows full banner without cropping or text overlay)"
+                  label="Custom Banner Image (Recommended: 1280 × 720 px / 16:9 — zero crop)"
                   value={editingBanner.imageUrl}
                   maxDimension={1280}
                   maxChars={180000}
