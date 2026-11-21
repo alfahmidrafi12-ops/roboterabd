@@ -1,158 +1,152 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowRight, ChevronLeft, ChevronRight, Monitor } from 'lucide-react';
+import { ArrowRight, ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react';
 import { BannerItem, BannerTheme, CategoryId } from '../types/store';
 import { HardwareArtwork } from './HardwareArtwork';
 import { Reveal } from './Reveal';
+
+function resolveBannerLink(raw?: string): { kind: 'external' | 'internal'; href: string } | null {
+  if (!raw) return null;
+  let trimmed = raw.trim();
+  if (!trimmed || /^(javascript|data|vbscript):/i.test(trimmed)) return null;
+  if (
+    !/^(https?:\/\/|\/|#)/i.test(trimmed) &&
+    /^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/.test(trimmed)
+  ) {
+    trimmed = `https://${trimmed}`;
+  }
+  if (/^https?:\/\//i.test(trimmed)) {
+    return { kind: 'external', href: trimmed };
+  }
+  if (trimmed.startsWith('#') || trimmed.startsWith('/')) {
+    return { kind: 'internal', href: trimmed };
+  }
+  return null;
+}
 
 interface ScrollingBannerSectionProps {
   banners: BannerItem[];
   onSelectCategory: (categoryId: CategoryId) => void;
 }
 
-const THEME_STYLES: Record<
+const ARTWORK_BACKDROPS: Record<
   BannerTheme,
   {
-    canvas: string;
-    gridClass: string;
-    kicker: string;
-    title: string;
-    subtitle: string;
-    cta: string;
-    artworkBox: string;
+    surface: string;
+    grid: string;
+    accentGlow: string;
+    kickerColor: string;
+    titleColor: string;
+    subColor: string;
+    stageBox: string;
   }
 > = {
   navy: {
-    canvas: 'bg-gradient-to-br from-[#06142E] via-[#071A3B] to-[#0C2B5E] text-white',
-    gridClass: 'bg-lab-grid-dark',
-    kicker: 'text-[#2DD4BF]',
-    title: 'text-white',
-    subtitle: 'text-slate-300',
-    cta: 'bg-[#0866F5] hover:bg-[#1685FF] border border-[#1685FF]/50 text-white',
-    artworkBox: 'bg-white/[0.06] border-white/15',
+    surface: 'bg-gradient-to-br from-[#071A3B] via-[#0B2554] to-[#0E3270]',
+    grid: 'bg-lab-grid-dark opacity-70',
+    accentGlow:
+      'bg-[radial-gradient(circle_at_80%_25%,rgba(0,207,255,0.22),transparent_60%)]',
+    kickerColor: 'text-[#00CFFF]',
+    titleColor: 'text-white',
+    subColor: 'text-slate-300',
+    stageBox: 'bg-white/[0.06] border-white/15',
   },
   cobalt: {
-    canvas: 'bg-gradient-to-br from-[#0654CC] via-[#0866F5] to-[#1685FF] text-white',
-    gridClass: 'bg-lab-grid-dark',
-    kicker: 'text-blue-100',
-    title: 'text-white',
-    subtitle: 'text-blue-50/90',
-    cta: 'bg-white hover:bg-white/90 border border-white/60 text-[#071A3B]',
-    artworkBox: 'bg-white/10 border-white/20',
+    surface: 'bg-gradient-to-br from-[#0657D0] via-[#087BFF] to-[#238FFF]',
+    grid: 'bg-lab-grid-dark opacity-60',
+    accentGlow:
+      'bg-[radial-gradient(circle_at_85%_20%,rgba(255,255,255,0.22),transparent_60%)]',
+    kickerColor: 'text-[#BAE6FD]',
+    titleColor: 'text-white',
+    subColor: 'text-blue-50/90',
+    stageBox: 'bg-white/12 border-white/25',
   },
   slate: {
-    canvas: 'bg-gradient-to-br from-[#E6ECF4] via-[#EDF2F8] to-[#FFFFFF] text-[#071A3B]',
-    gridClass: 'bg-lab-grid',
-    kicker: 'text-[#C2410C]',
-    title: 'text-[#071A3B]',
-    subtitle: 'text-[#334155]',
-    cta: 'bg-[#071A3B] hover:bg-[#0866F5] border border-[#071A3B] text-white',
-    artworkBox: 'bg-white border-slate-300/85',
+    surface: 'bg-gradient-to-br from-[#F3F7FC] via-[#E8EFF8] to-[#DCE7F5]',
+    grid: 'bg-lab-grid opacity-75',
+    accentGlow:
+      'bg-[radial-gradient(circle_at_80%_25%,rgba(8,123,255,0.14),transparent_60%)]',
+    kickerColor: 'text-[#087BFF]',
+    titleColor: 'text-[#071A3B]',
+    subColor: 'text-[#334155]',
+    stageBox: 'bg-white border-slate-200/90',
   },
   emerald: {
-    canvas: 'bg-gradient-to-br from-[#052624] via-[#062E2B] to-[#0B4F4A] text-white',
-    gridClass: 'bg-lab-grid-dark',
-    kicker: 'text-[#2DD4BF]',
-    title: 'text-white',
-    subtitle: 'text-teal-100/85',
-    cta: 'bg-white hover:bg-white/90 border border-white/60 text-[#062E2B]',
-    artworkBox: 'bg-white/[0.08] border-teal-400/20',
+    surface: 'bg-gradient-to-br from-[#062426] via-[#073134] to-[#0A474B]',
+    grid: 'bg-lab-grid-dark opacity-65',
+    accentGlow:
+      'bg-[radial-gradient(circle_at_80%_25%,rgba(0,207,255,0.18),transparent_60%)]',
+    kickerColor: 'text-[#00CFFF]',
+    titleColor: 'text-white',
+    subColor: 'text-slate-200/85',
+    stageBox: 'bg-white/[0.08] border-white/15',
   },
 };
 
-const AUTO_INTERVAL_MS = 4500;
+const AUTO_INTERVAL_MS = 5000;
 
-interface BannerSlideContentProps {
+interface BannerVisualStageProps {
   banner: BannerItem;
-  onSelectCategory: (categoryId: CategoryId) => void;
 }
 
-const BannerSlideContent: React.FC<BannerSlideContentProps> = ({ banner, onSelectCategory }) => {
-  const style = THEME_STYLES[banner.theme] ?? THEME_STYLES.navy;
+const BannerVisualStage: React.FC<BannerVisualStageProps> = ({ banner }) => {
   const customImg = banner.imageUrl?.trim();
+  const theme = ARTWORK_BACKDROPS[banner.theme] ?? ARTWORK_BACKDROPS.navy;
 
   if (customImg) {
     return (
-      <button
-        type="button"
-        onClick={() => onSelectCategory(banner.targetCategory)}
-        aria-label={banner.title || 'View featured campaign'}
-        className="w-full h-full bg-[#F8FAFC] flex items-center justify-center overflow-hidden cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0866F5]"
-      >
+      <div className="w-full h-full bg-[#F8FAFC] flex items-center justify-center overflow-hidden">
         <img
           src={customImg}
-          alt={banner.title || 'Promotional campaign'}
+          alt={banner.title || 'Featured Robotics Campaign'}
           referrerPolicy="no-referrer"
-          className="w-full h-full object-contain block"
+          className="w-full h-full object-contain block transition-transform duration-500 ease-out group-hover:scale-[1.03]"
         />
-      </button>
+      </div>
     );
   }
 
   return (
     <div
-      onClick={() => onSelectCategory(banner.targetCategory)}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          onSelectCategory(banner.targetCategory);
-        }
-      }}
-      aria-label={banner.title}
-      className={`w-full h-full p-4 sm:p-6 lg:p-7 flex items-center justify-between gap-3 sm:gap-5 cursor-pointer overflow-hidden ${style.canvas}`}
+      className={`relative w-full h-full p-5 sm:p-7 flex items-center justify-between gap-4 sm:gap-6 overflow-hidden ${theme.surface}`}
     >
+      <div aria-hidden="true" className={`pointer-events-none absolute inset-0 ${theme.grid}`} />
       <div
         aria-hidden="true"
-        className={`pointer-events-none absolute inset-0 opacity-75 ${style.gridClass}`}
+        className={`pointer-events-none absolute inset-0 ${theme.accentGlow}`}
       />
 
-      <div className="relative z-10 min-w-0 flex-1 flex flex-col justify-center">
+      <div className="relative z-10 min-w-0 flex-1 space-y-2">
         <p
-          className={`text-[10px] sm:text-[11px] font-mono font-bold uppercase tracking-wider mb-1 truncate ${style.kicker}`}
+          className={`text-[11px] font-mono font-semibold uppercase tracking-[0.14em] truncate ${theme.kickerColor}`}
         >
           {banner.kicker}
         </p>
         <h3
-          className={`font-display text-base sm:text-xl lg:text-[22px] font-bold leading-snug line-clamp-2 [text-wrap:balance] ${style.title}`}
+          className={`font-display text-lg sm:text-xl lg:text-2xl font-bold leading-snug line-clamp-2 [text-wrap:balance] ${theme.titleColor}`}
         >
           {banner.title}
         </h3>
-        <p
-          className={`text-[11px] sm:text-xs lg:text-sm mt-1.5 leading-relaxed line-clamp-2 ${style.subtitle}`}
-        >
+        <p className={`text-xs sm:text-sm leading-relaxed line-clamp-2 ${theme.subColor}`}>
           {banner.subtitle}
         </p>
-        <div className="mt-3 sm:mt-4">
-          <span
-            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[11px] sm:text-xs font-semibold transition-colors whitespace-nowrap ${style.cta}`}
-          >
-            <span>{banner.ctaLabel}</span>
-            <ArrowRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
-          </span>
-        </div>
       </div>
 
       <div
-        className={`relative z-10 w-24 h-24 sm:w-32 sm:h-32 lg:w-36 lg:h-36 shrink-0 rounded-xl border p-2.5 flex items-center justify-center overflow-hidden ${style.artworkBox}`}
+        className={`relative z-10 w-24 h-24 sm:w-32 sm:h-32 lg:w-36 lg:h-36 shrink-0 rounded-2xl border p-3 flex items-center justify-center overflow-hidden transition-transform duration-500 ease-out group-hover:scale-[1.05] ${theme.stageBox}`}
       >
-        <div className="w-full h-full transition-transform duration-300 ease-out group-hover:scale-[1.06]">
-          <HardwareArtwork
-            kind={banner.artwork}
-            imageUrl={banner.imageUrl}
-            alt={banner.title}
-            fit="contain"
-            className="w-full h-full"
-          />
-        </div>
+        <HardwareArtwork
+          kind={banner.artwork}
+          imageUrl={banner.imageUrl}
+          alt={banner.title}
+          fit="contain"
+          className="w-full h-full"
+        />
       </div>
     </div>
   );
 };
 
-interface ScreenViewportProps {
-  screenLabel: string;
-  accentColor: string;
+interface CampaignCardSlotProps {
   banners: BannerItem[];
   currentIndex: number;
   prevIndex: number | null;
@@ -162,9 +156,7 @@ interface ScreenViewportProps {
   className?: string;
 }
 
-const ScreenViewport: React.FC<ScreenViewportProps> = ({
-  screenLabel,
-  accentColor,
+const CampaignCardSlot: React.FC<CampaignCardSlotProps> = ({
   banners,
   currentIndex,
   prevIndex,
@@ -182,6 +174,8 @@ const ScreenViewport: React.FC<ScreenViewportProps> = ({
   const outgoingBanner =
     safePrev !== null && safePrev !== safeCurrent ? banners[safePrev] : null;
 
+  if (!activeBanner) return null;
+
   const enterAnim =
     outgoingBanner !== null
       ? direction === 'next'
@@ -189,94 +183,99 @@ const ScreenViewport: React.FC<ScreenViewportProps> = ({
         : 'animate-banner-in-left'
       : '';
   const exitAnim = direction === 'next' ? 'animate-banner-out-left' : 'animate-banner-out-right';
+  const resolvedLink = resolveBannerLink(activeBanner.linkUrl);
 
-  return (
-    <div
-      className={`group rounded-2xl bg-[#071A3B] border border-slate-400/35 hover:border-[#0866F5] p-2 sm:p-2.5 transition-colors flex flex-col shadow-sm ${className}`}
-    >
-      {/* Sleek Screen Header Bezel */}
-      <div className="px-2.5 pb-2 pt-0.5 flex items-center justify-between gap-2 text-[10px] font-mono text-slate-300">
-        <div className="flex items-center gap-2 min-w-0">
-          <span
-            className="w-2 h-2 rounded-full shrink-0"
-            style={{ backgroundColor: accentColor }}
-            aria-hidden="true"
-          />
-          <span className="font-bold tracking-[0.14em] uppercase text-white shrink-0">
-            {screenLabel}
-          </span>
-          {activeBanner?.kicker && (
-            <>
-              <span aria-hidden="true" className="text-white/25 hidden sm:inline">
-                //
-              </span>
-              <span className="truncate text-slate-300 hidden sm:inline">
-                {activeBanner.kicker}
-              </span>
-            </>
-          )}
-        </div>
+  const sharedCardClassName = `group relative text-left w-full rounded-2xl bg-[#F3F7FC] border border-slate-200/90 hover:border-[#087BFF]/65 shadow-[0_6px_24px_-10px_rgba(7,26,61,0.1)] hover:shadow-[0_14px_34px_-12px_rgba(8,123,255,0.22)] transition-all duration-300 overflow-hidden flex flex-col focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF] focus-visible:ring-offset-2 ${className}`;
 
-        <span className="px-2 py-0.5 rounded-md bg-white/[0.08] border border-white/10 tabular-nums text-slate-200 font-semibold shrink-0">
-          {String(safeCurrent + 1).padStart(2, '0')} / {String(count).padStart(2, '0')}
-        </span>
-      </div>
-
-      {/* Main 16:9 Uncropped Showcase Display Screen */}
-      <div className="relative w-full aspect-[16/9] rounded-xl overflow-hidden bg-[#06132B] border border-white/15">
-        {/* Subtle Optical Scan Trace on Screen Top Edge */}
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 top-0 h-px z-30 overflow-hidden"
-        >
-          <div className="animate-trace-sweep w-36 h-full bg-gradient-to-r from-transparent via-[#38BDF8] to-transparent" />
-        </div>
-
-        {/* Outgoing Banner Layer (strictly slides out in uniform direction) */}
+  const cardInnerContent = (
+    <>
+      {/* Large 16:9 Uncropped Visual Artwork Viewport */}
+      <div className="relative w-full aspect-[16/9] bg-[#F8FAFC] overflow-hidden border-b border-slate-200/80">
         {outgoingBanner && (
           <div
             key={`out-${cycleKey}-${outgoingBanner.id}`}
             className={`absolute inset-0 z-10 pointer-events-none ${exitAnim}`}
           >
-            <BannerSlideContent banner={outgoingBanner} onSelectCategory={onSelectCategory} />
+            <BannerVisualStage banner={outgoingBanner} />
           </div>
         )}
 
-        {/* Active Incoming Banner Layer (strictly slides in from the right on auto/next) */}
-        {activeBanner && (
-          <div key={`in-${cycleKey}-${activeBanner.id}`} className={`absolute inset-0 z-20 ${enterAnim}`}>
-            <BannerSlideContent banner={activeBanner} onSelectCategory={onSelectCategory} />
-          </div>
-        )}
-      </div>
-
-      {/* Sleek Bottom Dwell Progress Rail + Action Caption */}
-      <div className="mt-2 px-1.5 space-y-2">
-        {count > 1 && (
-          <div className="h-[2px] w-full rounded-full bg-white/10 overflow-hidden">
-            <div
-              key={`prog-${cycleKey}`}
-              className="animate-banner-progress h-full w-full rounded-full"
-              style={{ backgroundColor: accentColor }}
-            />
-          </div>
-        )}
-
-        <div className="px-1 flex items-center justify-between gap-2 text-[11px]">
-          <span className="font-display font-semibold text-slate-200 truncate">
-            {activeBanner?.title}
-          </span>
-          <button
-            type="button"
-            onClick={() => activeBanner && onSelectCategory(activeBanner.targetCategory)}
-            className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#38BDF8] hover:text-white inline-flex items-center gap-1 shrink-0 transition-colors"
-          >
-            <span>Explore</span>
-            <ArrowRight className="w-3 h-3 transition-transform duration-200 group-hover:translate-x-0.5" />
-          </button>
+        <div
+          key={`in-${cycleKey}-${activeBanner.id}`}
+          className={`absolute inset-0 z-20 ${enterAnim}`}
+        >
+          <BannerVisualStage banner={activeBanner} />
         </div>
       </div>
-    </div>
+
+      {/* Refined Minimal Footer Caption Strip */}
+      <div className="w-full px-4 sm:px-5 py-3.5 bg-white flex items-center justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-[11px] font-mono font-semibold text-[#087BFF] uppercase tracking-wider truncate">
+            {activeBanner.kicker}
+          </p>
+          <h3 className="font-display text-sm sm:text-base font-bold text-[#071A3B] group-hover:text-[#087BFF] transition-colors truncate mt-0.5">
+            {activeBanner.title}
+          </h3>
+        </div>
+
+        <span className="inline-flex items-center gap-1.5 text-[11px] sm:text-xs font-bold uppercase tracking-wider text-[#071A3B] group-hover:text-[#087BFF] transition-colors whitespace-nowrap shrink-0">
+          <span>{activeBanner.ctaLabel || 'Explore Campaign'}</span>
+          {resolvedLink?.kind === 'external' ? (
+            <ExternalLink className="w-3.5 h-3.5 text-[#087BFF] transition-transform duration-200 group-hover:translate-x-0.5" />
+          ) : (
+            <ArrowRight className="w-3.5 h-3.5 text-[#087BFF] transition-transform duration-200 group-hover:translate-x-1" />
+          )}
+        </span>
+      </div>
+    </>
+  );
+
+  if (resolvedLink?.kind === 'external') {
+    return (
+      <a
+        href={resolvedLink.href}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label={`${activeBanner.title} — ${activeBanner.ctaLabel}`}
+        className={sharedCardClassName}
+      >
+        {cardInnerContent}
+      </a>
+    );
+  }
+
+  const handleInternalClick = () => {
+    if (resolvedLink?.kind === 'internal') {
+      const target = resolvedLink.href;
+      if (target.startsWith('#')) {
+        if (target === '#track' || target.startsWith('#track=')) {
+          window.location.hash = target;
+          return;
+        }
+        const el = document.getElementById(target.slice(1));
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          return;
+        }
+        window.location.hash = target;
+        return;
+      }
+      window.location.assign(target);
+      return;
+    }
+    onSelectCategory(activeBanner.targetCategory);
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={handleInternalClick}
+      aria-label={`${activeBanner.title} — ${activeBanner.ctaLabel}`}
+      className={sharedCardClassName}
+    >
+      {cardInnerContent}
+    </button>
   );
 };
 
@@ -313,7 +312,6 @@ export const ScrollingBannerSection: React.FC<ScrollingBannerSectionProps> = ({
     setCycleKey((k) => k + 1);
   };
 
-  // Continuous non-stop auto-scroll — strictly one direction (right -> left)
   useEffect(() => {
     if (count <= 1) return;
     const timer = window.setInterval(() => {
@@ -341,11 +339,10 @@ export const ScrollingBannerSection: React.FC<ScrollingBannerSectionProps> = ({
     setTouchStartX(null);
   };
 
-  // Left Screen displays activeIndex; Right Screen displays (activeIndex + 1) % count
   const leftCurr = activeIndex;
   const leftPrev = prevIndex;
-  const rightCurr = count > 1 ? (activeIndex + 1) % count : 0;
-  const rightPrev = prevIndex !== null && count > 1 ? (prevIndex + 1) % count : null;
+  const rightCurr = (activeIndex + 1) % count;
+  const rightPrev = prevIndex !== null ? (prevIndex + 1) % count : null;
 
   return (
     <section
@@ -353,67 +350,69 @@ export const ScrollingBannerSection: React.FC<ScrollingBannerSectionProps> = ({
       aria-label="Featured campaigns"
       className="scroll-mt-20 bg-white min-[1500px]:bg-transparent min-[1500px]:pointer-events-none"
     >
-      <div className="relative z-20 pointer-events-auto w-full max-w-[1440px] mx-auto bg-white min-[1500px]:border-x min-[1500px]:border-slate-300/90 px-4 sm:px-6 lg:px-10 py-9 sm:py-12">
+      <div className="relative z-20 pointer-events-auto w-full max-w-[1440px] mx-auto bg-white min-[1500px]:border-x min-[1500px]:border-slate-300/90 px-4 sm:px-6 lg:px-10 py-8 sm:py-11">
         <Reveal>
-          {/* Architectural Showcase Wall Container */}
-          <div className="rounded-2xl bg-[#EDF2F8] border border-slate-300/85 p-4 sm:p-6 lg:p-7 space-y-5">
-            {/* Header Row */}
-            <div className="flex flex-wrap items-end justify-between gap-4">
-              <div>
-                <p className="text-[11px] font-mono font-bold uppercase tracking-[0.14em] text-[#0F766E] mb-1 inline-flex items-center gap-1.5">
-                  <Monitor className="w-3.5 h-3.5" />
-                  <span>Dual-Screen Campaign Wall</span>
+          {/* Clean Header + Circular Navigation Controls */}
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6">
+            <div className="space-y-1.5 max-w-2xl">
+              <div className="flex items-center gap-2.5">
+                <span className="w-6 h-[2px] rounded-full bg-[#087BFF]" aria-hidden="true" />
+                <p className="text-[11px] font-mono font-bold uppercase tracking-[0.14em] text-[#087BFF]">
+                  ROBOTERA BD / SPECIAL CAMPAIGNS
                 </p>
-                <h2 className="font-display text-xl sm:text-2xl font-bold text-[#071A3B] tracking-tight">
-                  Featured Campaigns &amp; Offers
-                </h2>
               </div>
-
-              {count > 1 && (
-                <div className="flex items-center gap-2">
-                  <span className="hidden sm:inline-flex font-mono text-[11px] font-semibold text-[#475569] mr-1">
-                    {String(activeIndex + 1).padStart(2, '0')} / {String(count).padStart(2, '0')}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => advanceTo(activeIndex - 1, 'prev')}
-                    aria-label="Previous campaign"
-                    className="w-9 h-9 rounded-xl bg-white hover:bg-[#071A3B] text-[#071A3B] hover:text-white border border-slate-300 hover:border-[#071A3B] transition-colors flex items-center justify-center"
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => advanceTo(activeIndex + 1, 'next')}
-                    aria-label="Next campaign"
-                    className="w-9 h-9 rounded-xl bg-white hover:bg-[#071A3B] text-[#071A3B] hover:text-white border border-slate-300 hover:border-[#071A3B] transition-colors flex items-center justify-center"
-                  >
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
-                </div>
-              )}
+              <h2 className="font-display text-2xl sm:text-[28px] font-bold text-[#071A3B] tracking-tight leading-tight">
+                Featured Campaigns &amp; Offers
+              </h2>
+              <p className="text-xs sm:text-sm text-[#475569] leading-relaxed">
+                Discover the latest robotics launches, exclusive hardware deals and special offers.
+              </p>
             </div>
 
-            {/* 2 Fixed Main Display Screen Boxes on PC (md:grid-cols-2), 1 Main Screen on Mobile */}
-            <div
-              onTouchStart={handleTouchStart}
-              onTouchEnd={handleTouchEnd}
-              className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5"
-            >
-              <ScreenViewport
-                screenLabel="Screen 01"
-                accentColor="#38BDF8"
-                banners={activeBanners}
-                currentIndex={leftCurr}
-                prevIndex={leftPrev}
-                direction={direction}
-                cycleKey={cycleKey}
-                onSelectCategory={onSelectCategory}
-              />
+            {count > 1 && (
+              <div className="flex items-center gap-2 self-start sm:self-end shrink-0">
+                <span className="font-mono text-xs font-semibold text-[#475569] tabular-nums mr-1">
+                  {String(activeIndex + 1).padStart(2, '0')} / {String(count).padStart(2, '0')}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => advanceTo(activeIndex - 1, 'prev')}
+                  aria-label="Previous campaign"
+                  className="w-10 h-10 rounded-full bg-[#F3F7FC] hover:bg-[#087BFF] text-[#071A3B] hover:text-white border border-slate-200 hover:border-[#087BFF] transition-colors flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF]"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => advanceTo(activeIndex + 1, 'next')}
+                  aria-label="Next campaign"
+                  className="w-10 h-10 rounded-full bg-[#F3F7FC] hover:bg-[#087BFF] text-[#071A3B] hover:text-white border border-slate-200 hover:border-[#087BFF] transition-colors flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF]"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+          </div>
 
-              <ScreenViewport
-                screenLabel="Screen 02"
-                accentColor="#2DD4BF"
+          {/* 2 Balanced Campaign Cards Side by Side on Desktop/Tablet, 1 Full-Width on Mobile */}
+          <div
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
+            className={`grid grid-cols-1 ${
+              count > 1 ? 'md:grid-cols-2' : 'max-w-3xl mx-auto'
+            } gap-5 lg:gap-6`}
+          >
+            <CampaignCardSlot
+              banners={activeBanners}
+              currentIndex={leftCurr}
+              prevIndex={leftPrev}
+              direction={direction}
+              cycleKey={cycleKey}
+              onSelectCategory={onSelectCategory}
+            />
+
+            {count > 1 && (
+              <CampaignCardSlot
                 banners={activeBanners}
                 currentIndex={rightCurr}
                 prevIndex={rightPrev}
@@ -422,25 +421,33 @@ export const ScrollingBannerSection: React.FC<ScrollingBannerSectionProps> = ({
                 onSelectCategory={onSelectCategory}
                 className="hidden md:flex"
               />
-            </div>
+            )}
+          </div>
 
-            {/* Bottom Slide Dots */}
-            {count > 1 && (
-              <div className="flex items-center justify-center gap-1.5 pt-0.5">
-                {activeBanners.map((banner, idx) => (
+          {/* Modern Pagination Indicators */}
+          {count > 1 && (
+            <div className="mt-5 flex items-center justify-center gap-2">
+              {activeBanners.map((banner, idx) => {
+                const isActive = idx === activeIndex;
+                return (
                   <button
                     key={banner.id}
                     type="button"
-                    onClick={() => advanceTo(idx, 'next')}
-                    aria-label={`Show banner ${idx + 1}: ${banner.title}`}
-                    className={`h-1.5 rounded-full transition-all duration-300 ${
-                      idx === activeIndex ? 'w-8 bg-[#0866F5]' : 'w-2 bg-slate-300 hover:bg-slate-400'
+                    onClick={() =>
+                      advanceTo(idx, idx > activeIndex ? 'next' : 'prev')
+                    }
+                    aria-label={`View campaign ${idx + 1}: ${banner.title}`}
+                    aria-current={isActive ? 'true' : undefined}
+                    className={`h-2 rounded-full transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF] ${
+                      isActive
+                        ? 'w-8 bg-gradient-to-r from-[#087BFF] to-[#00CFFF]'
+                        : 'w-2 bg-slate-300 hover:bg-[#087BFF]/55'
                     }`}
                   />
-                ))}
-              </div>
-            )}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </Reveal>
       </div>
     </section>

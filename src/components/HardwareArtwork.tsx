@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { isWatermarkedUrl } from '../data/brandMedia';
 import { ArtworkKind } from '../types/store';
 
 interface HardwareArtworkProps {
@@ -22,7 +23,7 @@ export const HardwareArtwork: React.FC<HardwareArtworkProps> = ({
     setImgFailed(false);
   }, [imageUrl]);
 
-  if (imageUrl && imageUrl.trim().length > 0 && !imgFailed) {
+  if (imageUrl && imageUrl.trim().length > 0 && !isWatermarkedUrl(imageUrl) && !imgFailed) {
     return (
       <img
         src={imageUrl}

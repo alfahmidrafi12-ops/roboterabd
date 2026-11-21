@@ -1,4 +1,4 @@
-export type SortOption = 'featured' | 'price-asc' | 'price-desc' | 'newest';
+export type SortOption = 'featured' | 'popular' | 'price-asc' | 'price-desc' | 'newest';
 
 export type AvailabilityFilter = 'all' | 'in-stock' | 'low-stock' | 'out-of-stock';
 
@@ -74,6 +74,7 @@ export interface BannerItem {
   subtitle: string;
   ctaLabel: string;
   targetCategory: CategoryId;
+  linkUrl?: string;
   theme: BannerTheme;
   artwork: ArtworkKind;
   imageUrl?: string;

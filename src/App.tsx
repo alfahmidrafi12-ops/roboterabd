@@ -8,6 +8,7 @@ import { BestSellingSection } from './components/BestSellingSection';
 import { BlogSection } from './components/BlogSection';
 import { CartDrawer } from './components/CartDrawer';
 import { CategoryCarousel } from './components/CategoryCarousel';
+import { CompareDock, CompareModal } from './components/CompareModal';
 import { DiscountBanner } from './components/DiscountBanner';
 import { FeaturedCarousel } from './components/FeaturedCarousel';
 import { FooterSection } from './components/FooterSection';
@@ -107,9 +108,16 @@ export default function App() {
   });
   const [autoTrackOrderId, setAutoTrackOrderId] = useState<string | null>(initialTrack.orderId);
 
-  // Add-to-cart toast feedback
+  // Add-to-cart toast & header pulse feedback
   const [toastProduct, setToastProduct] = useState<{ name: string; qty: number } | null>(null);
+  const [cartPulseTick, setCartPulseTick] = useState(0);
   const toastTimerRef = useRef<number | null>(null);
+
+  // Side-by-side product comparison state (max 3 products)
+  const [compareIds, setCompareIds] = useState<string[]>([]);
+  const [compareModalOpen, setCompareModalOpen] = useState(false);
+  const [compareLimitNotice, setCompareLimitNotice] = useState(false);
+  const compareNoticeTimerRef = useRef<number | null>(null);
 
   // Price-drop watches & live alert banner
   const [priceWatches, setPriceWatches] = useState<LocalPriceWatch[]>(() => {
@@ -307,7 +315,13 @@ export default function App() {
 
   // Global Escape key + body scroll lock when any overlay/modal is open
   const hasAnyOverlayOpen = Boolean(
-    selectedProduct || cartOpen || wishlistOpen || sidebarOpen || authModalOpen || adminOpen
+    selectedProduct ||
+      cartOpen ||
+      wishlistOpen ||
+      sidebarOpen ||
+      authModalOpen ||
+      adminOpen ||
+      compareModalOpen
   );
 
   useEffect(() => {
@@ -326,6 +340,8 @@ export default function App() {
         setAuthModalOpen(false);
       } else if (selectedProduct) {
         setSelectedProduct(null);
+      } else if (compareModalOpen) {
+        setCompareModalOpen(false);
       } else if (cartOpen) {
         setCartOpen(false);
         setStartInCheckout(false);
@@ -345,6 +361,7 @@ export default function App() {
     hasAnyOverlayOpen,
     adminOpen,
     authModalOpen,
+    compareModalOpen,
     selectedProduct,
     cartOpen,
     wishlistOpen,
@@ -355,6 +372,9 @@ export default function App() {
     return () => {
       if (toastTimerRef.current) {
         window.clearTimeout(toastTimerRef.current);
+      }
+      if (compareNoticeTimerRef.current) {
+        window.clearTimeout(compareNoticeTimerRef.current);
       }
     };
   }, []);
@@ -468,8 +488,12 @@ export default function App() {
     variant?: string,
     silentToast = false
   ) => {
-    if (product.stock <= 0) return;
+    if (product.stock <= 0 || quantity <= 0) return;
     const chosenVariant = variant ?? product.variants?.[0];
+    const existingItem = cartItems.find(
+      (item) => item.product.id === product.id && item.variant === chosenVariant
+    );
+    const alreadyAtStockCap = existingItem ? existingItem.quantity >= product.stock : false;
     setCartItems((prev) => {
       const existingIndex = prev.findIndex(
         (item) => item.product.id === product.id && item.variant === chosenVariant
@@ -485,6 +509,9 @@ export default function App() {
       }
       return [...prev, { product, quantity: Math.min(product.stock, quantity), variant: chosenVariant }];
     });
+    if (!alreadyAtStockCap) {
+      setCartPulseTick((prev) => prev + 1);
+    }
     if (!silentToast) {
       showAddedToast(product.name, quantity);
     }
@@ -494,11 +521,20 @@ export default function App() {
     if (product.stock <= 0) return;
     handleAddToCart(product, quantity, variant, true);
     setSelectedProduct(null);
+    setCompareModalOpen(false);
     setStartInCheckout(true);
     setCartOpen(true);
   };
 
   const handleUpdateCartQty = (productId: string, variant: string | undefined, delta: number) => {
+    if (delta > 0) {
+      const target = cartItems.find(
+        (item) => item.product.id === productId && item.variant === variant
+      );
+      if (target && target.quantity < Math.max(1, target.product.stock)) {
+        setCartPulseTick((prev) => prev + 1);
+      }
+    }
     setCartItems((prev) =>
       prev
         .map((item) => {
@@ -524,6 +560,37 @@ export default function App() {
     setWishlistIds((prev) =>
       prev.includes(productId) ? prev.filter((id) => id !== productId) : [...prev, productId]
     );
+  };
+
+  const handleToggleCompare = (productId: string) => {
+    setCompareIds((prev) => {
+      if (prev.includes(productId)) {
+        const next = prev.filter((id) => id !== productId);
+        if (next.length === 0) {
+          setCompareModalOpen(false);
+        }
+        setCompareLimitNotice(false);
+        return next;
+      }
+      if (prev.length >= 3) {
+        setCompareLimitNotice(true);
+        if (compareNoticeTimerRef.current) {
+          window.clearTimeout(compareNoticeTimerRef.current);
+        }
+        compareNoticeTimerRef.current = window.setTimeout(() => {
+          setCompareLimitNotice(false);
+        }, 3200);
+        return prev;
+      }
+      setCompareLimitNotice(false);
+      return [...prev, productId];
+    });
+  };
+
+  const handleClearCompare = () => {
+    setCompareIds([]);
+    setCompareLimitNotice(false);
+    setCompareModalOpen(false);
   };
 
   const handleSubscribePriceDrop = async (product: Product, email: string) => {
@@ -600,7 +667,9 @@ export default function App() {
     });
 
     const sorted = [...filtered];
-    if (sortBy === 'price-asc') {
+    if (sortBy === 'popular') {
+      sorted.sort((a, b) => b.reviews - a.reviews || b.rating - a.rating);
+    } else if (sortBy === 'price-asc') {
       sorted.sort((a, b) => a.price - b.price);
     } else if (sortBy === 'price-desc') {
       sorted.sort((a, b) => b.price - a.price);
@@ -631,6 +700,14 @@ export default function App() {
     [products, wishlistIds]
   );
 
+  const comparedProducts = useMemo(
+    () =>
+      compareIds
+        .map((id) => products.find((p) => p.id === id))
+        .filter((p): p is Product => Boolean(p)),
+    [products, compareIds]
+  );
+
   const totalCartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
@@ -643,6 +720,7 @@ export default function App() {
         activePage={activePage}
         categories={categories}
         cartCount={totalCartCount}
+        cartPulseKey={cartPulseTick}
         wishlistCount={wishlistedProducts.length}
         isSignedIn={Boolean(authUser)}
         searchQuery={searchQuery}
@@ -715,6 +793,7 @@ export default function App() {
 
             <CategoryCarousel
               categories={categories}
+              products={products}
               activeCategory={activeCategory}
               onSelectCategory={handleSelectCategory}
             />
@@ -729,6 +808,7 @@ export default function App() {
 
             <BestSellingSection
               products={filteredCatalog}
+              allProducts={products}
               categories={categories}
               activeCategory={activeCategory}
               searchQuery={searchQuery}
@@ -737,6 +817,7 @@ export default function App() {
               availabilityFilter={availabilityFilter}
               sortBy={sortBy}
               wishlistIds={wishlistIds}
+              compareIds={compareIds}
               onSelectCategory={setActiveCategory}
               onSearchChange={setSearchQuery}
               onMinPriceChange={setMinPrice}
@@ -745,6 +826,7 @@ export default function App() {
               onSortChange={setSortBy}
               onClearFilters={handleClearFilters}
               onToggleWishlist={handleToggleWishlist}
+              onToggleCompare={handleToggleCompare}
               onAddToCart={handleAddToCart}
               onOpenDetail={setSelectedProduct}
             />
@@ -762,7 +844,9 @@ export default function App() {
               allProducts={products}
               categoryLabels={categoryLabels}
               wishlistIds={wishlistIds}
+              compareIds={compareIds}
               onToggleWishlist={handleToggleWishlist}
+              onToggleCompare={handleToggleCompare}
               onAddToCart={handleAddToCart}
               onOpenDetail={setSelectedProduct}
             />
@@ -849,6 +933,7 @@ export default function App() {
             ? priceWatches.find((w) => w.productId === selectedProduct.id) ?? null
             : null
         }
+        zIndexClass={compareModalOpen ? 'z-[60]' : 'z-50'}
         onClose={() => setSelectedProduct(null)}
         onToggleWishlist={handleToggleWishlist}
         onAddToCart={handleAddToCart}
@@ -860,6 +945,7 @@ export default function App() {
       <CartDrawer
         isOpen={cartOpen}
         items={cartItems}
+        cartPulseKey={cartPulseTick}
         recommendedProducts={products}
         appliedCoupon={appliedCoupon}
         startInCheckout={startInCheckout}
@@ -930,6 +1016,37 @@ export default function App() {
             window.history.replaceState(null, '', window.location.pathname + window.location.search);
           }
         }}
+      />
+
+      {/* Side-by-Side Hardware Specifications Comparison */}
+      <CompareDock
+        products={comparedProducts}
+        isVisible={
+          activePage === 'shop' &&
+          !compareModalOpen &&
+          !cartOpen &&
+          !wishlistOpen &&
+          !adminOpen &&
+          !authModalOpen &&
+          !sidebarOpen &&
+          !selectedProduct
+        }
+        limitNotice={compareLimitNotice}
+        onRemoveProduct={handleToggleCompare}
+        onClearAll={handleClearCompare}
+        onOpenModal={() => setCompareModalOpen(true)}
+      />
+
+      <CompareModal
+        isOpen={compareModalOpen}
+        products={comparedProducts}
+        categoryLabels={categoryLabels}
+        onClose={() => setCompareModalOpen(false)}
+        onRemoveProduct={handleToggleCompare}
+        onClearAll={handleClearCompare}
+        onAddToCart={handleAddToCart}
+        onQuickViewProduct={(product) => setSelectedProduct(product)}
+        onBrowseCatalog={() => scrollToSection('best-selling')}
       />
 
       {/* Live Price Drop Notification Toast */}
@@ -1023,6 +1140,7 @@ export default function App() {
       <MobileBottomNav
         activePage={activePage}
         cartCount={totalCartCount}
+        cartPulseKey={cartPulseTick}
         isSignedIn={Boolean(authUser)}
         onGoHome={() => scrollToSection()}
         onOpenDepartments={() => setSidebarOpen(true)}

@@ -495,10 +495,26 @@ export async function removeProduct(productId: string): Promise<void> {
   }
 }
 
+function sanitizeBannerLinkUrl(raw?: string): string | undefined {
+  if (!raw) return undefined;
+  let trimmed = raw.trim();
+  if (!trimmed) return undefined;
+  if (/^(javascript|data|vbscript):/i.test(trimmed)) return undefined;
+  if (
+    !/^(https?:\/\/|\/|#)/i.test(trimmed) &&
+    /^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/.test(trimmed)
+  ) {
+    trimmed = `https://${trimmed}`;
+  }
+  if (!/^(https?:\/\/|\/|#)/i.test(trimmed)) return undefined;
+  return trimmed.slice(0, 500);
+}
+
 export async function saveBanner(banner: BannerItem): Promise<void> {
   const safeId = banner.id.replace(/[^a-zA-Z0-9_-]/g, '-').slice(0, 64) || `banner-${Date.now()}`;
   const path = `banners/${safeId}`;
   try {
+    const cleanLinkUrl = sanitizeBannerLinkUrl(banner.linkUrl);
     const payload = stripUndefined({
       ...banner,
       id: safeId,
@@ -507,6 +523,7 @@ export async function saveBanner(banner: BannerItem): Promise<void> {
       subtitle: truncateStr(banner.subtitle, 240) || 'Explore stocked robotics components.',
       ctaLabel: truncateStr(banner.ctaLabel, 40) || 'Shop Now',
       targetCategory: (banner.targetCategory || 'all').slice(0, 64),
+      linkUrl: cleanLinkUrl,
       imageUrl: banner.imageUrl?.trim() ? banner.imageUrl.trim().slice(0, 300000) : undefined,
       order: clampNum(Number(banner.order) || 1, 0, 1000),
       updatedAt: serverTimestamp(),

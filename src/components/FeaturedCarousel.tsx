@@ -9,7 +9,9 @@ interface FeaturedCarouselProps {
   allProducts?: Product[];
   categoryLabels?: Record<string, string>;
   wishlistIds: string[];
+  compareIds?: string[];
   onToggleWishlist: (productId: string) => void;
+  onToggleCompare?: (productId: string) => void;
   onAddToCart: (product: Product, quantity: number) => void;
   onOpenDetail: (product: Product) => void;
 }
@@ -21,7 +23,9 @@ export const FeaturedCarousel: React.FC<FeaturedCarouselProps> = ({
   allProducts = [],
   categoryLabels,
   wishlistIds,
+  compareIds = [],
   onToggleWishlist,
+  onToggleCompare,
   onAddToCart,
   onOpenDetail,
 }) => {
@@ -127,7 +131,10 @@ export const FeaturedCarousel: React.FC<FeaturedCarouselProps> = ({
                     product={product}
                     categoryDisplayName={categoryLabels?.[product.category]}
                     isWishlisted={wishlistIds.includes(product.id)}
+                    isCompared={compareIds.includes(product.id)}
+                    compareLimitReached={compareIds.length >= 3}
                     onToggleWishlist={onToggleWishlist}
+                    onToggleCompare={onToggleCompare}
                     onAddToCart={onAddToCart}
                     onOpenDetail={onOpenDetail}
                   />

@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Home, LayoutGrid, PackageSearch, ShoppingBag, User as UserIcon } from 'lucide-react';
 
 interface MobileBottomNavProps {
   activePage?: 'shop' | 'track';
   cartCount: number;
+  cartPulseKey?: number;
   isSignedIn: boolean;
   onGoHome: () => void;
   onOpenDepartments: () => void;
@@ -15,6 +16,7 @@ interface MobileBottomNavProps {
 export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   activePage = 'shop',
   cartCount,
+  cartPulseKey = 0,
   isSignedIn,
   onGoHome,
   onOpenDepartments,
@@ -22,6 +24,33 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   onOpenCart,
   onOpenAuth,
 }) => {
+  const [cartPulsing, setCartPulsing] = useState(false);
+  const prevPulseKeyRef = useRef(cartPulseKey);
+
+  useEffect(() => {
+    if (cartPulseKey <= prevPulseKeyRef.current) {
+      prevPulseKeyRef.current = cartPulseKey;
+      return;
+    }
+    prevPulseKeyRef.current = cartPulseKey;
+    let raf1 = 0;
+    let raf2 = 0;
+    setCartPulsing(false);
+    raf1 = window.requestAnimationFrame(() => {
+      raf2 = window.requestAnimationFrame(() => {
+        setCartPulsing(true);
+      });
+    });
+    const timer = window.setTimeout(() => {
+      setCartPulsing(false);
+    }, 620);
+    return () => {
+      window.cancelAnimationFrame(raf1);
+      window.cancelAnimationFrame(raf2);
+      window.clearTimeout(timer);
+    };
+  }, [cartPulseKey]);
+
   return (
     <nav
       aria-label="Mobile app navigation"
@@ -62,12 +91,25 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
         <button
           type="button"
           onClick={onOpenCart}
-          className="relative flex flex-col items-center justify-center gap-1 text-slate-600 hover:text-[#0866F5] active:text-[#0866F5] transition-colors"
+          className={`relative flex flex-col items-center justify-center gap-1 transition-colors ${
+            cartPulsing ? 'text-[#087BFF]' : 'text-slate-600 hover:text-[#0866F5] active:text-[#0866F5]'
+          }`}
         >
           <div className="relative">
-            <ShoppingBag className="w-5 h-5" />
+            {cartPulsing && (
+              <span
+                aria-hidden="true"
+                className="pointer-events-none absolute -inset-1.5 rounded-full bg-[#087BFF]/25 ring-1 ring-[#087BFF]/50 animate-cart-pulse-ring"
+              />
+            )}
+            <ShoppingBag
+              className={`w-5 h-5 ${cartPulsing ? 'animate-cart-pulse text-[#087BFF]' : ''}`}
+            />
             {cartCount > 0 && (
-              <span className="absolute -top-1.5 -right-2 min-w-[16px] h-4 px-1 rounded-full bg-[#EA580C] text-white text-[9px] font-mono font-bold flex items-center justify-center tabular-nums">
+              <span
+                key={cartCount}
+                className="animate-badge-bounce absolute -top-1.5 -right-2 min-w-[16px] h-4 px-1 rounded-full bg-[#EA580C] text-white text-[9px] font-mono font-bold flex items-center justify-center tabular-nums"
+              >
                 {cartCount}
               </span>
             )}

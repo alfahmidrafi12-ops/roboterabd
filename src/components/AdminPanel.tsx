@@ -8,6 +8,7 @@ import {
   FolderTree,
   Image as ImageIcon,
   LayoutTemplate,
+  Link2,
   LogOut,
   Mail,
   Package,
@@ -516,6 +517,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       subtitle: '',
       ctaLabel: 'Shop Now',
       targetCategory: 'all',
+      linkUrl: '',
       theme: 'navy',
       artwork: 'lidar',
       order: banners.length + 1,
@@ -532,6 +534,23 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const handleSaveBanner = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingBanner) return;
+    const rawLink = editingBanner.linkUrl?.trim() || '';
+    let normalizedLink: string | undefined;
+    if (rawLink) {
+      if (/^(javascript|data|vbscript):/i.test(rawLink)) {
+        setAdminError('Please enter a valid http(s) URL, relative path (/...), or section link (#...).');
+        return;
+      }
+      if (/^(https?:\/\/|\/|#)/i.test(rawLink)) {
+        normalizedLink = rawLink;
+      } else if (/^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/.test(rawLink)) {
+        normalizedLink = `https://${rawLink}`;
+      } else {
+        setAdminError('Banner link must start with https://, http://, /, or #.');
+        return;
+      }
+    }
+
     const sanitizedId = editingBanner.id.replace(/[^a-zA-Z0-9_-]/g, '-');
     setAdminError('');
     setBusyMessage('Saving banner...');
@@ -539,6 +558,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       await saveBanner({
         ...editingBanner,
         id: sanitizedId,
+        linkUrl: normalizedLink,
         order: Number(editingBanner.order) || 1,
       });
       setEditingBanner(null);
@@ -1281,6 +1301,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                             <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">
                               {banner.subtitle}
                             </p>
+                            {banner.linkUrl && (
+                              <p className="mt-1 inline-flex items-center gap-1 text-[11px] font-mono text-[#0057E7] max-w-full truncate">
+                                <Link2 className="w-3 h-3 shrink-0" />
+                                <span className="truncate">{banner.linkUrl}</span>
+                              </p>
+                            )}
                           </div>
                         </div>
 
@@ -2297,6 +2323,44 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     </option>
                   ))}
                 </select>
+              </div>
+
+              <div className="sm:col-span-2 bg-[#F6F8FB] border border-slate-200 rounded-xl p-3.5 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <label
+                    htmlFor="admin-banner-link-url"
+                    className="font-semibold text-[#06142E] inline-flex items-center gap-1.5"
+                  >
+                    <Link2 className="w-3.5 h-3.5 text-[#0057E7]" />
+                    <span>Add Link (Optional — Banner Click URL)</span>
+                  </label>
+                  {editingBanner.linkUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setEditingBanner({ ...editingBanner, linkUrl: '' })}
+                      className="text-[11px] font-semibold text-red-600 hover:underline"
+                    >
+                      Remove link
+                    </button>
+                  )}
+                </div>
+                <input
+                  id="admin-banner-link-url"
+                  type="text"
+                  maxLength={500}
+                  value={editingBanner.linkUrl ?? ''}
+                  onChange={(e) =>
+                    setEditingBanner({
+                      ...editingBanner,
+                      linkUrl: e.target.value,
+                    })
+                  }
+                  placeholder="https://... or #best-selling or #track"
+                  className="w-full h-9 px-3 rounded-lg border border-slate-200 bg-white font-mono text-xs"
+                />
+                <p className="text-[11px] text-slate-500 leading-relaxed">
+                  If you add a link here, clicking this banner opens that link directly. Leave empty to use the Target Category above.
+                </p>
               </div>
 
               <div className="sm:col-span-2">

@@ -55,6 +55,7 @@
         "subtitle": { "type": "string", "minLength": 1, "maxLength": 240 },
         "ctaLabel": { "type": "string", "minLength": 1, "maxLength": 40 },
         "targetCategory": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "linkUrl": { "type": "string", "maxLength": 500 },
         "theme": { "type": "string", "enum": ["navy", "cobalt", "slate", "emerald"] },
         "artwork": { "type": "string", "minLength": 1, "maxLength": 40 },
         "imageUrl": { "type": "string", "maxLength": 300000 },

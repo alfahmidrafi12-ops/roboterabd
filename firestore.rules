@@ -92,6 +92,10 @@ service cloud.firestore {
         && data.updatedAt == request.time;
     }
 
+    function isValidBannerLinkUrl(val) {
+      return val is string && val.size() >= 1 && val.size() <= 500 && val.matches('^(https?://|/|#).*');
+    }
+
     function isValidBanner(data) {
       return data.keys().hasAll([
           'id', 'kicker', 'title', 'subtitle', 'ctaLabel',
@@ -99,7 +103,7 @@ service cloud.firestore {
         ])
         && data.keys().hasOnly([
           'id', 'kicker', 'title', 'subtitle', 'ctaLabel',
-          'targetCategory', 'theme', 'artwork', 'imageUrl', 'order', 'active', 'updatedAt'
+          'targetCategory', 'linkUrl', 'theme', 'artwork', 'imageUrl', 'order', 'active', 'updatedAt'
         ])
         && isValidId(data.id)
         && data.kicker is string && data.kicker.size() >= 1 && data.kicker.size() <= 60
@@ -107,6 +111,7 @@ service cloud.firestore {
         && data.subtitle is string && data.subtitle.size() >= 1 && data.subtitle.size() <= 240
         && data.ctaLabel is string && data.ctaLabel.size() >= 1 && data.ctaLabel.size() <= 40
         && data.targetCategory is string && data.targetCategory.size() >= 1 && data.targetCategory.size() <= 64
+        && (!('linkUrl' in data) || isValidBannerLinkUrl(data.linkUrl))
         && data.theme in ['navy', 'cobalt', 'slate', 'emerald']
         && data.artwork is string && data.artwork.size() >= 1 && data.artwork.size() <= 40
         && (!('imageUrl' in data) || isValidImageUrl(data.imageUrl))
@@ -271,7 +276,7 @@ service cloud.firestore {
         && isValidBanner(incoming())
         && incoming().id == existing().id
         && incoming().diff(existing()).affectedKeys().hasOnly([
-          'kicker', 'title', 'subtitle', 'ctaLabel', 'targetCategory',
+          'kicker', 'title', 'subtitle', 'ctaLabel', 'targetCategory', 'linkUrl',
           'theme', 'artwork', 'imageUrl', 'order', 'active', 'updatedAt'
         ]);
       allow delete: if isAdmin() && isValidId(bannerId);

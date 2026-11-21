@@ -3,10 +3,10 @@ import { BannerItem, BlogPost, CategoryItem, Product, SiteImagesConfig } from '.
 export const DEFAULT_SITE_SETTINGS: SiteImagesConfig = {
   id: 'branding',
   heroImageUrl: '/assets/aistudio/image_88bf5559.png',
-  heroKicker: 'ENGINEERING THE FUTURE',
-  heroTitle: 'Build Beyond Imagination.',
+  heroKicker: 'ROBOTERA BD — ENGINEERING THE FUTURE',
+  heroTitle: 'BUILD. CREATE. INNOVATE.',
   heroSubtitle:
-    'Discover premium robotics components, advanced microcontrollers, precision sensors, and engineering tools to turn your ideas into reality.',
+    'Your ideas deserve the right technology. Explore premium microcontrollers, robotics components, advanced sensors and engineering tools — all in one place.',
   heroTagline: 'ESP32-S3 · RPLIDAR · Raspberry Pi 5',
   heroDispatchText: 'Inside Dhaka 2–3 Days (৳80) · Outside Dhaka 2–4 Days (৳150)',
   promoLeftImageUrl: '',

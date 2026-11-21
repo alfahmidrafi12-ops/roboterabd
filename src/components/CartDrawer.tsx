@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { User } from 'firebase/auth';
 import {
   ArrowLeft,
@@ -16,6 +16,7 @@ import {
   Printer,
   Radio,
   ShieldCheck,
+  ShoppingBag,
   Trash2,
   Truck,
   X,
@@ -27,6 +28,7 @@ import { HardwareArtwork } from './HardwareArtwork';
 interface CartDrawerProps {
   isOpen: boolean;
   items: CartItem[];
+  cartPulseKey?: number;
   recommendedProducts?: Product[];
   appliedCoupon: string | null;
   startInCheckout?: boolean;
@@ -57,6 +59,7 @@ const DISPATCH_STAGES = [
 export const CartDrawer: React.FC<CartDrawerProps> = ({
   isOpen,
   items,
+  cartPulseKey = 0,
   recommendedProducts = [],
   appliedCoupon,
   startInCheckout = false,
@@ -75,6 +78,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   const [step, setStep] = useState<'cart' | 'checkout' | 'receipt'>('cart');
   const [couponInput, setCouponInput] = useState('');
   const [couponError, setCouponError] = useState('');
+  const [cartPulsing, setCartPulsing] = useState(false);
+  const prevPulseKeyRef = useRef(cartPulseKey);
 
   // Checkout Form State
   const [customerName, setCustomerName] = useState(user?.displayName || '');
@@ -89,6 +94,32 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   const [checkoutError, setCheckoutError] = useState('');
   const [receipt, setReceipt] = useState<OrderReceipt | null>(null);
   const [copiedId, setCopiedId] = useState(false);
+
+  useEffect(() => {
+    if (cartPulseKey <= prevPulseKeyRef.current) {
+      prevPulseKeyRef.current = cartPulseKey;
+      return;
+    }
+    prevPulseKeyRef.current = cartPulseKey;
+    if (!isOpen) return;
+
+    let raf1 = 0;
+    let raf2 = 0;
+    setCartPulsing(false);
+    raf1 = window.requestAnimationFrame(() => {
+      raf2 = window.requestAnimationFrame(() => {
+        setCartPulsing(true);
+      });
+    });
+    const timer = window.setTimeout(() => {
+      setCartPulsing(false);
+    }, 620);
+    return () => {
+      window.cancelAnimationFrame(raf1);
+      window.cancelAnimationFrame(raf2);
+      window.clearTimeout(timer);
+    };
+  }, [cartPulseKey, isOpen]);
 
   useEffect(() => {
     if (user?.displayName && !customerName) {
@@ -285,7 +316,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
         {/* Drawer Header */}
         <div className="bg-[#F1F5F9] border-b border-slate-200 shrink-0">
           <div className="px-6 py-4 flex items-center justify-between">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2.5">
               {step === 'checkout' && !submitting && (
                 <button
                   type="button"
@@ -295,6 +326,25 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 >
                   <ArrowLeft className="w-4 h-4" />
                 </button>
+              )}
+              {step === 'cart' && (
+                <span
+                  className={`relative w-8 h-8 rounded-lg flex items-center justify-center border transition-colors duration-200 ${
+                    cartPulsing
+                      ? 'bg-[#071A3B] border-[#00CFFF]/70 text-[#00CFFF]'
+                      : 'bg-white border-slate-200 text-[#071A3B]'
+                  }`}
+                >
+                  {cartPulsing && (
+                    <span
+                      aria-hidden="true"
+                      className="pointer-events-none absolute -inset-1 rounded-lg bg-[#00CFFF]/25 ring-1 ring-[#00CFFF]/55 animate-cart-pulse-ring"
+                    />
+                  )}
+                  <ShoppingBag
+                    className={`w-4 h-4 ${cartPulsing ? 'animate-cart-pulse' : ''}`}
+                  />
+                </span>
               )}
               <h2 className="font-display text-lg font-bold text-[#071A3B]">
                 {step === 'cart' && 'Your Hardware Cart'}

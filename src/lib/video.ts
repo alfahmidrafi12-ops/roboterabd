@@ -1,5 +1,10 @@
 export type ResolvedVideoSource =
-  | { kind: 'iframe'; embedUrl: string; provider: 'YouTube' | 'Vimeo' | 'Google Drive'; originalUrl: string }
+  | {
+      kind: 'iframe';
+      embedUrl: string;
+      provider: 'YouTube' | 'Vimeo' | 'Google Drive' | 'Loom' | 'Streamable';
+      originalUrl: string;
+    }
   | { kind: 'video'; src: string; provider: 'Direct Video'; originalUrl: string }
   | { kind: 'external'; originalUrl: string };
 
@@ -83,6 +88,33 @@ export function resolveProductVideo(rawUrl?: string | null): ResolvedVideoSource
           kind: 'iframe',
           embedUrl: `https://drive.google.com/file/d/${match[1]}/preview`,
           provider: 'Google Drive',
+          originalUrl: trimmed,
+        };
+      }
+    }
+
+    // Loom video embed
+    if (host === 'loom.com') {
+      const match = url.pathname.match(/^\/(?:share|embed)\/([a-zA-Z0-9]{16,64})/);
+      if (match?.[1]) {
+        return {
+          kind: 'iframe',
+          embedUrl: `https://www.loom.com/embed/${match[1]}`,
+          provider: 'Loom',
+          originalUrl: trimmed,
+        };
+      }
+    }
+
+    // Streamable video embed
+    if (host === 'streamable.com') {
+      const parts = url.pathname.split('/').filter(Boolean);
+      const code = parts[0] === 'e' ? parts[1] : parts[0];
+      if (code && /^[a-zA-Z0-9]{4,20}$/.test(code)) {
+        return {
+          kind: 'iframe',
+          embedUrl: `https://streamable.com/e/${code}`,
+          provider: 'Streamable',
           originalUrl: trimmed,
         };
       }

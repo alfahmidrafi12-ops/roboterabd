@@ -19,6 +19,7 @@ interface HeaderProps {
   activePage?: 'shop' | 'track';
   categories?: CategoryItem[];
   cartCount: number;
+  cartPulseKey?: number;
   wishlistCount: number;
   isSignedIn: boolean;
   searchQuery: string;
@@ -49,6 +50,7 @@ export const Header: React.FC<HeaderProps> = ({
   activePage = 'shop',
   categories = [],
   cartCount,
+  cartPulseKey = 0,
   wishlistCount,
   isSignedIn,
   searchQuery,
@@ -75,9 +77,35 @@ export const Header: React.FC<HeaderProps> = ({
   const [searchOpen, setSearchOpen] = useState(false);
   const [categoriesOpen, setCategoriesOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [cartPulsing, setCartPulsing] = useState(false);
+  const prevPulseKeyRef = useRef(cartPulseKey);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const visibleCategories = categories.filter((c) => c.active !== false);
+
+  useEffect(() => {
+    if (cartPulseKey <= prevPulseKeyRef.current) {
+      prevPulseKeyRef.current = cartPulseKey;
+      return;
+    }
+    prevPulseKeyRef.current = cartPulseKey;
+    let raf1 = 0;
+    let raf2 = 0;
+    setCartPulsing(false);
+    raf1 = window.requestAnimationFrame(() => {
+      raf2 = window.requestAnimationFrame(() => {
+        setCartPulsing(true);
+      });
+    });
+    const timer = window.setTimeout(() => {
+      setCartPulsing(false);
+    }, 620);
+    return () => {
+      window.cancelAnimationFrame(raf1);
+      window.cancelAnimationFrame(raf2);
+      window.clearTimeout(timer);
+    };
+  }, [cartPulseKey]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -347,9 +375,25 @@ export const Header: React.FC<HeaderProps> = ({
             type="button"
             onClick={onOpenCart}
             aria-label={`Open shopping cart (${cartCount} items)`}
-            className="inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 h-9 sm:h-10 rounded-xl bg-[#071A3B] hover:bg-[#071A3B]/90 border border-[#071A3B] hover:border-[#0866F5]/60 text-white text-xs sm:text-sm font-semibold transition-colors whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0866F5] focus-visible:ring-offset-2"
+            className={`inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 h-9 sm:h-10 rounded-xl bg-[#071A3B] hover:bg-[#071A3B]/90 border text-white text-xs sm:text-sm font-semibold transition-all duration-300 whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0866F5] focus-visible:ring-offset-2 ${
+              cartPulsing
+                ? 'border-[#00CFFF]/80 shadow-[0_0_16px_rgba(0,207,255,0.28)]'
+                : 'border-[#071A3B] hover:border-[#0866F5]/60'
+            }`}
           >
-            <ShoppingBag className="w-4 h-4" />
+            <span className="relative inline-flex items-center justify-center">
+              {cartPulsing && (
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute -inset-1.5 rounded-full bg-[#00CFFF]/30 ring-1 ring-[#00CFFF]/60 animate-cart-pulse-ring"
+                />
+              )}
+              <ShoppingBag
+                className={`w-4 h-4 transition-colors duration-200 ${
+                  cartPulsing ? 'animate-cart-pulse text-[#00CFFF]' : ''
+                }`}
+              />
+            </span>
             <span className="hidden sm:inline">Cart</span>
             <span
               key={cartCount}

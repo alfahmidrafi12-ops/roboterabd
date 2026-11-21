@@ -30,6 +30,7 @@ interface ProductModalProps {
   isWishlisted: boolean;
   defaultEmail?: string | null;
   watchedAlert?: LocalPriceWatch | null;
+  zIndexClass?: string;
   onClose: () => void;
   onToggleWishlist: (productId: string) => void;
   onAddToCart: (product: Product, quantity: number, variant?: string) => void;
@@ -70,6 +71,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   isWishlisted,
   defaultEmail,
   watchedAlert,
+  zIndexClass = 'z-50',
   onClose,
   onToggleWishlist,
   onAddToCart,
@@ -159,7 +161,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4">
+    <div className={`fixed inset-0 ${zIndexClass} flex items-center justify-center p-2 sm:p-4`}>
       <div
         className="animate-fade-in fixed inset-0 bg-[#071A3B]/65 backdrop-blur-sm"
         onClick={onClose}
@@ -308,12 +310,69 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                     <button
                       type="button"
                       onClick={() => setMediaTab('video')}
-                      className="absolute bottom-3 right-3 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#071A3B] hover:bg-[#071A3B]/90 border border-white/20 hover:border-[#1685FF]/60 text-white text-xs font-semibold transition-colors"
+                      className="absolute bottom-3 right-3 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#071A3B] hover:bg-[#087BFF] border border-white/20 hover:border-[#087BFF] text-white text-xs font-semibold shadow-lg transition-colors"
                     >
                       <Play className="w-3.5 h-3.5 fill-current" />
                       <span>Watch Demo</span>
                     </button>
                   )}
+                </div>
+              )}
+
+              {/* Media Gallery Thumbnail Strip (Shown when Product Demo Video is available) */}
+              {resolvedVideo && (
+                <div
+                  role="tablist"
+                  aria-label="Product media gallery"
+                  className="grid grid-cols-2 gap-2.5"
+                >
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={mediaTab === 'image'}
+                    onClick={() => setMediaTab('image')}
+                    className={`flex items-center gap-2.5 p-2 rounded-xl border text-left transition-all ${
+                      mediaTab === 'image'
+                        ? 'bg-white border-[#087BFF] ring-2 ring-[#087BFF]/15'
+                        : 'bg-[#F8FAFC] border-slate-200 hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="w-11 h-11 rounded-lg bg-[#F1F5F9] border border-slate-200/80 p-1 shrink-0 flex items-center justify-center overflow-hidden">
+                      <HardwareArtwork
+                        kind={product.artwork}
+                        imageUrl={product.imageUrl}
+                        alt={product.name}
+                        fit="contain"
+                        className="w-full h-full"
+                      />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-bold text-[#071A3D] truncate">Hardware Photo</p>
+                      <p className="text-[10px] font-mono text-[#64748B] truncate">Studio View</p>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={mediaTab === 'video'}
+                    onClick={() => setMediaTab('video')}
+                    className={`flex items-center gap-2.5 p-2 rounded-xl border text-left transition-all ${
+                      mediaTab === 'video'
+                        ? 'bg-[#071A3B] border-[#087BFF] ring-2 ring-[#087BFF]/20 text-white'
+                        : 'bg-[#071A3B]/95 border-[#071A3B] hover:border-[#087BFF] text-white/90'
+                    }`}
+                  >
+                    <div className="w-11 h-11 rounded-lg bg-[#0F2754] border border-white/15 shrink-0 flex items-center justify-center text-[#00CFFF]">
+                      <Play className="w-4 h-4 fill-current ml-0.5" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-bold text-white truncate">Demo Video</p>
+                      <p className="text-[10px] font-mono text-[#00CFFF] truncate">
+                        {resolvedVideo.kind === 'external' ? 'External Video' : resolvedVideo.provider}
+                      </p>
+                    </div>
+                  </button>
                 </div>
               )}
 
