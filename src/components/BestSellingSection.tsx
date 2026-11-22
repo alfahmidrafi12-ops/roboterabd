@@ -18,6 +18,8 @@ import {
   Product,
   SortOption,
 } from '../types/store';
+import { playTapSound } from '../lib/sound';
+import { HighlightMatch } from './HighlightMatch';
 import { ProductCard } from './ProductCard';
 import { Reveal } from './Reveal';
 
@@ -201,12 +203,14 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
     (selectedBrand !== 'all' ? 1 : 0);
 
   const handleResetAll = () => {
+    playTapSound();
     setSelectedBrand('all');
     setDiscoveryTab('all');
     onClearFilters();
   };
 
   const handleToggleTechKeyword = (keyword: string) => {
+    playTapSound();
     const tokens = searchQuery.trim().split(/\s+/).filter(Boolean);
     const exists = tokens.some((t) => t.toLowerCase() === keyword.toLowerCase());
     if (exists) {
@@ -217,6 +221,7 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
   };
 
   const applyPricePreset = (min: string, max: string) => {
+    playTapSound();
     onMinPriceChange(min);
     onMaxPriceChange(max);
   };
@@ -312,7 +317,9 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
                     >
                       {selected && <Check className="w-2.5 h-2.5" strokeWidth={3} />}
                     </span>
-                    <span className="truncate">{cat.name}</span>
+                    <span className="truncate">
+                      <HighlightMatch text={cat.name} query={searchQuery} />
+                    </span>
                   </span>
                   <span className="font-mono text-[11px] tabular-nums text-[#64748B] shrink-0 ml-2">
                     {catCount}
@@ -531,7 +538,7 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
       id="best-selling"
       className="scroll-mt-20 bg-[#F3F7FC] min-[1500px]:bg-transparent min-[1500px]:pointer-events-none"
     >
-      <div className="relative z-20 pointer-events-auto w-full max-w-[1440px] mx-auto bg-gradient-to-b from-white via-[#F3F7FC] to-white min-[1500px]:border-x min-[1500px]:border-slate-300/90 px-4 sm:px-6 lg:px-10 py-11 sm:py-14 lg:py-16">
+      <div className="relative z-20 pointer-events-auto w-full max-w-[1440px] mx-auto bg-gradient-to-b from-white via-[#F3F7FC] to-white min-[1500px]:border-x min-[1500px]:border-slate-200/90 px-4 sm:px-6 lg:px-10 py-11 sm:py-14 lg:py-16">
         {/* Catalog Header */}
         <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-5 pb-6 border-b border-slate-200/90 mb-6">
           <div className="max-w-2xl">
@@ -582,8 +589,11 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => setMobileFiltersOpen(true)}
-                className={`lg:hidden h-10 px-3.5 rounded-xl border text-xs font-semibold inline-flex items-center gap-2 transition-colors whitespace-nowrap shrink-0 ${
+                onClick={() => {
+                  playTapSound();
+                  setMobileFiltersOpen(true);
+                }}
+                className={`active:scale-95 lg:hidden h-10 px-3.5 rounded-xl border text-xs font-semibold inline-flex items-center gap-2 transition-all whitespace-nowrap shrink-0 ${
                   activeAdvancedCount > 0
                     ? 'bg-[#071A3D] border-[#071A3D] text-white'
                     : 'bg-white border-slate-200 text-[#071A3D]'
@@ -620,7 +630,10 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
               <div className="hidden sm:flex items-center p-1 rounded-xl bg-white border border-slate-200">
                 <button
                   type="button"
-                  onClick={() => setViewMode('grid')}
+                  onClick={() => {
+                    playTapSound();
+                    setViewMode('grid');
+                  }}
                   aria-label="Grid view"
                   aria-pressed={viewMode === 'grid'}
                   className={`p-1.5 rounded-lg transition-colors ${
@@ -633,7 +646,10 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
                 </button>
                 <button
                   type="button"
-                  onClick={() => setViewMode('list')}
+                  onClick={() => {
+                    playTapSound();
+                    setViewMode('list');
+                  }}
                   aria-label="List view"
                   aria-pressed={viewMode === 'list'}
                   className={`p-1.5 rounded-lg transition-colors ${
@@ -665,8 +681,11 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
                 <button
                   key={tab.id}
                   type="button"
-                  onClick={() => setDiscoveryTab(tab.id)}
-                  className={`px-4 py-2 rounded-xl border text-xs font-semibold transition-all duration-200 whitespace-nowrap shrink-0 ${
+                  onClick={() => {
+                    playTapSound();
+                    setDiscoveryTab(tab.id);
+                  }}
+                  className={`active:scale-[0.98] px-4 py-2 rounded-xl border text-xs font-semibold transition-all duration-200 whitespace-nowrap shrink-0 ${
                     active
                       ? 'bg-[#071A3D] border-[#071A3D] text-white shadow-[0_6px_14px_-6px_rgba(7,26,61,0.35)]'
                       : 'bg-white hover:bg-[#F8FAFC] text-[#334155] border-slate-200 hover:border-[#087BFF]/55 hover:text-[#071A3D]'
@@ -680,6 +699,17 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
 
           {hasAnyFilter && (
             <div className="flex flex-wrap items-center gap-1.5 text-xs">
+              {searchQuery.trim() && (
+                <button
+                  type="button"
+                  onClick={() => onSearchChange('')}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#087BFF]/10 border border-[#087BFF]/25 text-[#071A3D] font-medium hover:border-[#087BFF]"
+                >
+                  <Search className="w-3 h-3 text-[#087BFF]" />
+                  <span>&ldquo;{searchQuery.trim()}&rdquo;</span>
+                  <X className="w-3 h-3 text-[#64748B]" />
+                </button>
+              )}
               {activeCategoryName && (
                 <button
                   type="button"
@@ -769,6 +799,7 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
                       product={product}
                       layout="list"
                       categoryDisplayName={categoryLabels[product.category]}
+                      highlightQuery={searchQuery}
                       isWishlisted={wishlistIds.includes(product.id)}
                       isCompared={compareIds.includes(product.id)}
                       compareLimitReached={compareIds.length >= 3}
@@ -788,6 +819,7 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
                       product={product}
                       layout="grid"
                       categoryDisplayName={categoryLabels[product.category]}
+                      highlightQuery={searchQuery}
                       isWishlisted={wishlistIds.includes(product.id)}
                       isCompared={compareIds.includes(product.id)}
                       compareLimitReached={compareIds.length >= 3}
@@ -811,15 +843,21 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
                   <div className="flex items-center gap-2.5">
                     <button
                       type="button"
-                      onClick={() => setVisibleCount((prev) => prev + PAGE_INCREMENT)}
-                      className="px-5 py-2.5 rounded-xl bg-white hover:bg-[#071A3D] border border-slate-200 hover:border-[#071A3D] text-xs font-bold tracking-[0.04em] uppercase text-[#071A3D] hover:text-white shadow-[0_6px_16px_-8px_rgba(7,26,61,0.12)] transition-all duration-200"
+                      onClick={() => {
+                        playTapSound();
+                        setVisibleCount((prev) => prev + PAGE_INCREMENT);
+                      }}
+                      className="active:scale-[0.98] px-5 py-2.5 rounded-xl bg-white hover:bg-[#071A3D] border border-slate-200 hover:border-[#071A3D] text-xs font-bold tracking-[0.04em] uppercase text-[#071A3D] hover:text-white shadow-[0_6px_16px_-8px_rgba(7,26,61,0.12)] transition-all duration-200"
                     >
                       Load More (+{Math.min(PAGE_INCREMENT, remainingProductsCount)})
                     </button>
                     {remainingProductsCount > PAGE_INCREMENT && (
                       <button
                         type="button"
-                        onClick={() => setVisibleCount(displayedProducts.length)}
+                        onClick={() => {
+                          playTapSound();
+                          setVisibleCount(displayedProducts.length);
+                        }}
                         className="px-4 py-2.5 rounded-xl text-xs font-semibold text-[#087BFF] hover:underline"
                       >
                         Show All
@@ -829,8 +867,11 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
                 ) : (
                   <button
                     type="button"
-                    onClick={() => setVisibleCount(INITIAL_PAGE_SIZE)}
-                    className="px-4 py-2 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-[#475569] hover:text-[#071A3D] transition-colors"
+                    onClick={() => {
+                      playTapSound();
+                      setVisibleCount(INITIAL_PAGE_SIZE);
+                    }}
+                    className="active:scale-[0.98] px-4 py-2 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-[#475569] hover:text-[#071A3D] transition-all"
                   >
                     Show First {INITIAL_PAGE_SIZE}
                   </button>

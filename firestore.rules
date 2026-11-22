@@ -132,8 +132,8 @@ service cloud.firestore {
       return data.keys().hasAll(['id', 'heroImageUrl', 'updatedAt'])
         && data.keys().hasOnly([
           'id', 'heroImageUrl', 'heroKicker', 'heroTitle', 'heroSubtitle',
-          'heroTagline', 'heroDispatchText', 'promoLeftImageUrl',
-          'promoTopRightImageUrl', 'promoBottomRightImageUrl',
+          'heroTagline', 'heroDispatchText', 'newsTickerEnabled', 'newsTickerItems',
+          'promoLeftImageUrl', 'promoTopRightImageUrl', 'promoBottomRightImageUrl',
           'discountBannerImageUrl', 'blogImages', 'updatedAt'
         ])
         && isValidId(data.id)
@@ -143,6 +143,8 @@ service cloud.firestore {
         && (!('heroSubtitle' in data) || (data.heroSubtitle is string && data.heroSubtitle.size() <= 320))
         && (!('heroTagline' in data) || (data.heroTagline is string && data.heroTagline.size() <= 120))
         && (!('heroDispatchText' in data) || (data.heroDispatchText is string && data.heroDispatchText.size() <= 120))
+        && (!('newsTickerEnabled' in data) || data.newsTickerEnabled is bool)
+        && (!('newsTickerItems' in data) || (data.newsTickerItems is list && data.newsTickerItems.size() <= 15 && (data.newsTickerItems.size() == 0 || data.newsTickerItems[0] is string)))
         && (!('promoLeftImageUrl' in data) || isValidImageUrl(data.promoLeftImageUrl))
         && (!('promoTopRightImageUrl' in data) || isValidImageUrl(data.promoTopRightImageUrl))
         && (!('promoBottomRightImageUrl' in data) || isValidImageUrl(data.promoBottomRightImageUrl))
@@ -229,6 +231,73 @@ service cloud.firestore {
         && data.updatedAt == request.time;
     }
 
+    function isValidPromoCodeId(code) {
+      return code is string && code.size() >= 3 && code.size() <= 32 && code.matches('^[A-Z0-9_\\-]+$');
+    }
+
+    function emailDomain(raw) {
+      return raw.lower().trim().split('@')[1] == 'googlemail.com'
+        ? 'gmail.com'
+        : raw.lower().trim().split('@')[1];
+    }
+
+    function canonicalEmail(raw) {
+      return (emailDomain(raw) == 'gmail.com'
+        ? raw.lower().trim().split('@')[0].split('\\+')[0].replace('\\.', '')
+        : raw.lower().trim().split('@')[0]) + '@' + emailDomain(raw);
+    }
+
+    function emailRedemptionDocId(code, rawEmail) {
+      return code + '__e__' + hashing.sha256(canonicalEmail(rawEmail)).toHexString().lower();
+    }
+
+    function isValidPromoCode(data) {
+      return data.keys().hasAll([
+          'id', 'code', 'discountType', 'discountValue', 'description', 'active', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'code', 'discountType', 'discountValue', 'minOrderAmount',
+          'maxDiscountAmount', 'firstOrderOnly', 'description', 'active', 'updatedAt'
+        ])
+        && isValidPromoCodeId(data.id)
+        && data.code == data.id
+        && data.discountType in ['percent', 'flat']
+        && data.discountValue is number
+        && (
+          (data.discountType == 'percent' && data.discountValue >= 1 && data.discountValue <= 90) ||
+          (data.discountType == 'flat' && data.discountValue >= 1 && data.discountValue <= 500000)
+        )
+        && (!('minOrderAmount' in data) || (data.minOrderAmount is number && data.minOrderAmount >= 0 && data.minOrderAmount <= 5000000))
+        && (!('maxDiscountAmount' in data) || (data.maxDiscountAmount is number && data.maxDiscountAmount >= 1 && data.maxDiscountAmount <= 5000000))
+        && (!('firstOrderOnly' in data) || data.firstOrderOnly is bool)
+        && data.description is string && data.description.size() >= 1 && data.description.size() <= 160
+        && data.active is bool
+        && data.updatedAt == request.time;
+    }
+
+    function isValidPromoRedemption(data) {
+      return data.keys().hasAll([
+          'id', 'code', 'redemptionType', 'userId', 'orderId', 'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'code', 'redemptionType', 'userId', 'emailLower', 'canonicalEmail', 'orderId', 'createdAt'
+        ])
+        && isValidId(data.id)
+        && isValidPromoCodeId(data.code)
+        && data.redemptionType in ['uid', 'email']
+        && data.userId is string && data.userId == request.auth.uid && data.userId.size() <= 128
+        && (!('emailLower' in data) || (data.emailLower is string && data.emailLower.size() >= 3 && data.emailLower.size() <= 120))
+        && (!('canonicalEmail' in data) || (data.canonicalEmail is string && data.canonicalEmail.size() >= 3 && data.canonicalEmail.size() <= 120))
+        && isValidId(data.orderId) && data.orderId.size() <= 40
+        && data.createdAt == request.time;
+    }
+
+    function hasActivePromoCodeOrDefault(code) {
+      return (!exists(/databases/$(database)/documents/promo_codes/$(code)) && code == 'ROBOTERA15')
+        || (exists(/databases/$(database)/documents/promo_codes/$(code))
+            && get(/databases/$(database)/documents/promo_codes/$(code)).data.active == true);
+    }
+
     // Connection health check document
     match /test/connection {
       allow get: if true;
@@ -293,8 +362,8 @@ service cloud.firestore {
         && incoming().id == existing().id
         && incoming().diff(existing()).affectedKeys().hasOnly([
           'heroImageUrl', 'heroKicker', 'heroTitle', 'heroSubtitle',
-          'heroTagline', 'heroDispatchText', 'promoLeftImageUrl',
-          'promoTopRightImageUrl', 'promoBottomRightImageUrl',
+          'heroTagline', 'heroDispatchText', 'newsTickerEnabled', 'newsTickerItems',
+          'promoLeftImageUrl', 'promoTopRightImageUrl', 'promoBottomRightImageUrl',
           'discountBannerImageUrl', 'blogImages', 'updatedAt'
         ]);
       allow delete: if isAdmin() && isValidId(settingId);
@@ -313,7 +382,20 @@ service cloud.firestore {
         && (!('userId' in incoming()) || (isSignedIn() && incoming().userId == request.auth.uid))
         && incoming().status == 'Pending'
         && incoming().createdAt == request.time
-        && existsAfter(/databases/$(database)/documents/order_tracking/$(orderId));
+        && existsAfter(/databases/$(database)/documents/order_tracking/$(orderId))
+        && (
+          !('couponCode' in incoming())
+          || (
+            isSignedIn()
+            && isValidPromoCodeId(incoming().couponCode)
+            && hasActivePromoCodeOrDefault(incoming().couponCode)
+            && existsAfter(/databases/$(database)/documents/promo_redemptions/$(incoming().couponCode + '__u__' + request.auth.uid))
+            && (
+              request.auth.token.email == null
+              || existsAfter(/databases/$(database)/documents/promo_redemptions/$(emailRedemptionDocId(incoming().couponCode, request.auth.token.email)))
+            )
+          )
+        );
       allow update: if isAdmin()
         && isValidId(orderId)
         && isValidOrder(incoming())
@@ -380,6 +462,66 @@ service cloud.firestore {
         (isSignedIn() && ('userId' in existing()) && existing().userId == request.auth.uid) ||
         isAdmin()
       );
+    }
+
+    // Public promo codes catalog; Admin-only mutations
+    match /promo_codes/{code} {
+      allow list: if true;
+      allow get: if isValidPromoCodeId(code);
+      allow create: if isAdmin() && isValidPromoCodeId(code) && isValidPromoCode(incoming()) && incoming().id == code;
+      allow update: if isAdmin()
+        && isValidPromoCodeId(code)
+        && isValidPromoCode(incoming())
+        && incoming().id == existing().id
+        && incoming().code == existing().code
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'discountType', 'discountValue', 'minOrderAmount', 'maxDiscountAmount',
+          'firstOrderOnly', 'description', 'active', 'updatedAt'
+        ]);
+      allow delete: if isAdmin() && isValidPromoCodeId(code);
+    }
+
+    // Immutable single-use promo redemptions (1 use per UID + 1 use per canonical Gmail/email)
+    match /promo_redemptions/{redemptionId} {
+      allow get: if isAdmin() || (
+        isSignedIn() && (
+          redemptionId.matches('^[A-Z0-9_\\-]+__u__' + request.auth.uid + '$') ||
+          (
+            request.auth.token.email != null
+            && redemptionId.matches('^[A-Z0-9_\\-]+__e__[a-f0-9]{64}$')
+            && redemptionId == emailRedemptionDocId(redemptionId.split('__e__')[0], request.auth.token.email)
+          )
+        )
+      );
+      allow list: if isAdmin() || (
+        isSignedIn() && (
+          existing().userId == request.auth.uid ||
+          (
+            request.auth.token.email != null
+            && ('canonicalEmail' in existing())
+            && existing().canonicalEmail == canonicalEmail(request.auth.token.email)
+          )
+        )
+      );
+      allow create: if isSignedIn()
+        && isValidId(redemptionId)
+        && isValidPromoRedemption(incoming())
+        && incoming().id == redemptionId
+        && existsAfter(/databases/$(database)/documents/orders/$(incoming().orderId))
+        && (
+          (incoming().redemptionType == 'uid' && redemptionId == incoming().code + '__u__' + request.auth.uid) ||
+          (
+            incoming().redemptionType == 'email'
+            && request.auth.token.email != null
+            && ('emailLower' in incoming())
+            && incoming().emailLower == request.auth.token.email.lower()
+            && ('canonicalEmail' in incoming())
+            && incoming().canonicalEmail == canonicalEmail(request.auth.token.email)
+            && redemptionId == emailRedemptionDocId(incoming().code, request.auth.token.email)
+          )
+        );
+      allow update: if false;
+      allow delete: if isAdmin() && isValidId(redemptionId);
     }
 
     // Admin registry

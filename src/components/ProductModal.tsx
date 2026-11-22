@@ -19,6 +19,12 @@ import {
   X,
   Zap,
 } from 'lucide-react';
+import {
+  playErrorSound,
+  playStepTickSound,
+  playSuccessSound,
+  playTapSound,
+} from '../lib/sound';
 import { resolveProductVideo } from '../lib/video';
 import { LocalPriceWatch, Product } from '../types/store';
 import { HardwareArtwork } from './HardwareArtwork';
@@ -87,6 +93,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   const [alertBusy, setAlertBusy] = useState(false);
   const [alertError, setAlertError] = useState('');
   const [alertSuccess, setAlertSuccess] = useState('');
+  const [heartBurstKey, setHeartBurstKey] = useState(0);
 
   const resolvedVideo = useMemo(
     () => resolveProductVideo(product?.videoUrl),
@@ -139,6 +146,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
     if (!onSubscribePriceDrop || alertBusy) return;
     const trimmed = alertEmail.trim();
     if (!EMAIL_PATTERN.test(trimmed)) {
+      playErrorSound();
       setAlertError('Please enter a valid email address.');
       return;
     }
@@ -148,12 +156,14 @@ export const ProductModal: React.FC<ProductModalProps> = ({
     setAlertSuccess('');
     try {
       await onSubscribePriceDrop(product, trimmed);
+      playSuccessSound();
       setAlertSuccess(
         `Price alert active for ${trimmed}. You'll be notified if ${product.name} drops below ৳${product.price.toLocaleString('en-IN')}.`
       );
       setNotifyOpen(false);
     } catch (err) {
       console.error('Price alert subscription error:', err);
+      playErrorSound();
       setAlertError('Could not save price alert right now. Please try again.');
     } finally {
       setAlertBusy(false);
@@ -200,7 +210,10 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                 <div className="grid grid-cols-2 gap-1 p-1 bg-[#F5F8FC] rounded-xl border border-slate-200">
                   <button
                     type="button"
-                    onClick={() => setMediaTab('image')}
+                    onClick={() => {
+                      playTapSound();
+                      setMediaTab('image');
+                    }}
                     className={`py-1.5 px-2.5 rounded-lg border text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors ${
                       mediaTab === 'image'
                         ? 'bg-white text-[#071A3B] border-slate-200/90'
@@ -212,7 +225,10 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                   </button>
                   <button
                     type="button"
-                    onClick={() => setMediaTab('video')}
+                    onClick={() => {
+                      playTapSound();
+                      setMediaTab('video');
+                    }}
                     className={`py-1.5 px-2.5 rounded-lg border text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors ${
                       mediaTab === 'video'
                         ? 'bg-[#0866F5] text-white border-[#0866F5]'
@@ -309,8 +325,11 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                   {resolvedVideo && (
                     <button
                       type="button"
-                      onClick={() => setMediaTab('video')}
-                      className="absolute bottom-3 right-3 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#071A3B] hover:bg-[#087BFF] border border-white/20 hover:border-[#087BFF] text-white text-xs font-semibold shadow-lg transition-colors"
+                      onClick={() => {
+                        playTapSound();
+                        setMediaTab('video');
+                      }}
+                      className="active:scale-95 absolute bottom-3 right-3 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#071A3B] hover:bg-[#087BFF] border border-white/20 hover:border-[#087BFF] text-white text-xs font-semibold shadow-lg transition-all"
                     >
                       <Play className="w-3.5 h-3.5 fill-current" />
                       <span>Watch Demo</span>
@@ -330,7 +349,10 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                     type="button"
                     role="tab"
                     aria-selected={mediaTab === 'image'}
-                    onClick={() => setMediaTab('image')}
+                    onClick={() => {
+                      playTapSound();
+                      setMediaTab('image');
+                    }}
                     className={`flex items-center gap-2.5 p-2 rounded-xl border text-left transition-all ${
                       mediaTab === 'image'
                         ? 'bg-white border-[#087BFF] ring-2 ring-[#087BFF]/15'
@@ -356,7 +378,10 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                     type="button"
                     role="tab"
                     aria-selected={mediaTab === 'video'}
-                    onClick={() => setMediaTab('video')}
+                    onClick={() => {
+                      playTapSound();
+                      setMediaTab('video');
+                    }}
                     className={`flex items-center gap-2.5 p-2 rounded-xl border text-left transition-all ${
                       mediaTab === 'video'
                         ? 'bg-[#071A3B] border-[#087BFF] ring-2 ring-[#087BFF]/20 text-white'
@@ -448,8 +473,11 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                         <button
                           key={variant}
                           type="button"
-                          onClick={() => setSelectedVariant(variant)}
-                          className={`px-3.5 py-2 rounded-lg text-xs font-semibold border transition-colors ${
+                          onClick={() => {
+                            playTapSound();
+                            setSelectedVariant(variant);
+                          }}
+                          className={`active:scale-95 px-3.5 py-2 rounded-lg text-xs font-semibold border transition-all ${
                             active
                               ? 'bg-[#071A3B] border-[#071A3B] text-white'
                               : 'bg-white border-slate-200 text-[#101828] hover:border-slate-300'
@@ -470,7 +498,10 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                     <button
                       type="button"
                       disabled={isOutOfStock || qty <= 1}
-                      onClick={() => setQty((prev) => Math.max(1, prev - 1))}
+                      onClick={() => {
+                        playStepTickSound(false);
+                        setQty((prev) => Math.max(1, prev - 1));
+                      }}
                       aria-label="Decrease quantity"
                       className="w-9 h-full flex items-center justify-center text-[#64748B] hover:text-[#101828] disabled:opacity-35"
                     >
@@ -482,7 +513,10 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                     <button
                       type="button"
                       disabled={isOutOfStock || qty >= product.stock}
-                      onClick={() => setQty((prev) => Math.min(product.stock, prev + 1))}
+                      onClick={() => {
+                        playStepTickSound(true);
+                        setQty((prev) => Math.min(product.stock, prev + 1));
+                      }}
                       aria-label="Increase quantity"
                       className="w-9 h-full flex items-center justify-center text-[#64748B] hover:text-[#101828] disabled:opacity-35"
                     >
@@ -498,7 +532,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                       onAddToCart(product, Math.min(qty, product.stock), selectedVariant);
                       onClose();
                     }}
-                    className="flex-1 min-w-0 h-11 px-3 sm:px-4 rounded-xl bg-[#0866F5] hover:bg-[#0866F5]/90 border border-[#0866F5] hover:border-[#1685FF] text-white transition-colors disabled:bg-slate-200 disabled:border-slate-200 disabled:text-slate-500 disabled:cursor-not-allowed text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap"
+                    className="cta-sheen active:scale-[0.98] flex-1 min-w-0 h-11 px-3 sm:px-4 rounded-xl bg-[#0866F5] hover:bg-[#0866F5]/90 border border-[#0866F5] hover:border-[#1685FF] text-white transition-all disabled:bg-slate-200 disabled:border-slate-200 disabled:text-slate-500 disabled:cursor-not-allowed text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap"
                   >
                     <ShoppingCart className="w-4 h-4 shrink-0" />
                     <span className="truncate">{isOutOfStock ? 'Out of Stock' : 'Add to Cart'}</span>
@@ -506,15 +540,27 @@ export const ProductModal: React.FC<ProductModalProps> = ({
 
                   <button
                     type="button"
-                    onClick={() => onToggleWishlist(product.id)}
+                    onClick={() => {
+                      if (!isWishlisted) {
+                        setHeartBurstKey((k) => k + 1);
+                      }
+                      onToggleWishlist(product.id);
+                    }}
                     aria-label={isWishlisted ? 'Remove from saved' : 'Save item'}
-                    className={`w-11 h-11 rounded-xl border flex items-center justify-center transition-colors shrink-0 ${
+                    className={`relative active:scale-90 w-11 h-11 rounded-xl border flex items-center justify-center transition-all shrink-0 ${
                       isWishlisted
                         ? 'bg-[#071A3B] hover:bg-[#071A3B]/90 border-[#071A3B] text-white'
                         : 'bg-white border-slate-200 text-[#64748B] hover:text-[#0866F5] hover:bg-[#0866F5]/[0.06] hover:border-[#0866F5]/45'
                     }`}
                   >
-                    <Heart className={`w-4 h-4 ${isWishlisted ? 'fill-current' : ''}`} />
+                    {heartBurstKey > 0 && isWishlisted && (
+                      <span
+                        key={heartBurstKey}
+                        aria-hidden="true"
+                        className="animate-heart-burst pointer-events-none absolute inset-0 rounded-xl border-2 border-[#00CFFF]"
+                      />
+                    )}
+                    <Heart className={`w-4 h-4 ${isWishlisted ? 'fill-current animate-icon-pop' : ''}`} />
                   </button>
                 </div>
 
@@ -522,10 +568,11 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                   <button
                     type="button"
                     onClick={() => {
+                      playTapSound();
                       onBuyNow(product, Math.min(qty, product.stock), selectedVariant);
                       onClose();
                     }}
-                    className="w-full h-11 rounded-xl bg-[#071A3B] hover:bg-[#071A3B]/90 border border-[#071A3B] hover:border-[#EA580C]/65 text-white text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-2 transition-colors"
+                    className="cta-sheen active:scale-[0.98] w-full h-11 rounded-xl bg-[#071A3B] hover:bg-[#071A3B]/90 border border-[#071A3B] hover:border-[#EA580C]/65 text-white text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-2 transition-all"
                   >
                     <Zap className="w-4 h-4 text-[#FB923C]" />
                     <span>Buy Now — Express Checkout</span>
@@ -550,7 +597,10 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                         </div>
                         <button
                           type="button"
-                          onClick={() => setNotifyOpen(true)}
+                          onClick={() => {
+                            playTapSound();
+                            setNotifyOpen(true);
+                          }}
                           className="text-[11px] font-semibold text-[#0866F5] hover:underline whitespace-nowrap shrink-0"
                         >
                           Update alert
@@ -559,7 +609,10 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                     ) : !notifyOpen ? (
                       <button
                         type="button"
-                        onClick={() => setNotifyOpen(true)}
+                        onClick={() => {
+                          playTapSound();
+                          setNotifyOpen(true);
+                        }}
                         className="w-full h-10 rounded-xl border border-slate-200 bg-[#F5F8FC] hover:bg-slate-100 text-[#071A3B] text-xs font-semibold inline-flex items-center justify-center gap-2 transition-colors"
                       >
                         <Bell className="w-3.5 h-3.5 text-[#0866F5]" />

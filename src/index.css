@@ -1,10 +1,10 @@
 @import "tailwindcss";
 
 @theme {
-  --font-display: "Outfit", system-ui, sans-serif;
-  --font-hero: "Manrope", "Outfit", system-ui, sans-serif;
-  --font-sans: "DM Sans", system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --font-display: "Outfit", "Noto Sans Bengali", system-ui, sans-serif;
+  --font-hero: "Manrope", "Outfit", "Noto Sans Bengali", system-ui, sans-serif;
+  --font-sans: "DM Sans", "Noto Sans Bengali", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "Noto Sans Bengali", ui-monospace, monospace;
 }
 
 .font-hero {
@@ -17,8 +17,8 @@
     font-family: var(--font-sans);
     overflow-x: clip;
     -webkit-tap-highlight-color: transparent;
-    color: #0F172A;
-    background-color: #E6ECF4;
+    color: #071A3D;
+    background-color: #F5F8FC;
   }
 
   body {
@@ -543,6 +543,188 @@
   animation: cartPulseRing 0.58s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
+@keyframes tickerMarquee {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+.animate-ticker-marquee {
+  animation: tickerMarquee 36s linear infinite;
+}
+
+.ticker-container:hover .animate-ticker-marquee {
+  animation-play-state: paused;
+}
+
+@keyframes keylightBreathe {
+  0%, 100% {
+    opacity: 0.78;
+    transform: translateY(-50%) scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-50%) scale(1.06);
+  }
+}
+
+.animate-keylight {
+  animation: keylightBreathe 9s ease-in-out infinite;
+}
+
+@keyframes sheenSlide {
+  0% {
+    transform: translateX(-140%) skewX(-22deg);
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.45;
+  }
+  80% {
+    opacity: 0.45;
+  }
+  100% {
+    transform: translateX(260%) skewX(-22deg);
+    opacity: 0;
+  }
+}
+
+.cta-sheen {
+  position: relative;
+  overflow: hidden;
+}
+
+.cta-sheen::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 46%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.28) 50%,
+    transparent 100%
+  );
+  transform: translateX(-150%) skewX(-22deg);
+  pointer-events: none;
+}
+
+.cta-sheen:hover::after {
+  animation: sheenSlide 0.85s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes springPop {
+  0% {
+    transform: scale(0.84);
+  }
+  55% {
+    transform: scale(1.08);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.animate-spring-pop {
+  animation: springPop 0.36s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes heartBurst {
+  0% {
+    transform: scale(0.7);
+    opacity: 0.85;
+  }
+  100% {
+    transform: scale(2.05);
+    opacity: 0;
+  }
+}
+
+.animate-heart-burst {
+  animation: heartBurst 0.55s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes signalSweepLine {
+  0% {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.75;
+  }
+  80% {
+    opacity: 0.75;
+  }
+  100% {
+    transform: translateX(220%);
+    opacity: 0;
+  }
+}
+
+.animate-signal-sweep {
+  animation: signalSweepLine 5.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@keyframes carDriveBounce {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-2px);
+  }
+}
+
+.animate-car-drive {
+  animation: carDriveBounce 0.65s ease-in-out infinite;
+}
+
+@keyframes wheelSpin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-wheel-spin {
+  animation: wheelSpin 0.45s linear infinite;
+}
+
+@keyframes roadDashScroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-32px);
+  }
+}
+
+.animate-road-scroll {
+  animation: roadDashScroll 0.55s linear infinite;
+}
+
+@keyframes speedStreak {
+  0% {
+    transform: translateX(6px) scaleX(0.6);
+    opacity: 0;
+  }
+  40% {
+    opacity: 0.85;
+  }
+  100% {
+    transform: translateX(-18px) scaleX(1.1);
+    opacity: 0;
+  }
+}
+
+.animate-speed-streak {
+  animation: speedStreak 0.9s ease-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-hero-rise,
   .animate-hero-rise-delay-1,
@@ -578,7 +760,19 @@
   .animate-banner-progress,
   .animate-blueprint-drift,
   .animate-cart-pulse,
-  .animate-cart-pulse-ring {
+  .animate-cart-pulse-ring,
+  .animate-ticker-marquee,
+  .animate-keylight,
+  .animate-spring-pop,
+  .animate-heart-burst,
+  .animate-signal-sweep,
+  .animate-car-drive,
+  .animate-wheel-spin,
+  .animate-road-scroll,
+  .animate-speed-streak {
+    animation: none !important;
+  }
+  .cta-sheen:hover::after {
     animation: none !important;
   }
   .animate-check-draw,

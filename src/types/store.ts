@@ -90,6 +90,8 @@ export interface SiteImagesConfig {
   heroSubtitle?: string;
   heroTagline?: string;
   heroDispatchText?: string;
+  newsTickerEnabled?: boolean;
+  newsTickerItems?: string[];
   promoLeftImageUrl?: string;
   promoTopRightImageUrl?: string;
   promoBottomRightImageUrl?: string;
@@ -156,6 +158,32 @@ export interface BlogPost {
   content: string[];
 }
 
+export type PromoDiscountType = 'percent' | 'flat';
+
+export interface PromoCode {
+  id: string;
+  code: string;
+  discountType: PromoDiscountType;
+  discountValue: number;
+  minOrderAmount?: number;
+  maxDiscountAmount?: number;
+  firstOrderOnly?: boolean;
+  description: string;
+  active: boolean;
+  updatedAt?: unknown;
+}
+
+export interface PromoRedemption {
+  id: string;
+  code: string;
+  redemptionType: 'uid' | 'email';
+  userId: string;
+  emailLower?: string;
+  canonicalEmail?: string;
+  orderId: string;
+  createdAt: unknown;
+}
+
 export interface OrderReceipt {
   orderId: string;
   customerName: string;
@@ -166,6 +194,7 @@ export interface OrderReceipt {
   items: CartItem[];
   subtotal: number;
   discount: number;
+  couponCode?: string;
   deliveryFee: number;
   total: number;
   createdAt: string;

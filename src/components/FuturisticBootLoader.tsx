@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowRight, Check, Cpu } from 'lucide-react';
+import { playBootChime } from '../lib/sound';
 
 interface FuturisticBootLoaderProps {
   onComplete?: () => void;
@@ -286,8 +287,11 @@ export const FuturisticBootLoader: React.FC<FuturisticBootLoaderProps> = ({ onCo
         {/* Unobtrusive Skip Action */}
         <button
           type="button"
-          onClick={dismiss}
-          className="animate-hero-rise-delay-3 mt-6 inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-white/8 hover:bg-white/15 border border-white/15 hover:border-[#00CFFF]/45 text-xs font-medium text-slate-200 hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00CFFF]"
+          onClick={() => {
+            playBootChime();
+            dismiss();
+          }}
+          className="animate-hero-rise-delay-3 mt-6 inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-white/8 hover:bg-white/15 border border-white/15 hover:border-[#00CFFF]/45 text-xs font-medium text-slate-200 hover:text-white active:scale-95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00CFFF]"
         >
           <span>Skip Intro</span>
           <ArrowRight className="w-3.5 h-3.5" />

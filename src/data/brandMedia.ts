@@ -1,4 +1,8 @@
 import heroHardwareStudio from '../assets/images/hero_hardware_studio_1795244619746.jpg';
+import heroRoboticsShowcase from '../assets/images/hero_robotics_showcase_1795149400486.jpg';
+import heroDarkRoboticsStage from '../assets/images/hero_dark_robotics_stage_1795316831801.jpg';
+import heroDarkComputeBoards from '../assets/images/hero_dark_compute_boards_1795316832073.jpg';
+import heroDarkSensorsLidar from '../assets/images/hero_dark_sensors_lidar_1795316831823.jpg';
 import promoEdgeAiBoards from '../assets/images/promo_edge_ai_boards_1795149400775.jpg';
 import promoLidarSensor from '../assets/images/promo_lidar_sensor_1795149400100.jpg';
 import promoRoboticsArm from '../assets/images/promo_robotics_arm_1795149399896.jpg';
@@ -13,6 +17,10 @@ import catLabTools from '../assets/images/cat_lab_tools_1795244814382.jpg';
 
 export const BRAND_STUDIO_MEDIA = {
   heroShowcase: heroHardwareStudio,
+  roboticsShowcase: heroRoboticsShowcase,
+  darkRoboticsStage: heroDarkRoboticsStage,
+  darkComputeBoards: heroDarkComputeBoards,
+  darkSensorsLidar: heroDarkSensorsLidar,
   roboticsArm: promoRoboticsArm,
   edgeAiBoards: promoEdgeAiBoards,
   lidarSensor: promoLidarSensor,

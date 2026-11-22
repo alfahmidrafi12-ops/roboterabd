@@ -18,11 +18,14 @@ import {
   Wrench,
 } from 'lucide-react';
 import { isWatermarkedUrl } from '../data/brandMedia';
+import { playStepTickSound, playTapSound } from '../lib/sound';
 import { ArtworkKind, Product } from '../types/store';
+import { HighlightMatch } from './HighlightMatch';
 
 interface ProductCardProps {
   product: Product;
   categoryDisplayName?: string;
+  highlightQuery?: string;
   isWishlisted: boolean;
   isCompared?: boolean;
   compareLimitReached?: boolean;
@@ -109,6 +112,7 @@ const ProductMedia: React.FC<ProductMediaProps> = ({ product, className = '' }) 
 export const ProductCard: React.FC<ProductCardProps> = ({
   product,
   categoryDisplayName,
+  highlightQuery = '',
   isWishlisted,
   isCompared = false,
   compareLimitReached = false,
@@ -122,6 +126,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   const isLowStock = product.stock > 0 && product.stock <= 5;
   const [qty, setQty] = useState(1);
   const [justAdded, setJustAdded] = useState(false);
+  const [heartBurstKey, setHeartBurstKey] = useState(0);
   const timerRef = useRef<number | null>(null);
   const lastAddTsRef = useRef<number>(0);
 
@@ -197,7 +202,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           <div className="flex-1 min-w-0 space-y-1.5">
             <div className="flex items-center gap-2 text-[11px] text-[#64748B]">
               <span className="font-bold uppercase tracking-wider text-[#087BFF]">
-                {displayCategory}
+                <HighlightMatch
+                  text={displayCategory}
+                  query={highlightQuery}
+                  markClassName="bg-[#087BFF]/15 text-[#0656B8] rounded-[3px] px-0.5 font-extrabold ring-1 ring-inset ring-[#087BFF]/30"
+                />
               </span>
               <span aria-hidden="true">·</span>
               <span className="font-mono">{product.sku}</span>
@@ -209,7 +218,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               className="text-left focus-visible:outline-none focus-visible:underline"
             >
               <h3 className="font-hero text-base sm:text-[17px] font-bold text-[#071A3D] group-hover:text-[#087BFF] transition-colors line-clamp-2">
-                {product.name}
+                <HighlightMatch text={product.name} query={highlightQuery} />
               </h3>
             </button>
 
@@ -292,14 +301,24 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
               <button
                 type="button"
-                onClick={() => onToggleWishlist(product.id)}
+                onClick={() => {
+                  if (!isWishlisted) setHeartBurstKey((k) => k + 1);
+                  onToggleWishlist(product.id);
+                }}
                 aria-label={isWishlisted ? `Remove ${product.name} from wishlist` : `Save ${product.name} to wishlist`}
-                className={`w-9 h-9 rounded-xl flex items-center justify-center border transition-colors ${
+                className={`relative w-9 h-9 rounded-xl flex items-center justify-center border active:scale-90 transition-all ${
                   isWishlisted
                     ? 'bg-[#071A3D] border-[#071A3D] text-white'
                     : 'bg-white border-slate-200 text-[#64748B] hover:text-[#087BFF] hover:border-[#087BFF]/45'
                 }`}
               >
+                {heartBurstKey > 0 && isWishlisted && (
+                  <span
+                    key={heartBurstKey}
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-0 rounded-xl border-2 border-[#087BFF] animate-heart-burst"
+                  />
+                )}
                 <Heart className={`w-4 h-4 ${isWishlisted ? 'fill-current animate-icon-pop' : ''}`} />
               </button>
 
@@ -307,9 +326,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                 <button
                   type="button"
                   disabled={isOutOfStock || qty <= 1}
-                  onClick={() => setQty((prev) => Math.max(1, prev - 1))}
+                  onClick={() => {
+                    playStepTickSound(false);
+                    setQty((prev) => Math.max(1, prev - 1));
+                  }}
                   aria-label="Decrease quantity"
-                  className="w-7 h-full flex items-center justify-center text-[#64748B] hover:text-[#071A3D] hover:bg-white rounded-l-xl transition-colors disabled:opacity-35"
+                  className="w-7 h-full flex items-center justify-center text-[#64748B] hover:text-[#071A3D] hover:bg-white active:scale-90 rounded-l-xl transition-all disabled:opacity-35"
                 >
                   <Minus className="w-3.5 h-3.5" />
                 </button>
@@ -319,9 +341,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                 <button
                   type="button"
                   disabled={isOutOfStock || qty >= product.stock}
-                  onClick={() => setQty((prev) => Math.min(product.stock, prev + 1))}
+                  onClick={() => {
+                    playStepTickSound(true);
+                    setQty((prev) => Math.min(product.stock, prev + 1));
+                  }}
                   aria-label="Increase quantity"
-                  className="w-7 h-full flex items-center justify-center text-[#64748B] hover:text-[#071A3D] hover:bg-white rounded-r-xl transition-colors disabled:opacity-35"
+                  className="w-7 h-full flex items-center justify-center text-[#64748B] hover:text-[#071A3D] hover:bg-white active:scale-90 rounded-r-xl transition-all disabled:opacity-35"
                 >
                   <Plus className="w-3.5 h-3.5" />
                 </button>
@@ -331,11 +356,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                 type="button"
                 disabled={isOutOfStock}
                 onClick={handleAdd}
-                className={`h-9 px-4 rounded-xl text-[11px] font-bold tracking-[0.04em] uppercase inline-flex items-center justify-center gap-1.5 whitespace-nowrap transition-all duration-200 disabled:bg-slate-200 disabled:text-slate-500 disabled:cursor-not-allowed ${
+                className={`cta-sheen h-9 px-4 rounded-xl text-[11px] font-bold tracking-[0.04em] uppercase inline-flex items-center justify-center gap-1.5 whitespace-nowrap active:scale-[0.96] transition-all duration-200 disabled:bg-slate-200 disabled:text-slate-500 disabled:cursor-not-allowed ${
                   isOutOfStock
                     ? ''
                     : justAdded
-                    ? 'bg-[#071A3D] text-white'
+                    ? 'animate-spring-pop bg-[#071A3D] text-white'
                     : 'bg-[#087BFF] hover:bg-[#0669DB] text-white shadow-[0_6px_14px_-6px_rgba(8,123,255,0.45)]'
                 }`}
               >
@@ -364,7 +389,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       <div className="relative bg-[#F7FAFE] border-b border-slate-100 h-[168px] sm:h-[200px] overflow-hidden shrink-0">
         <button
           type="button"
-          onClick={() => onOpenDetail(product)}
+          onClick={() => {
+            playTapSound();
+            onOpenDetail(product);
+          }}
           aria-label={`View details for ${product.name}`}
           className="w-full h-full p-3.5 sm:p-4 flex items-center justify-center cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#087BFF]"
         >
@@ -381,18 +409,28 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
         <button
           type="button"
-          onClick={() => onToggleWishlist(product.id)}
+          onClick={() => {
+            if (!isWishlisted) setHeartBurstKey((k) => k + 1);
+            onToggleWishlist(product.id);
+          }}
           aria-label={
             isWishlisted
               ? `Remove ${product.name} from wishlist`
               : `Save ${product.name} to wishlist`
           }
-          className={`absolute top-2.5 right-2.5 w-8 h-8 rounded-full flex items-center justify-center border transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF] ${
+          className={`absolute top-2.5 right-2.5 w-8 h-8 rounded-full flex items-center justify-center border active:scale-90 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF] ${
             isWishlisted
               ? 'bg-[#071A3D] border-[#071A3D] text-white'
               : 'bg-white/95 border-slate-200 text-[#64748B] hover:text-[#087BFF] hover:border-[#087BFF]/50'
           }`}
         >
+          {heartBurstKey > 0 && isWishlisted && (
+            <span
+              key={heartBurstKey}
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 rounded-full border-2 border-[#087BFF] animate-heart-burst"
+            />
+          )}
           <Heart
             className={`w-3.5 h-3.5 transition-transform ${
               isWishlisted ? 'fill-current animate-icon-pop' : ''
@@ -436,7 +474,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         {/* 1. Category & 3. Model / SKU */}
         <div className="flex items-center justify-between gap-2 text-[10px] sm:text-[10.5px] mb-1">
           <span className="truncate font-bold uppercase tracking-[0.06em] text-[#087BFF]">
-            {displayCategory}
+            <HighlightMatch
+              text={displayCategory}
+              query={highlightQuery}
+              markClassName="bg-[#087BFF]/15 text-[#0656B8] rounded-[3px] px-0.5 font-extrabold ring-1 ring-inset ring-[#087BFF]/30"
+            />
           </span>
           <span className="hidden sm:inline font-mono text-[10px] text-[#64748B] shrink-0">
             {product.sku}
@@ -450,7 +492,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           className="text-left focus-visible:outline-none focus-visible:underline"
         >
           <h3 className="font-hero text-[13.5px] sm:text-[15px] font-bold text-[#071A3D] leading-[1.35] line-clamp-2 group-hover:text-[#087BFF] transition-colors min-h-[2.3rem] sm:min-h-[2.55rem]">
-            {product.name}
+            <HighlightMatch text={product.name} query={highlightQuery} />
           </h3>
         </button>
 
@@ -505,9 +547,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             <button
               type="button"
               disabled={isOutOfStock || qty <= 1}
-              onClick={() => setQty((prev) => Math.max(1, prev - 1))}
+              onClick={() => {
+                playStepTickSound(false);
+                setQty((prev) => Math.max(1, prev - 1));
+              }}
               aria-label="Decrease quantity"
-              className="w-8 sm:w-7 h-full flex items-center justify-center text-[#475569] hover:text-[#071A3D] hover:bg-white rounded-l-xl transition-colors disabled:opacity-35 disabled:cursor-not-allowed"
+              className="w-8 sm:w-7 h-full flex items-center justify-center text-[#475569] hover:text-[#071A3D] hover:bg-white active:scale-90 rounded-l-xl transition-all disabled:opacity-35 disabled:cursor-not-allowed"
             >
               <Minus className="w-3.5 h-3.5" />
             </button>
@@ -517,9 +562,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             <button
               type="button"
               disabled={isOutOfStock || qty >= product.stock}
-              onClick={() => setQty((prev) => Math.min(product.stock, prev + 1))}
+              onClick={() => {
+                playStepTickSound(true);
+                setQty((prev) => Math.min(product.stock, prev + 1));
+              }}
               aria-label="Increase quantity"
-              className="w-8 sm:w-7 h-full flex items-center justify-center text-[#475569] hover:text-[#071A3D] hover:bg-white rounded-r-xl transition-colors disabled:opacity-35 disabled:cursor-not-allowed"
+              className="w-8 sm:w-7 h-full flex items-center justify-center text-[#475569] hover:text-[#071A3D] hover:bg-white active:scale-90 rounded-r-xl transition-all disabled:opacity-35 disabled:cursor-not-allowed"
             >
               <Plus className="w-3.5 h-3.5" />
             </button>
@@ -529,11 +577,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             type="button"
             disabled={isOutOfStock}
             onClick={handleAdd}
-            className={`w-full sm:flex-1 h-9 px-3 rounded-xl text-[11px] font-bold tracking-[0.04em] uppercase inline-flex items-center justify-center gap-1.5 whitespace-nowrap transition-all duration-200 disabled:bg-slate-200 disabled:text-slate-500 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF] ${
+            className={`cta-sheen w-full sm:flex-1 h-9 px-3 rounded-xl text-[11px] font-bold tracking-[0.04em] uppercase inline-flex items-center justify-center gap-1.5 whitespace-nowrap active:scale-[0.96] transition-all duration-200 disabled:bg-slate-200 disabled:text-slate-500 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF] ${
               isOutOfStock
                 ? ''
                 : justAdded
-                ? 'bg-[#071A3D] text-white'
+                ? 'animate-spring-pop bg-[#071A3D] text-white'
                 : 'bg-[#087BFF] hover:bg-[#0669DB] text-white shadow-[0_8px_18px_-8px_rgba(8,123,255,0.5)]'
             }`}
           >

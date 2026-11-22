@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { User } from 'firebase/auth';
 import {
   Bell,
+  Check,
   CheckCircle2,
   Database,
   Edit3,
@@ -13,10 +14,13 @@ import {
   Mail,
   Package,
   Plus,
+  Radio,
   RefreshCw,
+  Save,
   Search,
   ShieldAlert,
   ShoppingBag,
+  Ticket,
   Trash2,
   Video,
   X,
@@ -29,13 +33,16 @@ import {
   deletePriceAlert,
   isVerifiedAdminUser,
   markPriceAlertNotified,
+  normalizePromoCodeString,
   removeBanner,
   removeCategory,
   removeProduct,
+  removePromoCode,
   resendVerificationEmail,
   saveBanner,
   saveCategory,
   saveProduct,
+  savePromoCode,
   saveSiteSettings,
   seedCatalogIfEmpty,
   signInAdminWithGoogle,
@@ -54,6 +61,8 @@ import {
   OrderStatus,
   PriceAlert,
   Product,
+  PromoCode,
+  PromoDiscountType,
   SiteImagesConfig,
   StoredOrder,
 } from '../types/store';
@@ -67,6 +76,7 @@ interface AdminPanelProps {
   products: Product[];
   categories: CategoryItem[];
   banners: BannerItem[];
+  promoCodes: PromoCode[];
   siteSettings: SiteImagesConfig;
   onClose: () => void;
 }
@@ -108,11 +118,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   products,
   categories,
   banners,
+  promoCodes,
   siteSettings,
   onClose,
 }) => {
   const [activeTab, setActiveTab] = useState<
-    'orders' | 'products' | 'categories' | 'banners' | 'site-images' | 'alerts'
+    'orders' | 'products' | 'categories' | 'banners' | 'promo-codes' | 'updates' | 'site-images' | 'alerts'
   >('orders');
   const [orders, setOrders] = useState<StoredOrder[]>([]);
   const [priceAlerts, setPriceAlerts] = useState<PriceAlert[]>([]);
@@ -143,7 +154,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [editingBanner, setEditingBanner] = useState<BannerItem | null>(null);
   const [isCreatingBanner, setIsCreatingBanner] = useState(false);
 
+  const [editingPromo, setEditingPromo] = useState<PromoCode | null>(null);
+  const [isCreatingPromo, setIsCreatingPromo] = useState(false);
+
   const [draftSiteSettings, setDraftSiteSettings] = useState<SiteImagesConfig>(siteSettings);
+  const [newUpdateText, setNewUpdateText] = useState('');
+  const [editingUpdateIndex, setEditingUpdateIndex] = useState<number | null>(null);
+  const [editingUpdateText, setEditingUpdateText] = useState('');
+  const [savingUpdates, setSavingUpdates] = useState(false);
 
   useEffect(() => {
     setDraftSiteSettings(siteSettings);
@@ -506,6 +524,141 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     }
   };
 
+  // --- Navbar Updates / Bangla News Ticker Helpers ---
+  const currentTickerItems =
+    draftSiteSettings.newsTickerItems ?? DEFAULT_SITE_SETTINGS.newsTickerItems ?? [];
+
+  const persistTickerSettings = async (nextSettings: SiteImagesConfig, toastMsg: string) => {
+    setAdminError('');
+    setSavingUpdates(true);
+    setBusyMessage('Saving updates...');
+    try {
+      await saveSiteSettings(nextSettings);
+      setDraftSiteSettings(nextSettings);
+      showBusyToast(toastMsg, 2500);
+    } catch (err) {
+      setBusyMessage('');
+      setAdminError(formatAdminErr(err, 'Could not save updates.'));
+    } finally {
+      setSavingUpdates(false);
+    }
+  };
+
+  const handleToggleTickerEnabled = async (enabled: boolean) => {
+    const nextSettings: SiteImagesConfig = {
+      ...draftSiteSettings,
+      newsTickerEnabled: enabled,
+    };
+    await persistTickerSettings(
+      nextSettings,
+      enabled ? 'Updates bar enabled live.' : 'Updates bar hidden from navbar.'
+    );
+  };
+
+  const handleAddUpdateItem = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleaned = newUpdateText.trim().slice(0, 260);
+    if (!cleaned) {
+      setAdminError('Please write an update message in English or বাংলা before saving.');
+      return;
+    }
+    if (currentTickerItems.length >= 15) {
+      setAdminError('Maximum 15 update items allowed. Edit or delete an existing line first.');
+      return;
+    }
+    const nextItems = [...currentTickerItems.map((item) => item.trim()).filter(Boolean), cleaned];
+    setNewUpdateText('');
+    setEditingUpdateIndex(null);
+    setEditingUpdateText('');
+    await persistTickerSettings(
+      {
+        ...draftSiteSettings,
+        newsTickerEnabled: draftSiteSettings.newsTickerEnabled ?? true,
+        newsTickerItems: nextItems,
+      },
+      'New update added & published live.'
+    );
+  };
+
+  const handleStartEditUpdate = (index: number, currentText: string) => {
+    setAdminError('');
+    setConfirmKey(null);
+    setEditingUpdateIndex(index);
+    setEditingUpdateText(currentText);
+  };
+
+  const handleSaveEditedUpdate = async (index: number) => {
+    const cleaned = editingUpdateText.trim().slice(0, 260);
+    if (!cleaned) {
+      setAdminError('Update text cannot be empty. Click Delete to remove it instead.');
+      return;
+    }
+    const nextItems = currentTickerItems
+      .map((item, i) => (i === index ? cleaned : item.trim()))
+      .filter(Boolean);
+    setEditingUpdateIndex(null);
+    setEditingUpdateText('');
+    await persistTickerSettings(
+      {
+        ...draftSiteSettings,
+        newsTickerItems: nextItems,
+      },
+      'Update saved & published live.'
+    );
+  };
+
+  const handleDeleteUpdateItem = async (index: number) => {
+    const nextItems = currentTickerItems
+      .filter((_, i) => i !== index)
+      .map((item) => item.trim())
+      .filter(Boolean);
+    setConfirmKey(null);
+    if (editingUpdateIndex === index) {
+      setEditingUpdateIndex(null);
+      setEditingUpdateText('');
+    } else if (editingUpdateIndex !== null && editingUpdateIndex > index) {
+      setEditingUpdateIndex(editingUpdateIndex - 1);
+    }
+    await persistTickerSettings(
+      {
+        ...draftSiteSettings,
+        newsTickerItems: nextItems,
+      },
+      'Update deleted.'
+    );
+  };
+
+  const handleRestoreDefaultUpdates = async () => {
+    setConfirmKey(null);
+    setEditingUpdateIndex(null);
+    setEditingUpdateText('');
+    await persistTickerSettings(
+      {
+        ...draftSiteSettings,
+        newsTickerEnabled: true,
+        newsTickerItems: [...(DEFAULT_SITE_SETTINGS.newsTickerItems || [])],
+      },
+      'Default updates restored & published.'
+    );
+  };
+
+  const handleSaveAllUpdates = async () => {
+    const nextItems = currentTickerItems
+      .map((item, i) => (i === editingUpdateIndex ? editingUpdateText.trim() : item.trim()))
+      .map((item) => item.slice(0, 260))
+      .filter(Boolean);
+    setEditingUpdateIndex(null);
+    setEditingUpdateText('');
+    await persistTickerSettings(
+      {
+        ...draftSiteSettings,
+        newsTickerEnabled: draftSiteSettings.newsTickerEnabled ?? true,
+        newsTickerItems: nextItems,
+      },
+      'All updates saved & published live.'
+    );
+  };
+
   // --- Banner Form Helpers ---
   const openNewBanner = () => {
     setAdminError('');
@@ -579,6 +732,94 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     } catch (err) {
       setBusyMessage('');
       setAdminError(formatAdminErr(err, 'Could not delete banner.'));
+    }
+  };
+
+  // --- Promo Code Form Helpers ---
+  const openNewPromo = () => {
+    setAdminError('');
+    setIsCreatingPromo(true);
+    setEditingPromo({
+      id: '',
+      code: '',
+      discountType: 'percent',
+      discountValue: 10,
+      minOrderAmount: undefined,
+      maxDiscountAmount: undefined,
+      firstOrderOnly: false,
+      description: '',
+      active: true,
+    });
+  };
+
+  const openEditPromo = (promo: PromoCode) => {
+    setAdminError('');
+    setIsCreatingPromo(false);
+    setEditingPromo({ ...promo });
+  };
+
+  const handleSavePromo = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingPromo) return;
+    const cleanCode = normalizePromoCodeString(editingPromo.code || editingPromo.id);
+    if (cleanCode.length < 3) {
+      setAdminError('Promo code must be at least 3 characters (letters, numbers, - or _).');
+      return;
+    }
+    const val = Number(editingPromo.discountValue);
+    if (editingPromo.discountType === 'percent' && (val < 1 || val > 90 || !Number.isFinite(val))) {
+      setAdminError('Percentage discount must be between 1% and 90%.');
+      return;
+    }
+    if (editingPromo.discountType === 'flat' && (val < 1 || val > 500000 || !Number.isFinite(val))) {
+      setAdminError('Flat discount must be between ৳1 and ৳500,000.');
+      return;
+    }
+
+    setAdminError('');
+    setBusyMessage(`Saving promo ${cleanCode}...`);
+    try {
+      await savePromoCode({
+        ...editingPromo,
+        id: cleanCode,
+        code: cleanCode,
+        discountValue: Math.round(val),
+        description:
+          editingPromo.description.trim() ||
+          (editingPromo.discountType === 'percent'
+            ? `${Math.round(val)}% hardware discount (1 use per Gmail & account)`
+            : `৳${Math.round(val)} off hardware order (1 use per Gmail & account)`),
+      });
+      setEditingPromo(null);
+      showBusyToast(`Promo code ${cleanCode} saved.`, 2200);
+    } catch (err) {
+      setBusyMessage('');
+      setAdminError(formatAdminErr(err, 'Could not save promo code.'));
+    }
+  };
+
+  const handleTogglePromoActive = async (promo: PromoCode) => {
+    setAdminError('');
+    setBusyMessage(`${promo.active ? 'Pausing' : 'Activating'} ${promo.code}...`);
+    try {
+      await savePromoCode({ ...promo, active: !promo.active });
+      showBusyToast(`${promo.code} ${promo.active ? 'paused' : 'activated'}.`, 2000);
+    } catch (err) {
+      setBusyMessage('');
+      setAdminError(formatAdminErr(err, 'Could not update promo status.'));
+    }
+  };
+
+  const handleDeletePromo = async (code: string) => {
+    setAdminError('');
+    setBusyMessage(`Deleting ${code}...`);
+    setConfirmKey(null);
+    try {
+      await removePromoCode(code);
+      showBusyToast(`Promo code ${code} deleted.`, 2000);
+    } catch (err) {
+      setBusyMessage('');
+      setAdminError(formatAdminErr(err, 'Could not delete promo code.'));
     }
   };
 
@@ -908,6 +1149,32 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 </button>
                 <button
                   type="button"
+                  onClick={() => setActiveTab('promo-codes')}
+                  className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap ${
+                    activeTab === 'promo-codes'
+                      ? 'bg-[#0057E7] text-white'
+                      : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
+                  }`}
+                >
+                  <Ticket className="w-3.5 h-3.5" />
+                  <span>Promo Codes ({promoCodes.length})</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('updates')}
+                  className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap ${
+                    activeTab === 'updates'
+                      ? 'bg-[#0057E7] text-white'
+                      : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
+                  }`}
+                >
+                  <Radio className="w-3.5 h-3.5" />
+                  <span>
+                    Updates ({currentTickerItems.filter((item) => item.trim()).length})
+                  </span>
+                </button>
+                <button
+                  type="button"
                   onClick={() => setActiveTab('site-images')}
                   className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap ${
                     activeTab === 'site-images'
@@ -916,7 +1183,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   }`}
                 >
                   <LayoutTemplate className="w-3.5 h-3.5" />
-                  <span>Site Images &amp; Hero</span>
+                  <span>Site Images</span>
                 </button>
                 <button
                   type="button"
@@ -1447,7 +1714,429 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 </div>
               )}
 
-              {/* TAB 5: SITE IMAGES & HERO */}
+              {/* TAB: PROMO CODES */}
+              {activeTab === 'promo-codes' && (
+                <div className="space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <h3 className="font-display text-base font-bold text-[#06142E]">
+                        Promo Codes &amp; Single-Use Controls
+                      </h3>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Create percentage or flat ৳ promo codes. Each promo code is strictly limited to 1 use per signed-in account and 1 use per Gmail address.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={openNewPromo}
+                      className="h-9 px-4 rounded-lg bg-[#0057E7] hover:bg-[#0044BB] text-white text-xs font-semibold inline-flex items-center gap-1.5"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Add Promo Code</span>
+                    </button>
+                  </div>
+
+                  {promoCodes.length === 0 ? (
+                    <div className="border border-slate-200 rounded-xl p-10 text-center text-sm text-slate-500">
+                      No promo codes created yet. Click &ldquo;Add Promo Code&rdquo; to publish a new coupon.
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                      {promoCodes.map((promo) => (
+                        <div
+                          key={promo.code}
+                          className="border border-slate-200 rounded-xl p-4 bg-white flex flex-col justify-between gap-3"
+                        >
+                          <div className="space-y-2">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="font-mono text-sm font-bold tracking-wider px-2.5 py-1 rounded-md bg-[#06142E] text-white">
+                                  {promo.code}
+                                </span>
+                                <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-blue-50 text-[#0057E7] border border-blue-200">
+                                  {promo.discountType === 'percent'
+                                    ? `${promo.discountValue}% OFF`
+                                    : `৳${promo.discountValue.toLocaleString('en-IN')} OFF`}
+                                </span>
+                                <span
+                                  className={`text-[11px] font-semibold px-2 py-0.5 rounded border ${
+                                    promo.active
+                                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                      : 'bg-slate-100 text-slate-500 border-slate-200'
+                                  }`}
+                                >
+                                  {promo.active ? 'Active' : 'Paused'}
+                                </span>
+                              </div>
+                            </div>
+
+                            <p className="text-xs text-slate-600 leading-relaxed">
+                              {promo.description}
+                            </p>
+
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-mono text-slate-500">
+                              <span>1x per account &amp; Gmail</span>
+                              {promo.firstOrderOnly && (
+                                <span className="text-amber-700 font-semibold">· 1st Order Only</span>
+                              )}
+                              {promo.minOrderAmount ? (
+                                <span>
+                                  · Min Order ৳{promo.minOrderAmount.toLocaleString('en-IN')}
+                                </span>
+                              ) : null}
+                              {promo.discountType === 'percent' && promo.maxDiscountAmount ? (
+                                <span>
+                                  · Max Save ৳{promo.maxDiscountAmount.toLocaleString('en-IN')}
+                                </span>
+                              ) : null}
+                            </div>
+                          </div>
+
+                          <div className="pt-2.5 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleTogglePromoActive(promo)}
+                              className="px-2.5 py-1 rounded-md border border-slate-200 hover:bg-slate-100 text-xs font-semibold text-slate-700"
+                            >
+                              {promo.active ? 'Pause Code' : 'Activate'}
+                            </button>
+
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => openEditPromo(promo)}
+                                className="px-2.5 py-1 rounded-md border border-slate-200 hover:bg-slate-100 text-xs font-semibold text-slate-700 inline-flex items-center gap-1"
+                              >
+                                <Edit3 className="w-3 h-3" />
+                                <span>Edit</span>
+                              </button>
+                              {confirmKey === `promo:${promo.code}` ? (
+                                <div className="inline-flex items-center gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeletePromo(promo.code)}
+                                    className="px-2.5 py-1 rounded-md bg-red-600 hover:bg-red-700 text-xs font-semibold text-white"
+                                  >
+                                    Confirm
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setConfirmKey(null)}
+                                    className="px-2 py-1 rounded-md border border-slate-200 text-xs text-slate-600"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => setConfirmKey(`promo:${promo.code}`)}
+                                  className="px-2.5 py-1 rounded-md border border-red-200 hover:bg-red-50 text-xs font-semibold text-red-600"
+                                >
+                                  Delete
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* TAB 5: NAVBAR UPDATES & BANGLA TICKER */}
+              {activeTab === 'updates' && (
+                <div className="space-y-5 max-w-4xl">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <h3 className="font-display text-base font-bold text-[#06142E]">
+                        Top Navbar Updates &amp; Scrolling News (English / বাংলা)
+                      </h3>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Write updates in Bangla (বাংলা) or English. Edit any line and click Save to publish instantly to the top scrolling bar.
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {confirmKey === 'reset-updates' ? (
+                        <div className="inline-flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            disabled={savingUpdates}
+                            onClick={handleRestoreDefaultUpdates}
+                            className="h-9 px-3 rounded-lg bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white text-xs font-semibold"
+                          >
+                            Confirm Restore
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setConfirmKey(null)}
+                            className="h-9 px-3 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setConfirmKey('reset-updates')}
+                          className="h-9 px-3.5 rounded-lg border border-slate-200 hover:bg-slate-100 text-xs font-semibold text-slate-700"
+                        >
+                          Restore Defaults
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        disabled={savingUpdates}
+                        onClick={handleSaveAllUpdates}
+                        className="h-9 px-4 rounded-lg bg-[#0057E7] hover:bg-[#0044BB] disabled:opacity-60 text-white text-xs font-semibold inline-flex items-center gap-1.5"
+                      >
+                        <Save className="w-3.5 h-3.5" />
+                        <span>{savingUpdates ? 'Saving...' : 'Save & Publish Updates'}</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Visibility Switch & Live Preview */}
+                  <div className="rounded-xl border border-slate-200 bg-[#F6F8FB] p-4 space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <label className="inline-flex items-center gap-2.5 text-xs font-semibold text-[#06142E] cursor-pointer">
+                        <input
+                          type="checkbox"
+                          disabled={savingUpdates}
+                          checked={draftSiteSettings.newsTickerEnabled ?? true}
+                          onChange={(e) => handleToggleTickerEnabled(e.target.checked)}
+                          className="w-4 h-4 rounded border-slate-300 text-[#0057E7] focus:ring-[#0057E7]"
+                        />
+                        <span>Show scrolling Updates bar below the main header</span>
+                      </label>
+                      <span className="font-mono text-[11px] font-semibold text-slate-500">
+                        বাংলা &amp; English UTF-8 Supported
+                      </span>
+                    </div>
+
+                    {/* Live Navbar Ticker Preview */}
+                    <div className="space-y-1.5">
+                      <p className="text-[11px] font-mono font-semibold uppercase tracking-wider text-slate-500">
+                        Live Navbar Preview
+                      </p>
+                      {(draftSiteSettings.newsTickerEnabled ?? true) &&
+                      currentTickerItems.some((item) => item.trim()) ? (
+                        <div className="ticker-container relative w-full h-9 rounded-lg bg-[#071A3D] text-[#F5F8FF] border border-[rgba(100,150,255,0.28)] overflow-hidden flex items-center">
+                          <div className="relative z-10 h-full px-3 bg-[#0A1428] border-r border-[rgba(100,150,255,0.22)] flex items-center gap-1.5 shrink-0">
+                            <Radio className="w-3 h-3 text-[#00C8FF] shrink-0" aria-hidden="true" />
+                            <span className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[#00C8FF]">
+                              Updates
+                            </span>
+                          </div>
+                          <div className="flex-1 min-w-0 overflow-hidden relative h-full flex items-center">
+                            <div className="animate-ticker-marquee flex items-center w-max will-change-transform">
+                              {[0, 1].map((dupIndex) => (
+                                <div key={dupIndex} aria-hidden={dupIndex === 1} className="flex items-center shrink-0">
+                                  {currentTickerItems
+                                    .map((s, i) => (i === editingUpdateIndex ? editingUpdateText : s))
+                                    .map((s) => s.trim())
+                                    .filter(Boolean)
+                                    .map((item, idx) => (
+                                      <span
+                                        key={`${dupIndex}-${idx}`}
+                                        className="inline-flex items-center gap-3 px-4 py-0.5 font-sans text-[12px] leading-[1.6] font-medium text-[#E2ECFF] whitespace-nowrap"
+                                      >
+                                        <span>{item}</span>
+                                        <span className="text-[#00C8FF] font-bold" aria-hidden="true">
+                                          ·
+                                        </span>
+                                      </span>
+                                    ))}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="rounded-lg border border-dashed border-slate-300 bg-white px-4 py-2.5 text-xs text-slate-500">
+                          Updates bar is currently hidden or empty. Enable the checkbox above and add an update line.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Add New Update Form (English / বাংলা) */}
+                  <form
+                    onSubmit={handleAddUpdateItem}
+                    className="rounded-xl border border-slate-200 bg-white p-4 sm:p-5 space-y-3"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <label htmlFor="new-update-input" className="text-xs font-bold text-[#06142E]">
+                        Add New Update (English বা বাংলায় লিখুন)
+                      </label>
+                      <span className="font-mono text-[11px] text-slate-400 tabular-nums">
+                        {newUpdateText.length}/260 · {currentTickerItems.length}/15 items
+                      </span>
+                    </div>
+                    <div className="flex flex-col sm:flex-row gap-2.5">
+                      <input
+                        id="new-update-input"
+                        type="text"
+                        lang="bn"
+                        maxLength={260}
+                        value={newUpdateText}
+                        onChange={(e) => setNewUpdateText(e.target.value)}
+                        placeholder="যেমন: নতুন স্টক! ESP32-S3 ও Raspberry Pi 5 এখন ঢাকায় পাওয়া যাচ্ছে · অথবা English update..."
+                        className="flex-1 h-10 px-3.5 rounded-lg border border-slate-200 bg-[#F6F8FB] focus:bg-white font-sans text-sm text-[#06142E] placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0057E7]"
+                      />
+                      <button
+                        type="submit"
+                        disabled={savingUpdates || currentTickerItems.length >= 15}
+                        className="h-10 px-4 rounded-lg bg-[#0057E7] hover:bg-[#0044BB] disabled:opacity-50 text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 shrink-0"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>Add &amp; Save Update</span>
+                      </button>
+                    </div>
+                  </form>
+
+                  {/* Existing Updates List with Inline Edit & Save */}
+                  <div className="space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 font-mono">
+                        Published Updates ({currentTickerItems.length})
+                      </h4>
+                      <span className="text-[11px] text-slate-500">
+                        Click <strong>Edit</strong> to modify any line, then <strong>Save</strong> to publish live.
+                      </span>
+                    </div>
+
+                    {currentTickerItems.length === 0 ? (
+                      <div className="border border-slate-200 rounded-xl p-8 text-center text-xs text-slate-500 bg-white">
+                        No updates added yet. Write an announcement in English or বাংলা above and click &ldquo;Add &amp; Save Update&rdquo;.
+                      </div>
+                    ) : (
+                      <div className="space-y-2.5">
+                        {currentTickerItems.map((line, index) => {
+                          const isEditingRow = editingUpdateIndex === index;
+                          return (
+                            <div
+                              key={index}
+                              className={`rounded-xl border p-3.5 sm:p-4 transition-colors ${
+                                isEditingRow
+                                  ? 'border-[#0057E7] bg-[#F4F8FF]'
+                                  : 'border-slate-200 bg-white hover:border-slate-300'
+                              }`}
+                            >
+                              {isEditingRow ? (
+                                <div className="space-y-2.5">
+                                  <div className="flex items-center justify-between text-[11px]">
+                                    <span className="font-mono font-bold text-[#0057E7]">
+                                      Editing Update #{String(index + 1).padStart(2, '0')}
+                                    </span>
+                                    <span className="font-mono text-slate-400 tabular-nums">
+                                      {editingUpdateText.length}/260
+                                    </span>
+                                  </div>
+                                  <input
+                                    type="text"
+                                    lang="bn"
+                                    autoFocus
+                                    maxLength={260}
+                                    value={editingUpdateText}
+                                    onChange={(e) => setEditingUpdateText(e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        handleSaveEditedUpdate(index);
+                                      } else if (e.key === 'Escape') {
+                                        setEditingUpdateIndex(null);
+                                        setEditingUpdateText('');
+                                      }
+                                    }}
+                                    placeholder="বাংলা বা ইংরেজিতে আপডেট লিখুন..."
+                                    className="w-full h-10 px-3.5 rounded-lg border border-[#0057E7]/50 bg-white font-sans text-sm text-[#06142E] focus:outline-none focus:ring-2 focus:ring-[#0057E7]"
+                                  />
+                                  <div className="flex items-center justify-end gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setEditingUpdateIndex(null);
+                                        setEditingUpdateText('');
+                                      }}
+                                      className="h-8 px-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-600"
+                                    >
+                                      Cancel
+                                    </button>
+                                    <button
+                                      type="button"
+                                      disabled={savingUpdates}
+                                      onClick={() => handleSaveEditedUpdate(index)}
+                                      className="h-8 px-3.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white text-xs font-semibold inline-flex items-center gap-1.5"
+                                    >
+                                      <Check className="w-3.5 h-3.5" />
+                                      <span>Save</span>
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                  <div className="flex items-start gap-3 min-w-0">
+                                    <span className="mt-0.5 inline-flex items-center justify-center w-6 h-6 rounded-md bg-[#F6F8FB] border border-slate-200 font-mono text-[11px] font-bold text-[#06142E] shrink-0 tabular-nums">
+                                      {String(index + 1).padStart(2, '0')}
+                                    </span>
+                                    <p className="font-sans text-sm leading-relaxed text-[#06142E] break-words">
+                                      {line}
+                                    </p>
+                                  </div>
+
+                                  <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-center">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleStartEditUpdate(index, line)}
+                                      className="h-8 px-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-xs font-semibold text-slate-700 inline-flex items-center gap-1.5"
+                                    >
+                                      <Edit3 className="w-3.5 h-3.5" />
+                                      <span>Edit</span>
+                                    </button>
+
+                                    {confirmKey === `update:${index}` ? (
+                                      <div className="inline-flex items-center gap-1">
+                                        <button
+                                          type="button"
+                                          disabled={savingUpdates}
+                                          onClick={() => handleDeleteUpdateItem(index)}
+                                          className="h-8 px-2.5 rounded-lg bg-red-600 hover:bg-red-700 text-xs font-semibold text-white"
+                                        >
+                                          Confirm
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => setConfirmKey(null)}
+                                          className="h-8 px-2.5 rounded-lg border border-slate-200 text-xs text-slate-600"
+                                        >
+                                          Cancel
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        onClick={() => setConfirmKey(`update:${index}`)}
+                                        className="h-8 px-2.5 rounded-lg border border-red-200 bg-white hover:bg-red-50 text-xs font-semibold text-red-600 inline-flex items-center gap-1"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                        <span>Delete</span>
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 6: SITE IMAGES & HERO */}
               {activeTab === 'site-images' && (
                 <form onSubmit={handleSaveSiteSettings} className="space-y-6 max-w-4xl">
                   <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1573,10 +2262,34 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     </div>
                   </div>
 
+                  {/* Top Scrolling Updates Shortcut Card */}
+                  <div className="bg-[#F6F8FB] border border-slate-200 rounded-xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <Radio className="w-4 h-4 text-[#0057E7]" />
+                        <h4 className="font-display text-sm font-bold text-[#06142E]">
+                          2. Top Header Scrolling Updates (English / বাংলা)
+                        </h4>
+                      </div>
+                      <p className="text-xs text-slate-600">
+                        {currentTickerItems.filter((item) => item.trim()).length} update line(s) configured · Bar is{' '}
+                        <strong>{(draftSiteSettings.newsTickerEnabled ?? true) ? 'Visible' : 'Hidden'}</strong>. Use the Updates tab to edit, save, or write announcements in Bangla.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('updates')}
+                      className="h-9 px-4 rounded-lg bg-[#0057E7] hover:bg-[#0044BB] text-white text-xs font-semibold whitespace-nowrap shrink-0 inline-flex items-center gap-1.5"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                      <span>Edit &amp; Save Updates</span>
+                    </button>
+                  </div>
+
                   {/* Promo Grid & Discount Banner Images */}
                   <div className="bg-[#F6F8FB] border border-slate-200 rounded-xl p-5 space-y-4">
                     <h4 className="font-display text-sm font-bold text-[#06142E]">
-                      2. Promo Bundles Grid &amp; Discount Section Images
+                      3. Promo Bundles Grid &amp; Discount Section Images
                     </h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <ImageSourceField
@@ -1621,7 +2334,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   {/* Lab Guides Blog Images */}
                   <div className="bg-[#F6F8FB] border border-slate-200 rounded-xl p-5 space-y-4">
                     <h4 className="font-display text-sm font-bold text-[#06142E]">
-                      3. Engineering Lab Guide Thumbnails
+                      4. Engineering Lab Guide Thumbnails
                     </h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {BLOG_POSTS.map((post) => (
@@ -1856,12 +2569,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 />
               </div>
               <div className="sm:col-span-2">
-                <label className="block font-semibold text-slate-700 mb-1">Admin Notes</label>
+                <label className="block font-semibold text-slate-700 mb-1">
+                  Courier Tracking / Dispatch Note (Live on Order Tracking)
+                </label>
                 <input
                   type="text"
                   value={editingOrder.notes ?? ''}
                   onChange={(e) => setEditingOrder({ ...editingOrder, notes: e.target.value })}
-                  placeholder="Courier tracking ID or packing note..."
+                  placeholder="e.g. Steadfast Consignment #SF-9021 · Rider: Karim (017XX)"
                   className="w-full h-9 px-3 rounded-lg border border-slate-200"
                 />
               </div>
@@ -2546,6 +3261,182 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 className="px-5 py-2 rounded-lg bg-[#0057E7] hover:bg-[#0044BB] text-white text-xs font-semibold"
               >
                 {isCreatingCategory ? 'Create Category' : 'Save Category'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Sub-Modal: Add / Edit Promo Code */}
+      {editingPromo && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-2 sm:p-4">
+          <div className="fixed inset-0 bg-black/50" onClick={() => setEditingPromo(null)} />
+          <form
+            onSubmit={handleSavePromo}
+            className="relative z-10 w-full max-w-lg bg-white rounded-2xl border border-slate-200 shadow-2xl p-4 sm:p-6 space-y-4 max-h-[92dvh] overflow-y-auto"
+          >
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+              <h3 className="font-display text-lg font-bold text-[#06142E]">
+                {isCreatingPromo ? 'Create New Promo Code' : `Edit Promo ${editingPromo.code}`}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setEditingPromo(null)}
+                className="p-1 text-slate-400 hover:text-slate-700"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <div className="sm:col-span-2">
+                <label className="block font-semibold text-slate-700 mb-1">
+                  Promo Code (Uppercase Letters, Numbers, - or _)
+                </label>
+                <input
+                  type="text"
+                  required
+                  disabled={!isCreatingPromo}
+                  maxLength={32}
+                  value={editingPromo.code}
+                  onChange={(e) => {
+                    const cleaned = normalizePromoCodeString(e.target.value);
+                    setEditingPromo({ ...editingPromo, id: cleaned, code: cleaned });
+                  }}
+                  placeholder="e.g. BUET20 or LAB500"
+                  className="w-full h-9 px-3 rounded-lg border border-slate-200 font-mono uppercase disabled:bg-slate-100 disabled:text-slate-500"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Discount Type</label>
+                <select
+                  value={editingPromo.discountType}
+                  onChange={(e) =>
+                    setEditingPromo({
+                      ...editingPromo,
+                      discountType: e.target.value as PromoDiscountType,
+                      discountValue: e.target.value === 'percent' ? 15 : 200,
+                    })
+                  }
+                  className="w-full h-9 px-3 rounded-lg border border-slate-200 bg-white"
+                >
+                  <option value="percent">Percentage (%)</option>
+                  <option value="flat">Flat Amount (৳)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">
+                  {editingPromo.discountType === 'percent' ? 'Discount Percentage (%)' : 'Discount Amount (৳)'}
+                </label>
+                <input
+                  type="number"
+                  required
+                  min={1}
+                  max={editingPromo.discountType === 'percent' ? 90 : 500000}
+                  value={editingPromo.discountValue}
+                  onChange={(e) =>
+                    setEditingPromo({ ...editingPromo, discountValue: Number(e.target.value) })
+                  }
+                  className="w-full h-9 px-3 rounded-lg border border-slate-200 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">
+                  Min Order Subtotal (Optional ৳)
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  max={5000000}
+                  value={editingPromo.minOrderAmount ?? ''}
+                  onChange={(e) =>
+                    setEditingPromo({
+                      ...editingPromo,
+                      minOrderAmount: e.target.value ? Number(e.target.value) : undefined,
+                    })
+                  }
+                  placeholder="e.g. 1500"
+                  className="w-full h-9 px-3 rounded-lg border border-slate-200 font-mono"
+                />
+              </div>
+
+              {editingPromo.discountType === 'percent' && (
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">
+                    Max Discount Cap (Optional ৳)
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={5000000}
+                    value={editingPromo.maxDiscountAmount ?? ''}
+                    onChange={(e) =>
+                      setEditingPromo({
+                        ...editingPromo,
+                        maxDiscountAmount: e.target.value ? Number(e.target.value) : undefined,
+                      })
+                    }
+                    placeholder="e.g. 1000"
+                    className="w-full h-9 px-3 rounded-lg border border-slate-200 font-mono"
+                  />
+                </div>
+              )}
+
+              <div className="sm:col-span-2">
+                <label className="block font-semibold text-slate-700 mb-1">Description</label>
+                <input
+                  type="text"
+                  maxLength={160}
+                  value={editingPromo.description}
+                  onChange={(e) =>
+                    setEditingPromo({ ...editingPromo, description: e.target.value })
+                  }
+                  placeholder="e.g. University Robotics Club 20% Hardware Offer"
+                  className="w-full h-9 px-3 rounded-lg border border-slate-200"
+                />
+              </div>
+
+              <div className="sm:col-span-2 space-y-2 pt-1">
+                <label className="inline-flex items-center gap-2 font-semibold text-slate-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(editingPromo.firstOrderOnly)}
+                    onChange={(e) =>
+                      setEditingPromo({ ...editingPromo, firstOrderOnly: e.target.checked })
+                    }
+                  />
+                  First-order accounts only (rejects accounts with previous orders)
+                </label>
+                <br />
+                <label className="inline-flex items-center gap-2 font-semibold text-slate-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={editingPromo.active}
+                    onChange={(e) =>
+                      setEditingPromo({ ...editingPromo, active: e.target.checked })
+                    }
+                  />
+                  Active (immediately redeemable at checkout — 1 use per Gmail &amp; account)
+                </label>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-200">
+              <button
+                type="button"
+                onClick={() => setEditingPromo(null)}
+                className="px-4 py-2 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-5 py-2 rounded-lg bg-[#0057E7] hover:bg-[#0044BB] text-white text-xs font-semibold"
+              >
+                {isCreatingPromo ? 'Create Promo Code' : 'Save Promo Code'}
               </button>
             </div>
           </form>

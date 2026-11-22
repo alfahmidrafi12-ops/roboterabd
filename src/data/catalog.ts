@@ -1,14 +1,40 @@
-import { BannerItem, BlogPost, CategoryItem, Product, SiteImagesConfig } from '../types/store';
+import {
+  BannerItem,
+  BlogPost,
+  CategoryItem,
+  Product,
+  PromoCode,
+  SiteImagesConfig,
+} from '../types/store';
+
+export const DEFAULT_PROMO_CODES: PromoCode[] = [
+  {
+    id: 'ROBOTERA15',
+    code: 'ROBOTERA15',
+    discountType: 'percent',
+    discountValue: 15,
+    firstOrderOnly: true,
+    description: 'First-order 15% engineering welcome discount (1 use per account & Gmail)',
+    active: true,
+  },
+];
 
 export const DEFAULT_SITE_SETTINGS: SiteImagesConfig = {
   id: 'branding',
   heroImageUrl: '/assets/aistudio/image_88bf5559.png',
-  heroKicker: 'ROBOTERA BD — ENGINEERING THE FUTURE',
-  heroTitle: 'BUILD. CREATE. INNOVATE.',
+  heroKicker: 'Dhaka Robotics & Embedded Supply',
+  heroTitle: 'Precision Robotics. Built for Innovation.',
   heroSubtitle:
-    'Your ideas deserve the right technology. Explore premium microcontrollers, robotics components, advanced sensors and engineering tools — all in one place.',
+    'Explore premium robotics components, ESP32 development boards, embedded systems, sensors, and innovative electronics — all in one trusted destination.',
   heroTagline: 'ESP32-S3 · RPLIDAR · Raspberry Pi 5',
   heroDispatchText: 'Inside Dhaka 2–3 Days (৳80) · Outside Dhaka 2–4 Days (৳150)',
+  newsTickerEnabled: true,
+  newsTickerItems: [
+    'NEW ARRIVAL: ESP32-S3 WROOM-1 N16R8 & Raspberry Pi 5 (8GB) stocked in Dhaka',
+    'NATIONWIDE DISPATCH: Inside Dhaka ৳80 (2–3 Days) · Outside Dhaka ৳150 (2–4 Days)',
+    'FIRST ORDER OFFER: Apply promo code ROBOTERA15 at checkout for 15% hardware savings',
+    'LAB SUPPORT: Free pinout & wiring guidance via WhatsApp for university robotics teams',
+  ],
   promoLeftImageUrl: '',
   promoTopRightImageUrl: '',
   promoBottomRightImageUrl: '',

@@ -25,17 +25,30 @@ import { SectionDivider } from './components/SectionDivider';
 import { SidebarMenu } from './components/SidebarMenu';
 import { WhatsAppButton } from './components/WhatsAppButton';
 import { WishlistDrawer } from './components/WishlistDrawer';
-import { CATEGORIES, DEFAULT_BANNERS, DEFAULT_SITE_SETTINGS, PRODUCTS } from './data/catalog';
+import {
+  CATEGORIES,
+  DEFAULT_BANNERS,
+  DEFAULT_PROMO_CODES,
+  DEFAULT_SITE_SETTINGS,
+  PRODUCTS,
+} from './data/catalog';
 import {
   createPriceAlert,
   subscribeAuth,
   subscribeBanners,
   subscribeCategories,
   subscribeProducts,
+  subscribePromoCodes,
   subscribeSiteSettings,
   subscribeUserOrders,
   testConnection,
 } from './lib/firebase';
+import {
+  playAddToCartSound,
+  playStepTickSound,
+  playTapSound,
+  playWishlistSound,
+} from './lib/sound';
 import {
   AvailabilityFilter,
   BannerItem,
@@ -44,6 +57,7 @@ import {
   CategoryItem,
   LocalPriceWatch,
   Product,
+  PromoCode,
   SiteImagesConfig,
   SortOption,
   StoredOrder,
@@ -87,6 +101,7 @@ export default function App() {
   const [products, setProducts] = useState<Product[]>(PRODUCTS);
   const [categories, setCategories] = useState<CategoryItem[]>(CATEGORIES);
   const [banners, setBanners] = useState<BannerItem[]>(DEFAULT_BANNERS);
+  const [promoCodes, setPromoCodes] = useState<PromoCode[]>(DEFAULT_PROMO_CODES);
   const [siteSettings, setSiteSettings] = useState<SiteImagesConfig>(DEFAULT_SITE_SETTINGS);
   const [authUser, setAuthUser] = useState<User | null>(null);
   const [userOrders, setUserOrders] = useState<StoredOrder[]>([]);
@@ -189,6 +204,14 @@ export default function App() {
       },
       (err) => console.error('Site settings sync error:', err)
     );
+    const unsubPromos = subscribePromoCodes(
+      (cloudPromos) => {
+        if (cloudPromos.length > 0) {
+          setPromoCodes(cloudPromos);
+        }
+      },
+      (err) => console.error('Promo codes sync error:', err)
+    );
 
     return () => {
       unsubAuth();
@@ -196,10 +219,11 @@ export default function App() {
       unsubCategories();
       unsubBanners();
       unsubSite();
+      unsubPromos();
     };
   }, []);
 
-  // Track signed-in user's order history for 1st-order discount eligibility
+  // Track signed-in user's order history for 1st-order & single-use promo eligibility
   useEffect(() => {
     if (!authUser?.uid) {
       setUserOrders([]);
@@ -219,10 +243,21 @@ export default function App() {
   );
 
   useEffect(() => {
-    if (appliedCoupon === 'ROBOTERA15' && (!authUser || hasPlacedOrderBefore)) {
+    if (!appliedCoupon) return;
+    if (!authUser) {
+      setAppliedCoupon(null);
+      return;
+    }
+    const promo = promoCodes.find(
+      (p) => p.code.toUpperCase() === appliedCoupon.toUpperCase() && p.active
+    );
+    const usedLocally = userOrders.some(
+      (o) => o.couponCode?.toUpperCase() === appliedCoupon.toUpperCase()
+    );
+    if (!promo || usedLocally || (promo.firstOrderOnly && hasPlacedOrderBefore)) {
       setAppliedCoupon(null);
     }
-  }, [appliedCoupon, authUser, hasPlacedOrderBefore]);
+  }, [appliedCoupon, authUser, hasPlacedOrderBefore, promoCodes, userOrders]);
 
   // Synchronize persisted cart items with live product prices, images, and stock
   useEffect(() => {
@@ -412,6 +447,7 @@ export default function App() {
   }, [priceWatches]);
 
   const openTrackingPage = (orderId?: string) => {
+    playTapSound();
     setActivePage('track');
     if (orderId) {
       setAutoTrackOrderId(orderId);
@@ -453,11 +489,13 @@ export default function App() {
   };
 
   const handleSelectCategory = (categoryId: CategoryId) => {
+    playTapSound();
     setActiveCategory(categoryId);
     scrollToSection('best-selling');
   };
 
   const handleQuickSearch = (term: string) => {
+    playTapSound();
     setActiveCategory('all');
     setSearchQuery(term);
     scrollToSection('best-selling');
@@ -510,6 +548,7 @@ export default function App() {
       return [...prev, { product, quantity: Math.min(product.stock, quantity), variant: chosenVariant }];
     });
     if (!alreadyAtStockCap) {
+      playAddToCartSound();
       setCartPulseTick((prev) => prev + 1);
     }
     if (!silentToast) {
@@ -527,6 +566,7 @@ export default function App() {
   };
 
   const handleUpdateCartQty = (productId: string, variant: string | undefined, delta: number) => {
+    playStepTickSound(delta > 0);
     if (delta > 0) {
       const target = cartItems.find(
         (item) => item.product.id === productId && item.variant === variant
@@ -551,18 +591,24 @@ export default function App() {
   };
 
   const handleRemoveCartItem = (productId: string, variant: string | undefined) => {
+    playTapSound();
     setCartItems((prev) =>
       prev.filter((item) => !(item.product.id === productId && item.variant === variant))
     );
   };
 
   const handleToggleWishlist = (productId: string) => {
+    const willAdd = !wishlistIds.includes(productId);
+    playWishlistSound(willAdd);
     setWishlistIds((prev) =>
       prev.includes(productId) ? prev.filter((id) => id !== productId) : [...prev, productId]
     );
   };
 
   const handleToggleCompare = (productId: string) => {
+    if (compareIds.includes(productId) || compareIds.length < 3) {
+      playTapSound();
+    }
     setCompareIds((prev) => {
       if (prev.includes(productId)) {
         const next = prev.filter((id) => id !== productId);
@@ -711,7 +757,7 @@ export default function App() {
   const totalCartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#E6ECF4] text-[#0F172A] pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:pb-0">
+    <div className="min-h-screen flex flex-col bg-[#F5F8FC] text-[#071A3D] pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:pb-0">
       <FuturisticBootLoader />
 
       <ArchitecturalSideRails />
@@ -729,6 +775,8 @@ export default function App() {
         availabilityFilter={availabilityFilter}
         liveResults={liveSearchResults}
         categoryLabels={categoryLabels}
+        newsTickerEnabled={siteSettings.newsTickerEnabled ?? true}
+        newsTickerItems={siteSettings.newsTickerItems}
         onSearchChange={setSearchQuery}
         onMinPriceChange={setMinPrice}
         onMaxPriceChange={setMaxPrice}
@@ -855,7 +903,7 @@ export default function App() {
               indexCode="05"
               label="Engineering Ecosystem"
               fromBg="#E6ECF4"
-              toBg="#071A3B"
+              toBg="#050B18"
               accent="cyan"
               dark
             />
@@ -868,7 +916,7 @@ export default function App() {
             <SectionDivider
               indexCode="06"
               label="First-Order Benefit"
-              fromBg="#071A3B"
+              fromBg="#050B18"
               toBg="#FFFFFF"
               accent="emerald"
               dark
@@ -876,6 +924,7 @@ export default function App() {
 
             <DiscountBanner
               bannerImageUrl={siteSettings.discountBannerImageUrl}
+              promoCodes={promoCodes}
               user={authUser}
               hasPlacedOrderBefore={hasPlacedOrderBefore}
               onOpenAuth={() => setAuthModalOpen(true)}
@@ -947,6 +996,8 @@ export default function App() {
         items={cartItems}
         cartPulseKey={cartPulseTick}
         recommendedProducts={products}
+        promoCodes={promoCodes}
+        userOrders={userOrders}
         appliedCoupon={appliedCoupon}
         startInCheckout={startInCheckout}
         user={authUser}
@@ -1009,6 +1060,7 @@ export default function App() {
         products={products}
         categories={categories}
         banners={banners}
+        promoCodes={promoCodes}
         siteSettings={siteSettings}
         onClose={() => {
           setAdminOpen(false);
@@ -1111,11 +1163,12 @@ export default function App() {
             <button
               type="button"
               onClick={() => {
+                playTapSound();
                 setToastProduct(null);
                 setStartInCheckout(false);
                 setCartOpen(true);
               }}
-              className="px-2.5 py-1.5 rounded-lg bg-[#0866F5] hover:bg-[#0866F5]/90 border border-[#1685FF]/40 text-white text-xs font-semibold inline-flex items-center gap-1.5 whitespace-nowrap transition-colors"
+              className="cta-sheen active:scale-95 px-2.5 py-1.5 rounded-lg bg-[#0866F5] hover:bg-[#0866F5]/90 border border-[#1685FF]/40 text-white text-xs font-semibold inline-flex items-center gap-1.5 whitespace-nowrap transition-all"
             >
               <span className="w-1.5 h-1.5 rounded-full bg-[#FB923C]" aria-hidden="true" />
               <ShoppingBag className="w-3.5 h-3.5" />

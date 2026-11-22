@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
-import { ArrowRight, Cpu, Layers, Radar, Wrench } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, Cpu, Layers, Radar, Wrench } from 'lucide-react';
 import { BRAND_STUDIO_MEDIA, isWatermarkedUrl } from '../data/brandMedia';
+import { playTapSound } from '../lib/sound';
 import { CategoryId, SiteImagesConfig } from '../types/store';
 import { Reveal } from './Reveal';
 
@@ -14,7 +15,7 @@ export const PromoBanners: React.FC<PromoBannersProps> = ({
   onSelectCategory,
 }) => {
   const [parallax, setParallax] = useState({ x: 0, y: 0 });
-  const mainCardRef = useRef<HTMLDivElement>(null);
+  const mainStageRef = useRef<HTMLDivElement>(null);
 
   const handleMainPointerMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (
@@ -23,14 +24,14 @@ export const PromoBanners: React.FC<PromoBannersProps> = ({
     ) {
       return;
     }
-    const el = mainCardRef.current;
+    const el = mainStageRef.current;
     if (!el) return;
     const rect = el.getBoundingClientRect();
     const nx = (e.clientX - rect.left) / rect.width - 0.5;
     const ny = (e.clientY - rect.top) / rect.height - 0.5;
     setParallax({
-      x: Number((nx * -8).toFixed(2)),
-      y: Number((ny * -6).toFixed(2)),
+      x: Number((nx * -6).toFixed(2)),
+      y: Number((ny * -4).toFixed(2)),
     });
   };
 
@@ -90,302 +91,276 @@ export const PromoBanners: React.FC<PromoBannersProps> = ({
   return (
     <section
       id="bundles"
-      className="relative z-20 overflow-hidden scroll-mt-20 py-14 sm:py-18 lg:py-22 bg-gradient-to-b from-[#071A3B] via-[#061735] to-[#071A3B] text-white"
+      className="scroll-mt-20 bg-[#050B18] min-[1500px]:bg-transparent min-[1500px]:pointer-events-none"
     >
-      {/* Subtle Drifting Dark Blueprint Grid */}
-      <div
-        aria-hidden="true"
-        className="animate-blueprint-drift pointer-events-none absolute -inset-6 bg-lab-grid-dark opacity-70"
-      />
-
-      {/* Minimal Technical Circuit & Engineering Schematic Backdrop */}
-      <svg
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 w-full h-full opacity-[0.22]"
-        viewBox="0 0 1440 860"
-        preserveAspectRatio="xMidYMid slice"
-        fill="none"
-      >
-        {/* Left schematic routing */}
-        <path
-          d="M0 130H165L210 175H360"
-          stroke="#087BFF"
-          strokeOpacity="0.45"
-          strokeWidth="1"
+      <div className="relative z-20 pointer-events-auto w-full max-w-[1440px] mx-auto overflow-hidden bg-[#050B18] text-[#F5F8FF] min-[1500px]:border-x min-[1500px]:border-slate-300/70 px-5 sm:px-8 lg:px-12 py-12 sm:py-16 lg:py-20">
+        {/* Ultra-Subtle Architectural Grid */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 opacity-55"
+          style={{
+            backgroundImage:
+              'linear-gradient(to right, rgba(100, 150, 255, 0.036) 1px, transparent 1px), linear-gradient(to bottom, rgba(100, 150, 255, 0.036) 1px, transparent 1px)',
+            backgroundSize: '56px 56px',
+          }}
         />
-        <circle cx="360" cy="175" r="3" fill="#00D5FF" fillOpacity="0.65" />
-        <path
-          d="M0 710H220L265 665H420"
-          stroke="#00D5FF"
-          strokeOpacity="0.3"
-          strokeWidth="1"
+        <div
+          aria-hidden="true"
+          className="animate-signal-sweep pointer-events-none absolute top-0 left-0 h-[1.5px] w-48 bg-gradient-to-r from-transparent via-[#00C8FF]/70 to-transparent"
         />
-        <circle cx="420" cy="665" r="2.5" stroke="#00D5FF" strokeOpacity="0.55" strokeWidth="1" />
 
-        {/* Right schematic bus & engineering rings */}
-        <path
-          d="M1440 145H1220L1170 195H990"
-          stroke="#00D5FF"
-          strokeOpacity="0.35"
-          strokeWidth="1"
-        />
-        <circle cx="990" cy="195" r="3" fill="#087BFF" fillOpacity="0.7" />
-        <path
-          d="M1440 620H1260L1215 575H1080"
-          stroke="#087BFF"
-          strokeOpacity="0.4"
-          strokeWidth="1"
-        />
-        <circle cx="1215" cy="575" r="18" stroke="#087BFF" strokeOpacity="0.16" strokeWidth="1" />
-        <circle cx="1080" cy="575" r="3" fill="#00D5FF" fillOpacity="0.5" />
-
-        {/* Subtle geometric crosshair */}
-        <path d="M1320 92H1340M1330 82V102" stroke="#00D5FF" strokeOpacity="0.35" strokeWidth="1" />
-      </svg>
-
-      {/* Soft Localized Ambient Illumination */}
-      <div
-        aria-hidden="true"
-        className="animate-ambient-pulse pointer-events-none absolute -top-24 left-1/4 w-[560px] h-[560px] rounded-full bg-[radial-gradient(circle,rgba(8,123,255,0.16)_0%,rgba(0,213,255,0.06)_45%,transparent_72%)]"
-      />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute -bottom-28 right-10 w-[480px] h-[480px] rounded-full bg-[radial-gradient(circle,rgba(0,213,255,0.10)_0%,rgba(8,123,255,0.05)_48%,transparent_72%)]"
-      />
-
-      <div className="relative z-10 w-full max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10 space-y-8 sm:space-y-10">
-        {/* Editorial Section Header */}
-        <Reveal>
-          <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-5 pb-2">
-            <div className="max-w-2xl">
-              <div className="inline-flex items-center gap-2.5 mb-2">
-                <span className="h-[2px] w-6 bg-[#00D5FF]" aria-hidden="true" />
-                <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-[#00D5FF]">
+        <div className="relative z-10 space-y-8 lg:space-y-10">
+          {/* Editorial Section Header */}
+          <Reveal>
+            <div className="grid grid-cols-1 lg:grid-cols-12 lg:items-end gap-5 lg:gap-10 pb-7 border-b border-[rgba(100,150,255,0.16)]">
+              <div className="lg:col-span-7">
+                <p className="font-mono text-[11px] font-medium uppercase tracking-[0.22em] text-[#00C8FF] mb-3">
                   Engineering Ecosystem
                 </p>
-              </div>
-              <h2 className="font-hero text-[26px] sm:text-[34px] lg:text-[40px] font-extrabold text-white tracking-[-0.025em] leading-[1.12] [text-wrap:balance]">
-                Built for University Labs, R&amp;D Teams &amp; Autonomous Systems
-              </h2>
-            </div>
-
-            <p className="text-sm sm:text-[15px] text-[#AFC2DF] max-w-md leading-relaxed">
-              Integrated hardware platforms spanning ROS2 LiDAR navigation stacks, Edge AI
-              compute, multi-axis robotic arms, and industrial power electronics.
-            </p>
-          </div>
-        </Reveal>
-
-        {/* Three-Part Asymmetric Dark Robotics Bento Showcase */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 lg:gap-6 items-stretch">
-          {/* LEFT: Main Flagship Robotics Showcase (Unobstructed Visual Stage + Crisp Editorial Deck) */}
-          <Reveal direction="up" className="lg:col-span-7 flex">
-            <div
-              ref={mainCardRef}
-              onMouseMove={handleMainPointerMove}
-              onMouseLeave={handleMainPointerLeave}
-              className="group relative w-full rounded-[24px] overflow-hidden bg-gradient-to-br from-[#0A2045] via-[#091D3F] to-[#061735] border border-[#087BFF]/25 hover:border-[#00D5FF]/55 shadow-[0_24px_60px_-24px_rgba(0,0,0,0.65),0_0_0_1px_rgba(8,123,255,0.08)] transition-all duration-300 flex flex-col justify-between"
-            >
-              {/* Animated Top Accent Line on Hover */}
-              <div
-                aria-hidden="true"
-                className="pointer-events-none absolute inset-x-0 top-0 h-[2px] z-20 bg-gradient-to-r from-transparent via-[#00D5FF] to-transparent opacity-40 group-hover:opacity-100 transition-opacity duration-300"
-              />
-
-              {/* Dedicated Cinematic Robotics Arm Stage (No Text Overlapping the Arm) */}
-              <div className="relative h-[250px] sm:h-[310px] lg:h-[330px] w-full overflow-hidden bg-[#081733]">
-                {/* Soft Cyan/Blue Backlight Rim Behind Arm */}
-                <div
-                  aria-hidden="true"
-                  className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_52%_45%,rgba(8,123,255,0.22)_0%,rgba(0,213,255,0.08)_40%,transparent_72%)]"
-                />
-
-                <img
-                  src={resolvedLeftImg}
-                  alt="6-DOF CNC Aluminum Robotic Arm Studio Showcase"
-                  referrerPolicy="no-referrer"
-                  style={{
-                    transform: `translate3d(${parallax.x}px, ${parallax.y}px, 0) scale(1.02)`,
-                    transition: 'transform 260ms cubic-bezier(0.16, 1, 0.3, 1)',
-                  }}
-                  className="w-full h-full object-contain sm:object-cover object-center block"
-                />
-
-                {/* Subtle Bottom Blend Seam into Editorial Content */}
-                <div
-                  aria-hidden="true"
-                  className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-[#091D3F] via-[#091D3F]/65 to-transparent"
-                />
+                <h2 className="font-hero text-[28px] sm:text-[36px] lg:text-[44px] font-extrabold text-[#F5F8FF] tracking-[-0.03em] leading-[1.08] [text-wrap:balance]">
+                  Built for University Labs, R&amp;D Teams &amp;{' '}
+                  <span className="text-[#1677FF]">Autonomous Systems</span>
+                </h2>
               </div>
 
-              {/* Uncluttered Editorial Deck */}
-              <div className="relative z-10 px-6 pb-6 pt-3 sm:px-8 sm:pb-8 sm:pt-4 bg-gradient-to-b from-[#091D3F] to-[#061735] flex-1 flex flex-col justify-between">
-                <div>
-                  <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.16em] text-[#00D5FF]">
-                    University &amp; Lab Bundles
-                  </p>
-                  <h3 className="mt-2 font-hero text-[22px] sm:text-[27px] lg:text-[30px] font-extrabold text-white leading-[1.16] tracking-[-0.02em] [text-wrap:balance]">
-                    6-DOF Robotic Arm &amp; Autonomous SLAM Rover Kits
-                  </h3>
-                  <p className="mt-2.5 text-sm sm:text-[15px] text-[#AFC2DF] leading-relaxed max-w-xl">
-                    Build advanced robotic systems with precision hardware, motion control and
-                    autonomous navigation technologies.
-                  </p>
-                </div>
-
-                <div className="mt-6 pt-4 border-t border-white/10 flex flex-wrap items-center justify-between gap-4">
-                  <button
-                    type="button"
-                    onClick={() => onSelectCategory('robotics-kits')}
-                    className="group/btn inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-xl bg-[#087BFF] hover:bg-[#1987FF] text-white text-xs sm:text-[13px] font-bold tracking-[0.06em] uppercase shadow-[0_12px_28px_-8px_rgba(8,123,255,0.55)] hover:shadow-[0_16px_34px_-8px_rgba(0,213,255,0.38)] hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00D5FF]"
-                  >
-                    <span>Explore Robotics Kits</span>
-                    <ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover/btn:translate-x-1" />
-                  </button>
-                </div>
+              <div className="lg:col-span-5 lg:border-l lg:border-[rgba(100,150,255,0.18)] lg:pl-7">
+                <p className="text-sm sm:text-[15px] text-[#A8B6CC] leading-[1.68]">
+                  Integrated hardware platforms spanning ROS2 LiDAR navigation stacks, Edge AI
+                  compute, multi-axis robotic arms, and industrial power electronics.
+                </p>
               </div>
             </div>
           </Reveal>
 
-          {/* RIGHT: Two Equal-Height Horizontal Technology Feature Cards */}
-          <div className="lg:col-span-5 grid grid-cols-1 gap-5 lg:gap-6">
-            {/* CARD 01 — Embedded AI & Compute */}
-            <Reveal delayMs={70} direction="up" className="flex">
-              <div className="group relative w-full rounded-[22px] overflow-hidden bg-[#10294F]/85 backdrop-blur-md border border-[#087BFF]/25 hover:border-[#00D5FF]/60 shadow-[0_16px_40px_-20px_rgba(0,0,0,0.55)] hover:shadow-[0_20px_44px_-18px_rgba(8,123,255,0.28)] hover:-translate-y-0.5 transition-all duration-300 flex flex-col sm:flex-row items-stretch">
-                {/* Text Column */}
-                <div className="relative z-10 p-5 sm:p-6 flex-1 min-w-0 flex flex-col justify-between order-2 sm:order-1">
-                  <div>
-                    <p className="font-mono text-[10.5px] font-semibold uppercase tracking-[0.16em] text-[#00D5FF]">
-                      Embedded AI &amp; Compute
-                    </p>
-                    <h3 className="mt-1.5 font-hero text-lg sm:text-[20px] font-extrabold text-white tracking-[-0.015em] leading-snug">
-                      Raspberry Pi 5 &amp; ESP32-S3
-                    </h3>
-                    <p className="mt-2 text-xs sm:text-[13px] text-[#AFC2DF] leading-relaxed">
-                      Dual-core Wi-Fi/BLE MCUs and Linux SBC vision compute boards stocked in Dhaka.
-                    </p>
-                  </div>
-
-                  <div className="mt-5">
-                    <button
-                      type="button"
-                      onClick={() => onSelectCategory('microcontrollers')}
-                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/[0.08] hover:bg-[#087BFF] text-white border border-white/15 hover:border-[#087BFF] text-xs font-bold tracking-[0.04em] uppercase transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00D5FF]"
-                    >
-                      <span>Explore Boards</span>
-                      <ArrowRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-1" />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Large Prominent Product Photography Column */}
-                <div className="relative w-full h-44 sm:h-auto sm:w-[46%] lg:w-[48%] shrink-0 overflow-hidden bg-[#091D3F] border-b sm:border-b-0 sm:border-l border-white/10 order-1 sm:order-2">
-                  <img
-                    src={resolvedTopRightImg}
-                    alt="Raspberry Pi 5 and ESP32-S3 Embedded Development Boards"
-                    referrerPolicy="no-referrer"
-                    loading="lazy"
-                    className="w-full h-full object-cover object-center transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-[1.05]"
-                  />
-                  <div
-                    aria-hidden="true"
-                    className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#10294F]/45 via-transparent to-transparent hidden sm:block"
-                  />
-                </div>
-              </div>
-            </Reveal>
-
-            {/* CARD 02 — SLAM & Telemetry */}
-            <Reveal delayMs={130} direction="up" className="flex">
-              <div className="group relative w-full rounded-[22px] overflow-hidden bg-[#10294F]/85 backdrop-blur-md border border-[#087BFF]/25 hover:border-[#00D5FF]/60 shadow-[0_16px_40px_-20px_rgba(0,0,0,0.55)] hover:shadow-[0_20px_44px_-18px_rgba(0,213,255,0.24)] hover:-translate-y-0.5 transition-all duration-300 flex flex-col sm:flex-row items-stretch">
-                {/* Text Column */}
-                <div className="relative z-10 p-5 sm:p-6 flex-1 min-w-0 flex flex-col justify-between order-2 sm:order-1">
-                  <div>
-                    <p className="font-mono text-[10.5px] font-semibold uppercase tracking-[0.16em] text-[#00D5FF]">
-                      SLAM &amp; Telemetry
-                    </p>
-                    <h3 className="mt-1.5 font-hero text-lg sm:text-[20px] font-extrabold text-white tracking-[-0.015em] leading-snug">
-                      360° LiDAR &amp; 9-Axis IMU Modules
-                    </h3>
-                    <p className="mt-2 text-xs sm:text-[13px] text-[#AFC2DF] leading-relaxed">
-                      Optical laser scanners, ultrasonic rangefinders, and precision inertial sensors.
-                    </p>
-                  </div>
-
-                  <div className="mt-5">
-                    <button
-                      type="button"
-                      onClick={() => onSelectCategory('sensors')}
-                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/[0.08] hover:bg-[#087BFF] text-white border border-white/15 hover:border-[#087BFF] text-xs font-bold tracking-[0.04em] uppercase transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00D5FF]"
-                    >
-                      <span>Explore Sensors</span>
-                      <ArrowRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-1" />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Large Prominent Product Photography Column */}
-                <div className="relative w-full h-44 sm:h-auto sm:w-[46%] lg:w-[48%] shrink-0 overflow-hidden bg-[#091D3F] border-b sm:border-b-0 sm:border-l border-white/10 order-1 sm:order-2">
-                  <img
-                    src={resolvedBottomRightImg}
-                    alt="360 Degree Optical LiDAR Scanner and 9-Axis IMU Telemetry Module"
-                    referrerPolicy="no-referrer"
-                    loading="lazy"
-                    className="w-full h-full object-cover object-center transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-[1.05]"
-                  />
-                  <div
-                    aria-hidden="true"
-                    className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#10294F]/45 via-transparent to-transparent hidden sm:block"
-                  />
-                </div>
-              </div>
-            </Reveal>
-          </div>
-        </div>
-
-        {/* BOTTOM: 4 Technology Capability Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-5 pt-2">
-          {capabilities.map((cap, idx) => {
-            const Icon = cap.icon;
-            return (
-              <Reveal key={cap.title} delayMs={idx * 65} direction="up" className="flex">
-                <button
-                  type="button"
-                  onClick={() => onSelectCategory(cap.cat)}
-                  className="group relative w-full h-full text-left rounded-2xl overflow-hidden bg-[#10294F]/70 hover:bg-[#10294F] border border-[#087BFF]/20 hover:border-[#00D5FF]/55 p-5 sm:p-6 shadow-[0_10px_28px_-14px_rgba(0,0,0,0.45)] hover:shadow-[0_18px_36px_-14px_rgba(8,123,255,0.28)] hover:-translate-y-1 transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] flex flex-col justify-between focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00D5FF]"
+          {/* Unified Hairline-Framed Hardware Showcase Chassis */}
+          <Reveal direction="up">
+            <div className="rounded-2xl border border-[rgba(100,150,255,0.18)] bg-[rgba(100,150,255,0.14)] overflow-hidden shadow-[0_32px_80px_-32px_rgba(0,0,0,0.9)]">
+              {/* Top Asymmetric Feature Matrix */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-px">
+                {/* LEFT: Flagship 6-DOF Robotic Arm Stage */}
+                <div
+                  ref={mainStageRef}
+                  onMouseMove={handleMainPointerMove}
+                  onMouseLeave={handleMainPointerLeave}
+                  className="group lg:col-span-7 bg-[#0A1428] flex flex-col justify-between"
                 >
-                  {/* Animated Top Accent Line on Hover */}
-                  <span
-                    aria-hidden="true"
-                    className="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-[#087BFF] to-[#00D5FF] origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-300"
-                  />
+                  <div className="relative h-[260px] sm:h-[330px] lg:h-[370px] w-full overflow-hidden bg-[#060E1F]">
+                    {/* Single Quiet Studio Keylight Behind Hardware */}
+                    <div
+                      aria-hidden="true"
+                      className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_48%,rgba(22,119,255,0.18)_0%,rgba(0,200,255,0.05)_42%,transparent_72%)]"
+                    />
 
-                  <div>
-                    <div className="flex items-center justify-between gap-2 mb-4">
-                      <span className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-[#087BFF]/15 border border-[#087BFF]/30 text-[#00D5FF] group-hover:bg-[#087BFF] group-hover:border-[#087BFF] group-hover:text-white transition-colors duration-250">
-                        <Icon className="w-5 h-5" strokeWidth={1.75} />
-                      </span>
-                      <span className="font-mono text-[11px] font-semibold text-[#AFC2DF]/75 tabular-nums">
-                        {cap.index}
-                      </span>
+                    <img
+                      src={resolvedLeftImg}
+                      alt="6-DOF CNC Aluminum Robotic Arm Studio Showcase"
+                      referrerPolicy="no-referrer"
+                      style={{
+                        transform: `translate3d(${parallax.x}px, ${parallax.y}px, 0) scale(1.03)`,
+                        transition: 'transform 280ms cubic-bezier(0.16, 1, 0.3, 1)',
+                      }}
+                      className="w-full h-full object-contain sm:object-cover object-center block"
+                    />
+
+                    {/* Edge & Bottom Studio Vignette Melting Smoothly Into Deck */}
+                    <div
+                      aria-hidden="true"
+                      className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_54%,rgba(6,14,31,0.72)_100%)]"
+                    />
+                    <div
+                      aria-hidden="true"
+                      className="pointer-events-none absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-[#0A1428] via-[#0A1428]/80 to-transparent"
+                    />
+                  </div>
+
+                  {/* Clean Editorial Hardware Deck */}
+                  <div className="relative z-10 px-6 pb-7 pt-2 sm:px-8 sm:pb-8 flex-1 flex flex-col justify-between">
+                    <div>
+                      <p className="font-mono text-[10.5px] font-medium uppercase tracking-[0.18em] text-[#00C8FF]">
+                        University &amp; Lab Bundles
+                      </p>
+                      <h3 className="mt-2 font-hero text-[22px] sm:text-[26px] lg:text-[28px] font-extrabold text-[#F5F8FF] leading-[1.14] tracking-[-0.02em] [text-wrap:balance]">
+                        6-DOF Robotic Arm &amp; Autonomous SLAM Rover Kits
+                      </h3>
+                      <p className="mt-2.5 text-sm sm:text-[15px] text-[#A8B6CC] leading-[1.65] max-w-xl">
+                        Build advanced robotic systems with precision hardware, motion control and
+                        autonomous navigation technologies.
+                      </p>
                     </div>
 
-                    <h3 className="font-hero text-[15px] sm:text-base font-bold text-white group-hover:text-[#00D5FF] transition-colors leading-snug">
-                      {cap.title}
-                    </h3>
-                    <p className="mt-2 text-xs sm:text-[13px] text-[#AFC2DF] leading-relaxed">
-                      {cap.desc}
-                    </p>
+                    <div className="mt-6 pt-5 border-t border-[rgba(100,150,255,0.14)] flex flex-wrap items-center justify-between gap-4">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          playTapSound();
+                          onSelectCategory('robotics-kits');
+                        }}
+                        className="cta-sheen group/btn inline-flex items-center justify-center gap-2.5 px-6 h-11 rounded-xl bg-[#1677FF] hover:bg-[#2684FF] text-white text-xs sm:text-[13px] font-semibold tracking-tight shadow-[0_12px_28px_-10px_rgba(22,119,255,0.65)] hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] transition-all duration-200 whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00C8FF]"
+                      >
+                        <span>Explore Robotics Kits</span>
+                        <ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover/btn:translate-x-1" />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          playTapSound();
+                          onSelectCategory('motors');
+                        }}
+                        className="group/sub inline-flex items-center gap-1.5 text-xs font-medium text-[#A8B6CC] hover:text-[#F5F8FF] transition-colors whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00C8FF] rounded"
+                      >
+                        <span>Motors &amp; Servo Drivers</span>
+                        <ArrowUpRight className="w-3.5 h-3.5 text-[#00C8FF] transition-transform duration-200 group-hover/sub:translate-x-0.5 group-hover/sub:-translate-y-0.5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* RIGHT: Stacked Dual Compute & Perception Plates */}
+                <div className="lg:col-span-5 grid grid-cols-1 gap-px bg-[rgba(100,150,255,0.14)]">
+                  {/* PLATE 02 — Embedded AI & Compute */}
+                  <div className="group bg-[#0A1428] hover:bg-[#0E1A33] transition-colors duration-250 flex flex-col sm:flex-row items-stretch">
+                    <div className="p-6 sm:p-7 flex-1 min-w-0 flex flex-col justify-between order-2 sm:order-1">
+                      <div>
+                        <p className="font-mono text-[10.5px] font-medium uppercase tracking-[0.18em] text-[#00C8FF]">
+                          Embedded AI &amp; Compute
+                        </p>
+                        <h3 className="mt-2 font-hero text-lg sm:text-[21px] font-bold text-[#F5F8FF] tracking-[-0.018em] leading-snug">
+                          Raspberry Pi 5 &amp; ESP32-S3
+                        </h3>
+                        <p className="mt-2 text-xs sm:text-[13.5px] text-[#A8B6CC] leading-[1.6]">
+                          Dual-core Wi-Fi/BLE MCUs and Linux SBC vision compute boards stocked in
+                          Dhaka.
+                        </p>
+                      </div>
+
+                      <div className="mt-5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            playTapSound();
+                            onSelectCategory('microcontrollers');
+                          }}
+                          className="inline-flex items-center gap-2 px-4 h-9 rounded-lg bg-[#101D33] hover:bg-[#1677FF] text-[#F5F8FF] border border-[rgba(100,150,255,0.22)] hover:border-[#1677FF] active:scale-[0.97] text-xs font-semibold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00C8FF]"
+                        >
+                          <span>Explore Boards</span>
+                          <ArrowRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="relative w-full h-44 sm:h-auto sm:w-[46%] shrink-0 overflow-hidden bg-[#060E1F] order-1 sm:order-2">
+                      <img
+                        src={resolvedTopRightImg}
+                        alt="Raspberry Pi 5 and ESP32-S3 Embedded Development Boards"
+                        referrerPolicy="no-referrer"
+                        loading="lazy"
+                        className="w-full h-full object-cover object-center transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-[1.05]"
+                      />
+                      <div
+                        aria-hidden="true"
+                        className="pointer-events-none absolute inset-y-0 left-0 w-16 bg-gradient-to-r from-[#0A1428] via-[#0A1428]/70 to-transparent hidden sm:block group-hover:from-[#0E1A33] group-hover:via-[#0E1A33]/70 transition-colors"
+                      />
+                      <div
+                        aria-hidden="true"
+                        className="pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-[#0A1428] via-[#0A1428]/65 to-transparent sm:hidden"
+                      />
+                    </div>
                   </div>
 
-                  <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between text-[11px] font-mono font-semibold uppercase tracking-[0.08em] text-[#AFC2DF] group-hover:text-white transition-colors">
-                    <span>Explore</span>
-                    <ArrowRight className="w-3.5 h-3.5 text-[#00D5FF] transition-transform duration-200 group-hover:translate-x-1" />
+                  {/* PLATE 03 — SLAM & Telemetry */}
+                  <div className="group bg-[#0A1428] hover:bg-[#0E1A33] transition-colors duration-250 flex flex-col sm:flex-row items-stretch">
+                    <div className="p-6 sm:p-7 flex-1 min-w-0 flex flex-col justify-between order-2 sm:order-1">
+                      <div>
+                        <p className="font-mono text-[10.5px] font-medium uppercase tracking-[0.18em] text-[#00C8FF]">
+                          SLAM &amp; Telemetry
+                        </p>
+                        <h3 className="mt-2 font-hero text-lg sm:text-[21px] font-bold text-[#F5F8FF] tracking-[-0.018em] leading-snug">
+                          360° LiDAR &amp; 9-Axis IMU Modules
+                        </h3>
+                        <p className="mt-2 text-xs sm:text-[13.5px] text-[#A8B6CC] leading-[1.6]">
+                          Optical laser scanners, ultrasonic rangefinders, and precision inertial
+                          sensors.
+                        </p>
+                      </div>
+
+                      <div className="mt-5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            playTapSound();
+                            onSelectCategory('sensors');
+                          }}
+                          className="inline-flex items-center gap-2 px-4 h-9 rounded-lg bg-[#101D33] hover:bg-[#1677FF] text-[#F5F8FF] border border-[rgba(100,150,255,0.22)] hover:border-[#1677FF] active:scale-[0.97] text-xs font-semibold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00C8FF]"
+                        >
+                          <span>Explore Sensors</span>
+                          <ArrowRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="relative w-full h-44 sm:h-auto sm:w-[46%] shrink-0 overflow-hidden bg-[#060E1F] order-1 sm:order-2">
+                      <img
+                        src={resolvedBottomRightImg}
+                        alt="360 Degree Optical LiDAR Scanner and 9-Axis IMU Telemetry Module"
+                        referrerPolicy="no-referrer"
+                        loading="lazy"
+                        className="w-full h-full object-cover object-center transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-[1.05]"
+                      />
+                      <div
+                        aria-hidden="true"
+                        className="pointer-events-none absolute inset-y-0 left-0 w-16 bg-gradient-to-r from-[#0A1428] via-[#0A1428]/70 to-transparent hidden sm:block group-hover:from-[#0E1A33] group-hover:via-[#0E1A33]/70 transition-colors"
+                      />
+                      <div
+                        aria-hidden="true"
+                        className="pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-[#0A1428] via-[#0A1428]/65 to-transparent sm:hidden"
+                      />
+                    </div>
                   </div>
-                </button>
-              </Reveal>
-            );
-          })}
+                </div>
+              </div>
+
+              {/* Bottom 4-Column Architectural Department Index Rail */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-px bg-[rgba(100,150,255,0.14)] border-t border-[rgba(100,150,255,0.16)]">
+                {capabilities.map((cap) => {
+                  const Icon = cap.icon;
+                  return (
+                    <button
+                      key={cap.title}
+                      type="button"
+                      onClick={() => {
+                        playTapSound();
+                        onSelectCategory(cap.cat);
+                      }}
+                      className="group text-left bg-[#071022] hover:bg-[#0D1930] px-6 py-5 sm:py-6 transition-colors duration-200 flex flex-col justify-between gap-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#00C8FF]"
+                    >
+                      <div className="flex items-center justify-between w-full">
+                        <div className="flex items-center gap-2.5">
+                          <Icon
+                            className="w-4 h-4 text-[#00C8FF] shrink-0 transition-colors"
+                            strokeWidth={1.75}
+                          />
+                          <span className="font-mono text-[11px] font-medium text-[#7D94BA] tabular-nums">
+                            {cap.index}
+                          </span>
+                        </div>
+                        <ArrowUpRight className="w-3.5 h-3.5 text-[#7D94BA] group-hover:text-[#00C8FF] transition-all duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                      </div>
+
+                      <div>
+                        <h3 className="font-hero text-[15px] font-bold text-[#F5F8FF] group-hover:text-[#00C8FF] transition-colors leading-snug">
+                          {cap.title}
+                        </h3>
+                        <p className="mt-1.5 text-xs sm:text-[13px] text-[#A8B6CC] leading-relaxed">
+                          {cap.desc}
+                        </p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </Reveal>
         </div>
       </div>
     </section>

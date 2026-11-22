@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowRight, ChevronDown } from 'lucide-react';
 import { CATEGORY_STUDIO_MEDIA, isWatermarkedUrl } from '../data/brandMedia';
+import { playTapSound } from '../lib/sound';
 import { CategoryId, CategoryItem, Product } from '../types/store';
 import { Reveal } from './Reveal';
 
@@ -93,7 +94,7 @@ export const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
       id="categories"
       className="scroll-mt-20 bg-[#F3F7FC] min-[1500px]:bg-transparent min-[1500px]:pointer-events-none"
     >
-      <div className="relative z-20 pointer-events-auto w-full max-w-[1440px] mx-auto bg-gradient-to-b from-[#E6ECF4] via-[#F3F7FC] to-[#E6ECF4] min-[1500px]:border-x min-[1500px]:border-slate-300/90 px-4 sm:px-6 lg:px-10 py-9 sm:py-12">
+      <div className="relative z-20 pointer-events-auto w-full max-w-[1440px] mx-auto bg-gradient-to-b from-[#F5F8FC] via-[#F3F7FC] to-[#F5F8FC] min-[1500px]:border-x min-[1500px]:border-slate-200/90 px-4 sm:px-6 lg:px-10 py-9 sm:py-12">
         <Reveal>
           {/* Editorial Section Header */}
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6 sm:mb-8">
@@ -153,9 +154,12 @@ export const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
                 <button
                   key={category.id}
                   type="button"
-                  onClick={() => onSelectCategory(isSelected ? 'all' : category.id)}
+                  onClick={() => {
+                    playTapSound();
+                    onSelectCategory(isSelected ? 'all' : category.id);
+                  }}
                   style={{ animationDelay: `${Math.min(idx * 35, 220)}ms` }}
-                  className={`animate-cart-enter group h-full flex-col text-left overflow-hidden rounded-2xl border transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F3F7FC] ${visibilityClass} ${
+                  className={`animate-cart-enter group h-full flex-col text-left overflow-hidden rounded-2xl border active:scale-[0.98] transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F3F7FC] ${visibilityClass} ${
                     isSelected
                       ? 'bg-[#071A3D] border-[#087BFF] text-white shadow-[0_14px_30px_-12px_rgba(8,123,255,0.32)] -translate-y-0.5'
                       : isFeaturedDept
@@ -243,9 +247,12 @@ export const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
             >
               <button
                 type="button"
-                onClick={() => setShowAll((prev) => !prev)}
+                onClick={() => {
+                  playTapSound();
+                  setShowAll((prev) => !prev);
+                }}
                 aria-expanded={showAll}
-                className="group inline-flex items-center justify-center gap-2.5 px-5 py-3 rounded-xl bg-white hover:bg-[#071A3D] border border-slate-200 hover:border-[#071A3D] text-xs font-bold tracking-[0.04em] uppercase text-[#071A3D] hover:text-white shadow-[0_6px_18px_-8px_rgba(7,26,61,0.10)] transition-all duration-250 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF]"
+                className="group inline-flex items-center justify-center gap-2.5 px-5 py-3 rounded-xl bg-white hover:bg-[#071A3D] border border-slate-200 hover:border-[#071A3D] text-xs font-bold tracking-[0.04em] uppercase text-[#071A3D] hover:text-white active:scale-[0.97] shadow-[0_6px_18px_-8px_rgba(7,26,61,0.10)] transition-all duration-250 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF]"
               >
                 {showAll ? (
                   <span>Show Less Categories</span>

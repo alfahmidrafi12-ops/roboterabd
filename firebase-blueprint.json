@@ -77,6 +77,8 @@
         "heroSubtitle": { "type": "string", "maxLength": 320 },
         "heroTagline": { "type": "string", "maxLength": 120 },
         "heroDispatchText": { "type": "string", "maxLength": 120 },
+        "newsTickerEnabled": { "type": "boolean" },
+        "newsTickerItems": { "type": "array" },
         "promoLeftImageUrl": { "type": "string", "maxLength": 300000 },
         "promoTopRightImageUrl": { "type": "string", "maxLength": 300000 },
         "promoBottomRightImageUrl": { "type": "string", "maxLength": 300000 },
@@ -156,6 +158,40 @@
         "updatedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "productId", "productName", "email", "baselinePrice", "status", "createdAt", "updatedAt"]
+    },
+    "PromoCode": {
+      "title": "PromoCode",
+      "description": "Storefront promo code created and managed by admins with single-use per account and Gmail enforcement.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 3, "maxLength": 32, "pattern": "^[A-Z0-9_\\-]+$" },
+        "code": { "type": "string", "minLength": 3, "maxLength": 32, "pattern": "^[A-Z0-9_\\-]+$" },
+        "discountType": { "type": "string", "enum": ["percent", "flat"] },
+        "discountValue": { "type": "number" },
+        "minOrderAmount": { "type": "number" },
+        "maxDiscountAmount": { "type": "number" },
+        "firstOrderOnly": { "type": "boolean" },
+        "description": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "active": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "code", "discountType", "discountValue", "description", "active", "updatedAt"]
+    },
+    "PromoRedemption": {
+      "title": "PromoRedemption",
+      "description": "Immutable per-account and per-Gmail promo code redemption lock preventing duplicate use of the same promo code.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "code": { "type": "string", "minLength": 3, "maxLength": 32, "pattern": "^[A-Z0-9_\\-]+$" },
+        "redemptionType": { "type": "string", "enum": ["uid", "email"] },
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "emailLower": { "type": "string", "minLength": 3, "maxLength": 120 },
+        "canonicalEmail": { "type": "string", "minLength": 3, "maxLength": 120 },
+        "orderId": { "type": "string", "minLength": 1, "maxLength": 40 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "code", "redemptionType", "userId", "orderId", "createdAt"]
     }
   },
   "firestore": {
@@ -174,6 +210,14 @@
     "/site_settings/{settingId}": {
       "schema": { "$ref": "#/entities/SiteSettings" },
       "description": "Public storefront imagery and hero branding config; writable only by admins."
+    },
+    "/promo_codes/{code}": {
+      "schema": { "$ref": "#/entities/PromoCode" },
+      "description": "Publicly readable promo code catalog manageable exclusively by admins."
+    },
+    "/promo_redemptions/{redemptionId}": {
+      "schema": { "$ref": "#/entities/PromoRedemption" },
+      "description": "Immutable single-use promo redemption records keyed by code + UID and code + canonical email hash."
     },
     "/orders/{orderId}": {
       "schema": { "$ref": "#/entities/Order" },

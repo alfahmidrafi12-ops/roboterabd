@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ArrowRight, ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react';
 import { BannerItem, BannerTheme, CategoryId } from '../types/store';
+import { playStepTickSound, playTapSound } from '../lib/sound';
 import { HardwareArtwork } from './HardwareArtwork';
 import { Reveal } from './Reveal';
 
@@ -270,7 +271,10 @@ const CampaignCardSlot: React.FC<CampaignCardSlotProps> = ({
   return (
     <button
       type="button"
-      onClick={handleInternalClick}
+      onClick={() => {
+        playTapSound();
+        handleInternalClick();
+      }}
       aria-label={`${activeBanner.title} — ${activeBanner.ctaLabel}`}
       className={sharedCardClassName}
     >
@@ -350,7 +354,7 @@ export const ScrollingBannerSection: React.FC<ScrollingBannerSectionProps> = ({
       aria-label="Featured campaigns"
       className="scroll-mt-20 bg-white min-[1500px]:bg-transparent min-[1500px]:pointer-events-none"
     >
-      <div className="relative z-20 pointer-events-auto w-full max-w-[1440px] mx-auto bg-white min-[1500px]:border-x min-[1500px]:border-slate-300/90 px-4 sm:px-6 lg:px-10 py-8 sm:py-11">
+      <div className="relative z-20 pointer-events-auto w-full max-w-[1440px] mx-auto bg-white min-[1500px]:border-x min-[1500px]:border-slate-200/90 px-4 sm:px-6 lg:px-10 py-8 sm:py-11">
         <Reveal>
           {/* Clean Header + Circular Navigation Controls */}
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6">
@@ -376,17 +380,23 @@ export const ScrollingBannerSection: React.FC<ScrollingBannerSectionProps> = ({
                 </span>
                 <button
                   type="button"
-                  onClick={() => advanceTo(activeIndex - 1, 'prev')}
+                  onClick={() => {
+                    playStepTickSound(false);
+                    advanceTo(activeIndex - 1, 'prev');
+                  }}
                   aria-label="Previous campaign"
-                  className="w-10 h-10 rounded-full bg-[#F3F7FC] hover:bg-[#087BFF] text-[#071A3B] hover:text-white border border-slate-200 hover:border-[#087BFF] transition-colors flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF]"
+                  className="w-10 h-10 rounded-full bg-[#F3F7FC] hover:bg-[#087BFF] text-[#071A3B] hover:text-white border border-slate-200 hover:border-[#087BFF] active:scale-90 transition-all flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF]"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
                 <button
                   type="button"
-                  onClick={() => advanceTo(activeIndex + 1, 'next')}
+                  onClick={() => {
+                    playStepTickSound(true);
+                    advanceTo(activeIndex + 1, 'next');
+                  }}
                   aria-label="Next campaign"
-                  className="w-10 h-10 rounded-full bg-[#F3F7FC] hover:bg-[#087BFF] text-[#071A3B] hover:text-white border border-slate-200 hover:border-[#087BFF] transition-colors flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF]"
+                  className="w-10 h-10 rounded-full bg-[#F3F7FC] hover:bg-[#087BFF] text-[#071A3B] hover:text-white border border-slate-200 hover:border-[#087BFF] active:scale-90 transition-all flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF]"
                 >
                   <ChevronRight className="w-4 h-4" />
                 </button>
@@ -433,9 +443,10 @@ export const ScrollingBannerSection: React.FC<ScrollingBannerSectionProps> = ({
                   <button
                     key={banner.id}
                     type="button"
-                    onClick={() =>
-                      advanceTo(idx, idx > activeIndex ? 'next' : 'prev')
-                    }
+                    onClick={() => {
+                      playStepTickSound(idx > activeIndex);
+                      advanceTo(idx, idx > activeIndex ? 'next' : 'prev');
+                    }}
                     aria-label={`View campaign ${idx + 1}: ${banner.title}`}
                     aria-current={isActive ? 'true' : undefined}
                     className={`h-2 rounded-full transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF] ${

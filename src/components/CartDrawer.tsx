@@ -21,8 +21,13 @@ import {
   Truck,
   X,
 } from 'lucide-react';
-import { createOrderInFirestore } from '../lib/firebase';
-import { CartItem, OrderReceipt, Product } from '../types/store';
+import {
+  checkUserPromoRedemption,
+  createOrderInFirestore,
+  normalizePromoCodeString,
+} from '../lib/firebase';
+import { playErrorSound, playSuccessSound, playTapSound } from '../lib/sound';
+import { CartItem, OrderReceipt, Product, PromoCode, StoredOrder } from '../types/store';
 import { HardwareArtwork } from './HardwareArtwork';
 
 interface CartDrawerProps {
@@ -30,6 +35,8 @@ interface CartDrawerProps {
   items: CartItem[];
   cartPulseKey?: number;
   recommendedProducts?: Product[];
+  promoCodes?: PromoCode[];
+  userOrders?: StoredOrder[];
   appliedCoupon: string | null;
   startInCheckout?: boolean;
   user: User | null;
@@ -61,6 +68,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   items,
   cartPulseKey = 0,
   recommendedProducts = [],
+  promoCodes = [],
+  userOrders = [],
   appliedCoupon,
   startInCheckout = false,
   user,
@@ -78,6 +87,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   const [step, setStep] = useState<'cart' | 'checkout' | 'receipt'>('cart');
   const [couponInput, setCouponInput] = useState('');
   const [couponError, setCouponError] = useState('');
+  const [checkingCoupon, setCheckingCoupon] = useState(false);
   const [cartPulsing, setCartPulsing] = useState(false);
   const prevPulseKeyRef = useRef(cartPulseKey);
 
@@ -138,14 +148,63 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     }
   }, [isOpen, startInCheckout, items.length, step]);
 
+  useEffect(() => {
+    if (!isOpen || !appliedCoupon || !user?.uid) return;
+    let active = true;
+    checkUserPromoRedemption(appliedCoupon, user.uid, user.email).then((alreadyUsed) => {
+      if (active && alreadyUsed) {
+        onApplyCoupon(null);
+        setCouponError(
+          `Promo code ${appliedCoupon} was already redeemed with this account or Gmail address.`
+        );
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [isOpen, appliedCoupon, user?.uid, user?.email, onApplyCoupon]);
+
   if (!isOpen) return null;
 
-  const isFirstOrderDiscountEligible = Boolean(user && !hasPlacedOrderBefore);
-  const effectiveCoupon =
-    appliedCoupon === 'ROBOTERA15' && isFirstOrderDiscountEligible ? 'ROBOTERA15' : null;
-
   const subtotal = items.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
-  const discount = effectiveCoupon === 'ROBOTERA15' ? Math.round(subtotal * 0.15) : 0;
+
+  const matchedPromo = appliedCoupon
+    ? promoCodes.find(
+        (p) => p.code.toUpperCase() === appliedCoupon.toUpperCase() && p.active
+      ) ?? null
+    : null;
+
+  const isPromoLocallyUsed = matchedPromo
+    ? userOrders.some(
+        (o) => o.couponCode?.toUpperCase() === matchedPromo.code.toUpperCase()
+      )
+    : false;
+
+  const isPromoEligible = Boolean(
+    user &&
+      matchedPromo &&
+      !isPromoLocallyUsed &&
+      (!matchedPromo.firstOrderOnly || !hasPlacedOrderBefore) &&
+      (!matchedPromo.minOrderAmount || subtotal >= matchedPromo.minOrderAmount)
+  );
+
+  const effectivePromo = isPromoEligible ? matchedPromo : null;
+  const effectiveCoupon = effectivePromo?.code ?? null;
+
+  let discount = 0;
+  if (effectivePromo) {
+    if (effectivePromo.discountType === 'percent') {
+      const rawDiscount = Math.round((subtotal * effectivePromo.discountValue) / 100);
+      discount =
+        effectivePromo.maxDiscountAmount && effectivePromo.maxDiscountAmount > 0
+          ? Math.min(rawDiscount, effectivePromo.maxDiscountAmount)
+          : rawDiscount;
+    } else {
+      discount = Math.round(effectivePromo.discountValue);
+    }
+    discount = Math.min(subtotal, Math.max(0, discount));
+  }
+
   const discountedSubtotal = Math.max(0, subtotal - discount);
   const freeShippingThreshold = 3000;
   const freeShipping = discountedSubtotal >= freeShippingThreshold || discountedSubtotal === 0;
@@ -163,23 +222,72 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   const stepIndex = step === 'cart' ? 0 : step === 'checkout' ? 1 : 2;
   const stepBarPct = step === 'cart' ? 33 : step === 'checkout' ? 68 : 100;
 
-  const handleCouponSubmit = (e: React.FormEvent) => {
+  const handleCouponSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const cleaned = couponInput.trim().toUpperCase();
-    if (cleaned === 'ROBOTERA15') {
-      if (!user) {
-        setCouponError('Please sign in first to use the 1st-order 15% discount.');
+    if (checkingCoupon) return;
+    const cleaned = normalizePromoCodeString(couponInput);
+    if (!cleaned) {
+      playErrorSound();
+      setCouponError('Please enter a promo code.');
+      return;
+    }
+
+    if (!user) {
+      playErrorSound();
+      setCouponError('Please sign in with your account / Gmail first to apply a promo code.');
+      return;
+    }
+
+    const promo = promoCodes.find((p) => p.code.toUpperCase() === cleaned);
+    if (!promo || !promo.active) {
+      playErrorSound();
+      setCouponError('Invalid or inactive promo code.');
+      return;
+    }
+
+    if (promo.firstOrderOnly && hasPlacedOrderBefore) {
+      playErrorSound();
+      setCouponError(`${promo.code} is valid only on your 1st order.`);
+      return;
+    }
+
+    if (promo.minOrderAmount && subtotal < promo.minOrderAmount) {
+      playErrorSound();
+      setCouponError(
+        `${promo.code} requires a minimum order of ৳${promo.minOrderAmount.toLocaleString('en-IN')}.`
+      );
+      return;
+    }
+
+    if (userOrders.some((o) => o.couponCode?.toUpperCase() === promo.code.toUpperCase())) {
+      playErrorSound();
+      setCouponError(
+        `Promo code ${promo.code} has already been used by your account (1 use per account & Gmail).`
+      );
+      return;
+    }
+
+    setCheckingCoupon(true);
+    setCouponError('');
+    try {
+      const alreadyRedeemed = await checkUserPromoRedemption(
+        promo.code,
+        user.uid,
+        user.email
+      );
+      if (alreadyRedeemed) {
+        playErrorSound();
+        setCouponError(
+          `Promo code ${promo.code} has already been used by this account or Gmail address (1 use limit).`
+        );
         return;
       }
-      if (hasPlacedOrderBefore) {
-        setCouponError('ROBOTERA15 is valid only for your 1st order on this account.');
-        return;
-      }
-      onApplyCoupon('ROBOTERA15');
+      playSuccessSound();
+      onApplyCoupon(promo.code);
       setCouponError('');
       setCouponInput('');
-    } else {
-      setCouponError('Invalid code. Use ROBOTERA15 (1st-order signed-in accounts only).');
+    } finally {
+      setCheckingCoupon(false);
     }
   };
 
@@ -188,6 +296,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     if (submitting || items.length === 0) return;
 
     if (!user) {
+      playErrorSound();
       setCheckoutError('Please sign in or create an account before placing an order.');
       onOpenAuth();
       return;
@@ -198,18 +307,22 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     const trimmedAddress = address.trim();
 
     if (trimmedName.length < 2) {
+      playErrorSound();
       setCheckoutError('Please enter your full name.');
       return;
     }
     if (!isValidBdPhone(trimmedPhone)) {
+      playErrorSound();
       setCheckoutError('Please enter a valid 11-digit Bangladesh mobile number (e.g. 017XXXXXXXX).');
       return;
     }
     if (trimmedAddress.length < 5) {
+      playErrorSound();
       setCheckoutError('Please provide your full street / campus delivery address.');
       return;
     }
     if (hasOutOfStockInCart) {
+      playErrorSound();
       setCheckoutError('Please remove out-of-stock items before placing your order.');
       return;
     }
@@ -261,6 +374,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
         items: [...items],
         subtotal,
         discount,
+        couponCode: effectiveCoupon ?? undefined,
         deliveryFee,
         total,
         createdAt: new Date().toLocaleString('en-BD', {
@@ -268,14 +382,26 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
           timeStyle: 'short',
         }),
       };
+      playSuccessSound();
       setReceipt(newReceipt);
       setStep('receipt');
       setOrderNotes('');
+      if (effectiveCoupon) {
+        onApplyCoupon(null);
+      }
       onOrderCreated?.(orderNumber);
       onClearCart();
     } catch (err) {
       console.error('Order submission error:', err);
-      setCheckoutError('Could not submit order. Please check your details and try again.');
+      playErrorSound();
+      const errMsg = err instanceof Error ? err.message : String(err);
+      if (effectiveCoupon && errMsg.toLowerCase().includes('permission')) {
+        setCheckoutError(
+          `Promo code ${effectiveCoupon} has already been used by this account or Gmail address (1 use limit). Please remove the promo code or switch accounts.`
+        );
+      } else {
+        setCheckoutError('Could not submit order. Please check your details and try again.');
+      }
     } finally {
       window.clearTimeout(stageTimer1);
       window.clearTimeout(stageTimer2);
@@ -293,6 +419,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   };
 
   const handleCopyOrderId = (id: string) => {
+    playTapSound();
     navigator.clipboard?.writeText(id).catch(() => {});
     setCopiedId(true);
     window.setTimeout(() => setCopiedId(false), 1800);
@@ -320,7 +447,10 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
               {step === 'checkout' && !submitting && (
                 <button
                   type="button"
-                  onClick={() => setStep('cart')}
+                  onClick={() => {
+                    playTapSound();
+                    setStep('cart');
+                  }}
                   aria-label="Back to cart"
                   className="p-1.5 -ml-2 rounded-lg text-[#64748B] hover:text-[#101828] hover:bg-white transition-colors"
                 >
@@ -552,7 +682,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 </div>
                 {receipt.discount > 0 && (
                   <div className="flex justify-between text-emerald-700 font-medium">
-                    <span>Discount (ROBOTERA15)</span>
+                    <span>Discount ({receipt.couponCode || 'Promo'})</span>
                     <span className="font-mono tabular-nums">
                       -৳{receipt.discount.toLocaleString('en-IN')}
                     </span>
@@ -790,10 +920,14 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
               {/* Promo Code Input */}
               <div className="pt-1">
-                {effectiveCoupon ? (
+                {effectivePromo ? (
                   <div className="animate-pop-in flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-lg px-3.5 py-2.5 text-xs">
                     <span className="text-emerald-800 font-medium">
-                      Coupon <strong className="font-mono">{effectiveCoupon}</strong> (-15% 1st order) applied
+                      Promo <strong className="font-mono">{effectivePromo.code}</strong> (
+                      {effectivePromo.discountType === 'percent'
+                        ? `-${effectivePromo.discountValue}%`
+                        : `-৳${effectivePromo.discountValue.toLocaleString('en-IN')}`}
+                      ) applied
                     </span>
                     <button
                       type="button"
@@ -811,18 +945,17 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                       onChange={(e) => setCouponInput(e.target.value)}
                       placeholder={
                         !user
-                          ? 'Sign in for 1st-order code ROBOTERA15'
-                          : hasPlacedOrderBefore
-                          ? 'Promo code (1st-order offer already used)'
-                          : 'Promo code (ROBOTERA15 for 1st order)'
+                          ? 'Sign in with Gmail/account to apply promo'
+                          : 'Enter promo code (1x per account & Gmail)'
                       }
-                      className="flex-1 h-9 px-3 rounded-lg border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-[#0866F5]"
+                      className="flex-1 h-9 px-3 rounded-lg border border-slate-200 text-xs font-mono uppercase placeholder:normal-case placeholder:font-sans focus:outline-none focus:ring-2 focus:ring-[#0866F5]"
                     />
                     <button
                       type="submit"
-                      className="h-9 px-3.5 rounded-lg bg-[#071A3B] text-white text-xs font-semibold hover:bg-[#0866F5] transition-colors"
+                      disabled={checkingCoupon}
+                      className="h-9 px-3.5 rounded-lg bg-[#071A3B] text-white text-xs font-semibold hover:bg-[#0866F5] disabled:opacity-50 transition-colors"
                     >
-                      Apply
+                      {checkingCoupon ? 'Checking...' : 'Apply'}
                     </button>
                   </form>
                 )}
@@ -839,9 +972,15 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                     ৳{subtotal.toLocaleString('en-IN')}
                   </span>
                 </div>
-                {discount > 0 && (
+                {discount > 0 && effectivePromo && (
                   <div className="flex justify-between text-emerald-700 font-medium">
-                    <span>First-Order Discount (15%)</span>
+                    <span>
+                      Promo {effectivePromo.code} (
+                      {effectivePromo.discountType === 'percent'
+                        ? `${effectivePromo.discountValue}%`
+                        : `৳${effectivePromo.discountValue.toLocaleString('en-IN')}`}
+                      )
+                    </span>
                     <span className="font-mono tabular-nums">
                       -৳{discount.toLocaleString('en-IN')}
                     </span>
@@ -869,8 +1008,11 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
               <button
                 type="button"
                 disabled={hasOutOfStockInCart}
-                onClick={() => setStep('checkout')}
-                className="group w-full h-11 rounded-xl bg-[#0866F5] hover:bg-[#0866F5]/90 border border-[#0866F5] hover:border-[#1685FF] text-white transition-colors disabled:bg-slate-300 disabled:border-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed text-sm font-semibold inline-flex items-center justify-center gap-2"
+                onClick={() => {
+                  playTapSound();
+                  setStep('checkout');
+                }}
+                className="cta-sheen active:scale-[0.98] group w-full h-11 rounded-xl bg-[#0866F5] hover:bg-[#0866F5]/90 border border-[#0866F5] hover:border-[#1685FF] text-white transition-all disabled:bg-slate-300 disabled:border-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed text-sm font-semibold inline-flex items-center justify-center gap-2"
               >
                 {!hasOutOfStockInCart && (
                   <span className="w-1.5 h-1.5 rounded-full bg-[#FB923C]" aria-hidden="true" />
@@ -1068,8 +1210,11 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                       <button
                         key={method}
                         type="button"
-                        onClick={() => setPaymentMethod(method)}
-                        className={`px-3 py-2.5 rounded-lg border text-xs font-semibold text-left transition-colors flex items-center justify-between gap-2 ${
+                        onClick={() => {
+                          playTapSound();
+                          setPaymentMethod(method);
+                        }}
+                        className={`active:scale-[0.98] px-3 py-2.5 rounded-lg border text-xs font-semibold text-left transition-all flex items-center justify-between gap-2 ${
                           selected
                             ? 'bg-[#071A3B] border-[#071A3B] text-white'
                             : 'bg-white border-slate-200 text-[#101828] hover:border-[#0866F5]/55'
@@ -1139,7 +1284,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
               <button
                 type="submit"
                 disabled={submitting}
-                className="group w-full h-11 rounded-xl bg-[#0866F5] hover:bg-[#0866F5]/90 border border-[#0866F5] hover:border-[#1685FF] text-white transition-colors disabled:opacity-60 text-sm font-semibold inline-flex items-center justify-center gap-2"
+                className="cta-sheen active:scale-[0.98] group w-full h-11 rounded-xl bg-[#0866F5] hover:bg-[#0866F5]/90 border border-[#0866F5] hover:border-[#1685FF] text-white transition-all disabled:opacity-60 text-sm font-semibold inline-flex items-center justify-center gap-2"
               >
                 <span className="w-1.5 h-1.5 rounded-full bg-[#FB923C]" aria-hidden="true" />
                 <span>

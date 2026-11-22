@@ -30,13 +30,20 @@ import {
   writeBatch,
 } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
-import { CATEGORIES, DEFAULT_BANNERS, DEFAULT_SITE_SETTINGS, PRODUCTS } from '../data/catalog';
+import {
+  CATEGORIES,
+  DEFAULT_BANNERS,
+  DEFAULT_PROMO_CODES,
+  DEFAULT_SITE_SETTINGS,
+  PRODUCTS,
+} from '../data/catalog';
 import {
   BannerItem,
   CategoryItem,
   OrderTrackingInfo,
   PriceAlert,
   Product,
+  PromoCode,
   SiteImagesConfig,
   StoredOrder,
 } from '../types/store';
@@ -312,6 +319,145 @@ export function subscribeUserOrders(
   );
 }
 
+export function normalizePromoCodeString(raw: string): string {
+  return raw.trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 32);
+}
+
+export function canonicalizeEmailForPromo(rawEmail: string): string {
+  const trimmed = rawEmail.trim().toLowerCase();
+  const atIdx = trimmed.indexOf('@');
+  if (atIdx <= 0) return trimmed;
+  let local = trimmed.slice(0, atIdx);
+  let domain = trimmed.slice(atIdx + 1);
+  if (domain === 'googlemail.com') {
+    domain = 'gmail.com';
+  }
+  if (domain === 'gmail.com') {
+    const plusIdx = local.indexOf('+');
+    if (plusIdx !== -1) {
+      local = local.slice(0, plusIdx);
+    }
+    local = local.replace(/\./g, '');
+  }
+  return `${local}@${domain}`;
+}
+
+async function sha256HexLower(input: string): Promise<string> {
+  const data = new TextEncoder().encode(input);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(hashBuffer))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+export async function getEmailRedemptionDocId(code: string, rawEmail: string): Promise<string> {
+  const cleanCode = normalizePromoCodeString(code);
+  const canonical = canonicalizeEmailForPromo(rawEmail);
+  const digest = await sha256HexLower(canonical);
+  return `${cleanCode}__e__${digest}`;
+}
+
+export function subscribePromoCodes(
+  onData: (promos: PromoCode[]) => void,
+  onError?: (err: unknown) => void
+): () => void {
+  const path = 'promo_codes';
+  return onSnapshot(
+    collection(db, path),
+    (snapshot) => {
+      if (snapshot.empty) {
+        onData([]);
+        return;
+      }
+      const list = snapshot.docs.map((d) => d.data() as PromoCode);
+      list.sort((a, b) => Number(b.active) - Number(a.active) || a.code.localeCompare(b.code));
+      onData(list);
+    },
+    (error) => {
+      if (onError) onError(error);
+      else handleFirestoreError(error, OperationType.GET, path);
+    }
+  );
+}
+
+export async function savePromoCode(promo: PromoCode): Promise<void> {
+  const cleanCode = normalizePromoCodeString(promo.code || promo.id);
+  if (cleanCode.length < 3) {
+    throw new Error('Promo code must be at least 3 characters (letters, numbers, - or _).');
+  }
+  const path = `promo_codes/${cleanCode}`;
+  try {
+    const discountType = promo.discountType === 'flat' ? 'flat' : 'percent';
+    const discountValue =
+      discountType === 'percent'
+        ? clampNum(Math.round(Number(promo.discountValue) || 10), 1, 90)
+        : clampNum(Math.round(Number(promo.discountValue) || 100), 1, 500000);
+
+    const payload = stripUndefined({
+      id: cleanCode,
+      code: cleanCode,
+      discountType,
+      discountValue,
+      minOrderAmount:
+        promo.minOrderAmount !== undefined && Number(promo.minOrderAmount) > 0
+          ? clampNum(Math.round(Number(promo.minOrderAmount)), 0, 5000000)
+          : undefined,
+      maxDiscountAmount:
+        discountType === 'percent' &&
+        promo.maxDiscountAmount !== undefined &&
+        Number(promo.maxDiscountAmount) > 0
+          ? clampNum(Math.round(Number(promo.maxDiscountAmount)), 1, 5000000)
+          : undefined,
+      firstOrderOnly: Boolean(promo.firstOrderOnly),
+      description:
+        truncateStr(promo.description, 160) ||
+        (discountType === 'percent'
+          ? `${discountValue}% off hardware order (1 use per account & Gmail)`
+          : `৳${discountValue} off hardware order (1 use per account & Gmail)`),
+      active: promo.active ?? true,
+      updatedAt: serverTimestamp(),
+    });
+    await setDoc(doc(db, 'promo_codes', cleanCode), payload);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
+  }
+}
+
+export async function removePromoCode(code: string): Promise<void> {
+  const cleanCode = normalizePromoCodeString(code);
+  const path = `promo_codes/${cleanCode}`;
+  try {
+    await deleteDoc(doc(db, 'promo_codes', cleanCode));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
+  }
+}
+
+export async function checkUserPromoRedemption(
+  code: string,
+  userId: string,
+  userEmail?: string | null
+): Promise<boolean> {
+  const cleanCode = normalizePromoCodeString(code);
+  if (!cleanCode || !userId) return false;
+
+  try {
+    const uidSnap = await getDoc(doc(db, 'promo_redemptions', `${cleanCode}__u__${userId}`));
+    if (uidSnap.exists()) return true;
+
+    if (userEmail && userEmail.includes('@')) {
+      const emailDocId = await getEmailRedemptionDocId(cleanCode, userEmail);
+      const emailSnap = await getDoc(doc(db, 'promo_redemptions', emailDocId));
+      if (emailSnap.exists()) return true;
+    }
+
+    return false;
+  } catch (error) {
+    console.warn('Promo redemption pre-check warning:', error);
+    return false;
+  }
+}
+
 export async function seedCatalogIfEmpty(): Promise<{
   productsSeeded: number;
   bannersSeeded: number;
@@ -364,6 +510,19 @@ export async function seedCatalogIfEmpty(): Promise<{
       }
       await batch.commit();
       bannersSeeded = DEFAULT_BANNERS.length;
+    }
+
+    const promoSnap = await getDocs(collection(db, 'promo_codes'));
+    if (promoSnap.empty) {
+      const batch = writeBatch(db);
+      for (const promo of DEFAULT_PROMO_CODES) {
+        const payload = stripUndefined({
+          ...promo,
+          updatedAt: serverTimestamp(),
+        });
+        batch.set(doc(db, 'promo_codes', promo.id), payload);
+      }
+      await batch.commit();
     }
 
     const siteSnap = await getDoc(doc(db, 'site_settings', 'branding'));
@@ -429,6 +588,13 @@ export async function saveSiteSettings(settings: SiteImagesConfig): Promise<void
         })
       : undefined;
 
+    const cleanedTickerItems = Array.isArray(settings.newsTickerItems)
+      ? settings.newsTickerItems
+          .map((item) => (typeof item === 'string' ? item.trim().slice(0, 260) : ''))
+          .filter(Boolean)
+          .slice(0, 15)
+      : undefined;
+
     const payload = stripUndefined({
       id: 'branding',
       heroImageUrl: (settings.heroImageUrl || DEFAULT_SITE_SETTINGS.heroImageUrl).slice(0, 300000),
@@ -437,6 +603,9 @@ export async function saveSiteSettings(settings: SiteImagesConfig): Promise<void
       heroSubtitle: truncateStr(settings.heroSubtitle, 320),
       heroTagline: truncateStr(settings.heroTagline, 120),
       heroDispatchText: truncateStr(settings.heroDispatchText, 120),
+      newsTickerEnabled:
+        typeof settings.newsTickerEnabled === 'boolean' ? settings.newsTickerEnabled : true,
+      newsTickerItems: cleanedTickerItems,
       promoLeftImageUrl: settings.promoLeftImageUrl?.trim().slice(0, 300000) || undefined,
       promoTopRightImageUrl: settings.promoTopRightImageUrl?.trim().slice(0, 300000) || undefined,
       promoBottomRightImageUrl: settings.promoBottomRightImageUrl?.trim().slice(0, 300000) || undefined,
@@ -567,6 +736,10 @@ export async function createOrderInFirestore(
     if (!currentUid) {
       throw new Error('Authentication required to place an order.');
     }
+    const normalizedCoupon = order.couponCode
+      ? normalizePromoCodeString(order.couponCode)
+      : '';
+
     const orderPayload = stripUndefined({
       orderId: safeOrderId,
       userId: truncateStr(currentUid, 128),
@@ -581,7 +754,7 @@ export async function createOrderInFirestore(
       discount: clampNum(order.discount, 0, 50000000),
       deliveryFee: clampNum(order.deliveryFee, 0, 50000),
       total: safeTotal,
-      couponCode: truncateStr(order.couponCode, 40) || undefined,
+      couponCode: normalizedCoupon || undefined,
       notes: safeNotes || undefined,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
@@ -600,6 +773,43 @@ export async function createOrderInFirestore(
 
     batch.set(doc(db, 'orders', safeOrderId), orderPayload);
     batch.set(doc(db, 'order_tracking', safeOrderId), trackingPayload);
+
+    if (normalizedCoupon.length >= 3) {
+      const uidRedemptionId = `${normalizedCoupon}__u__${currentUid}`;
+      const rawEmailLower = auth.currentUser?.email?.trim().toLowerCase() || undefined;
+      const canonicalEmail = rawEmailLower
+        ? canonicalizeEmailForPromo(rawEmailLower)
+        : undefined;
+
+      batch.set(
+        doc(db, 'promo_redemptions', uidRedemptionId),
+        stripUndefined({
+          id: uidRedemptionId,
+          code: normalizedCoupon,
+          redemptionType: 'uid',
+          userId: truncateStr(currentUid, 128),
+          emailLower: rawEmailLower ? truncateStr(rawEmailLower, 120) : undefined,
+          canonicalEmail: canonicalEmail ? truncateStr(canonicalEmail, 120) : undefined,
+          orderId: safeOrderId,
+          createdAt: serverTimestamp(),
+        })
+      );
+
+      if (rawEmailLower && canonicalEmail) {
+        const emailRedemptionId = await getEmailRedemptionDocId(normalizedCoupon, rawEmailLower);
+        batch.set(doc(db, 'promo_redemptions', emailRedemptionId), {
+          id: emailRedemptionId,
+          code: normalizedCoupon,
+          redemptionType: 'email',
+          userId: truncateStr(currentUid, 128),
+          emailLower: truncateStr(rawEmailLower, 120),
+          canonicalEmail: truncateStr(canonicalEmail, 120),
+          orderId: safeOrderId,
+          createdAt: serverTimestamp(),
+        });
+      }
+    }
+
     await batch.commit();
   } catch (error) {
     handleFirestoreError(error, OperationType.CREATE, path);

@@ -1,17 +1,16 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowRight,
+  ArrowUpRight,
   Award,
-  Bot,
-  Check,
   Cpu,
   Headphones,
-  Radar,
   ShieldCheck,
   Truck,
 } from 'lucide-react';
 import { BRAND_STUDIO_MEDIA } from '../data/brandMedia';
 import { DEFAULT_SITE_SETTINGS } from '../data/catalog';
+import { playTapSound } from '../lib/sound';
 import { Product, SiteImagesConfig } from '../types/store';
 
 interface HeroSectionProps {
@@ -24,17 +23,23 @@ interface HeroSectionProps {
 
 const LEGACY_KICKERS = new Set([
   'Dhaka Robotics & Embedded Supply',
+  'DHAKA ROBOTICS & EMBEDDED SUPPLY',
   'ENGINEERING THE FUTURE',
+  'ROBOTERA BD — ENGINEERING THE FUTURE',
 ]);
 
 const LEGACY_TITLES = new Set([
   'Precision Robotics & Electronics Built for Makers',
+  'Precision Robotics & Embedded Silicon.',
   'Build Beyond Imagination.',
+  'BUILD. CREATE. INNOVATE.',
 ]);
 
 const LEGACY_SUBTITLES = new Set([
   'Source bench-tested microcontrollers, SLAM LiDAR scanners, high-torque actuators, and industrial IoT modules with fast nationwide courier across Bangladesh.',
+  'Bench-tested ESP32-S3 boards, Raspberry Pi 5 compute, 360° SLAM LiDAR scanners, and metal-gear actuation stocked locally in Dhaka.',
   'Discover premium robotics components, advanced microcontrollers, precision sensors, and engineering tools to turn your ideas into reality.',
+  'Your ideas deserve the right technology. Explore premium microcontrollers, robotics components, advanced sensors and engineering tools — all in one place.',
 ]);
 
 const LEGACY_IMAGE_URLS = new Set([
@@ -44,16 +49,18 @@ const LEGACY_IMAGE_URLS = new Set([
 
 export const HeroSection: React.FC<HeroSectionProps> = ({
   siteSettings = DEFAULT_SITE_SETTINGS,
+  products = [],
   onShopNow,
   onExploreKits,
+  onSelectProduct,
 }) => {
   const rawHeroUrl = siteSettings.heroImageUrl?.trim() || '';
   const hasCustomAdminHero = Boolean(rawHeroUrl) && !LEGACY_IMAGE_URLS.has(rawHeroUrl);
-  const resolvedHeroSrc = hasCustomAdminHero ? rawHeroUrl : BRAND_STUDIO_MEDIA.heroShowcase;
+  const resolvedHeroSrc = hasCustomAdminHero ? rawHeroUrl : BRAND_STUDIO_MEDIA.darkRoboticsStage;
 
   const [heroSrc, setHeroSrc] = useState(resolvedHeroSrc);
   const [parallax, setParallax] = useState({ x: 0, y: 0 });
-  const showcaseRef = useRef<HTMLDivElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setHeroSrc(resolvedHeroSrc);
@@ -77,326 +84,212 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
       ? DEFAULT_SITE_SETTINGS.heroSubtitle
       : rawSubtitle;
 
-  const isDefaultStackedHeadline = displayTitle === DEFAULT_SITE_SETTINGS.heroTitle;
+  const isDefaultHeadline = displayTitle === DEFAULT_SITE_SETTINGS.heroTitle;
 
-  const handlePointerMove = (e: React.MouseEvent<HTMLDivElement>) => {
+  const handleStagePointerMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (
       typeof window !== 'undefined' &&
       window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
     ) {
       return;
     }
-    const el = showcaseRef.current;
+    const el = stageRef.current;
     if (!el) return;
     const rect = el.getBoundingClientRect();
     const nx = (e.clientX - rect.left) / rect.width - 0.5;
     const ny = (e.clientY - rect.top) / rect.height - 0.5;
     setParallax({
-      x: Number((nx * 10).toFixed(2)),
-      y: Number((ny * 8).toFixed(2)),
+      x: Number((nx * -6).toFixed(2)),
+      y: Number((ny * -4).toFixed(2)),
     });
   };
 
-  const handlePointerLeave = () => {
+  const handleStagePointerLeave = () => {
     setParallax({ x: 0, y: 0 });
   };
 
-  const floatingDetails = [
-    {
-      title: 'ESP32 DEVELOPMENT',
-      subtitle: 'Robotics & IoT',
-      icon: Cpu,
-      iconBg: 'bg-[#087BFF]/10 text-[#087BFF]',
-      positionClass: 'sm:top-5 sm:-left-4 lg:-left-6',
-      floatClass: 'animate-float-card-1',
-      action: onShopNow,
-    },
-    {
-      title: 'PRECISION SENSORS',
-      subtitle: 'Explore Components',
-      icon: Radar,
-      iconBg: 'bg-[#00CFFF]/15 text-[#0284C7]',
-      positionClass: 'sm:bottom-5 sm:left-4 lg:left-6',
-      floatClass: 'animate-float-card-2',
-      action: onShopNow,
-    },
-    {
-      title: 'DESK ROBOTS',
-      subtitle: 'Coming Soon',
-      icon: Bot,
-      iconBg: 'bg-[#071A3D]/8 text-[#071A3D]',
-      positionClass: 'sm:top-6 sm:-right-3 lg:-right-5',
-      floatClass: 'animate-float-card-3',
-      action: onExploreKits,
-    },
-  ];
+  // Real featured catalog items for minimal inline hardware shortcuts
+  const featuredLinks = useMemo(() => {
+    const pick = (id: string, fallbackCat?: string) =>
+      products.find((p) => p.id === id) ||
+      (fallbackCat ? products.find((p) => p.category === fallbackCat) : undefined);
+
+    const candidates = [
+      pick('esp32-s3-devkit', 'microcontrollers'),
+      pick('rplidar-a1m8', 'sensors'),
+      pick('raspberry-pi-5-8gb', 'microcontrollers'),
+      pick('6dof-robot-arm-kit', 'robotics-kits'),
+    ].filter((item): item is Product => Boolean(item));
+
+    const unique: Product[] = [];
+    const seen = new Set<string>();
+    for (const item of candidates) {
+      if (!seen.has(item.id)) {
+        unique.push(item);
+        seen.add(item.id);
+      }
+      if (unique.length === 3) break;
+    }
+    return unique;
+  }, [products]);
+
+  const openProductOrCatalog = (product?: Product) => {
+    if (product && onSelectProduct) {
+      onSelectProduct(product);
+    } else {
+      onShopNow();
+    }
+  };
 
   return (
     <>
       <section
         id="top"
-        className="relative z-20 overflow-x-clip bg-[#F5F8FC] min-[1500px]:bg-transparent min-[1500px]:pointer-events-none"
+        className="bg-[#050B18] min-[1500px]:bg-transparent min-[1500px]:pointer-events-none"
       >
-        <div className="relative pointer-events-auto w-full max-w-[1440px] mx-auto overflow-hidden bg-gradient-to-br from-white via-[#F5F8FC] to-[#ECF3FC] min-[1500px]:border-x min-[1500px]:border-slate-300/90">
-          {/* Subtle Technical Grid */}
+        <div className="relative z-20 pointer-events-auto w-full max-w-[1440px] mx-auto overflow-hidden bg-[#050B18] text-[#F5F8FF] min-[1500px]:border-x min-[1500px]:border-slate-300/70">
+          {/* Ultra-Subtle Architectural Grid */}
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute inset-0 bg-lab-grid opacity-75"
+            className="pointer-events-none absolute inset-0 opacity-60"
+            style={{
+              backgroundImage:
+                'linear-gradient(to right, rgba(100, 150, 255, 0.038) 1px, transparent 1px), linear-gradient(to bottom, rgba(100, 150, 255, 0.038) 1px, transparent 1px)',
+              backgroundSize: '56px 56px',
+            }}
           />
 
-          {/* Subtle Blueprint Circuit Traces SVG */}
-          <svg
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-0 w-full h-full opacity-[0.26]"
-            viewBox="0 0 1440 720"
-            preserveAspectRatio="xMidYMid slice"
-            fill="none"
-          >
-            {/* Top-left subtle schematic traces */}
-            <path
-              d="M0 96H132L176 140H310"
-              stroke="#087BFF"
-              strokeOpacity="0.22"
-              strokeWidth="1"
-            />
-            <circle cx="310" cy="140" r="3" fill="#087BFF" fillOpacity="0.3" />
-            <path
-              d="M0 112H118L162 156H248"
-              stroke="#071A3D"
-              strokeOpacity="0.14"
-              strokeWidth="1"
-            />
-            <circle cx="248" cy="156" r="2.5" stroke="#071A3D" strokeOpacity="0.24" strokeWidth="1" />
-
-            {/* Right-side schematic bus routing framing studio stage */}
-            <path
-              d="M1440 160H1280L1230 210H1080"
-              stroke="#087BFF"
-              strokeOpacity="0.2"
-              strokeWidth="1"
-            />
-            <circle cx="1080" cy="210" r="3" fill="#00CFFF" fillOpacity="0.45" />
-            <path
-              d="M1440 540H1250L1196 486H1040"
-              stroke="#071A3D"
-              strokeOpacity="0.14"
-              strokeWidth="1"
-            />
-            <circle cx="1040" cy="486" r="3" stroke="#087BFF" strokeOpacity="0.28" strokeWidth="1" />
-
-            {/* Lower-left blueprint datum hairline */}
-            <path
-              d="M72 640H240L272 608H390"
-              stroke="#087BFF"
-              strokeOpacity="0.16"
-              strokeWidth="1"
-            />
-            <path d="M58 640H68M63 635V645" stroke="#071A3D" strokeOpacity="0.25" strokeWidth="1" />
-          </svg>
-
-          {/* Soft Studio Radial Lighting Accents */}
+          {/* Quiet Breathing Key-Light Radial Behind the Hardware Showcase */}
           <div
             aria-hidden="true"
-            className="animate-ambient-pulse pointer-events-none absolute -top-24 right-8 w-[520px] h-[520px] rounded-full bg-[radial-gradient(circle,rgba(8,123,255,0.12)_0%,rgba(0,207,255,0.08)_42%,transparent_72%)]"
-          />
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute -bottom-24 left-12 w-[420px] h-[420px] rounded-full bg-[radial-gradient(circle,rgba(8,123,255,0.06)_0%,transparent_70%)]"
+            className="animate-keylight pointer-events-none absolute top-1/2 right-[8%] w-[780px] h-[540px] rounded-full bg-[radial-gradient(ellipse_at_center,rgba(22,119,255,0.18)_0%,rgba(0,200,255,0.05)_44%,transparent_72%)]"
           />
 
-          <div className="relative z-10 px-4 sm:px-6 lg:px-10 py-10 sm:py-14 lg:py-16">
+          {/* Subtle Signal Light Beam Across Top Rail */}
+          <div
+            aria-hidden="true"
+            className="animate-signal-sweep pointer-events-none absolute top-0 left-0 h-[1.5px] w-48 bg-gradient-to-r from-transparent via-[#00C8FF]/80 to-transparent"
+          />
+
+          <div className="relative z-10 px-5 sm:px-8 lg:px-12 py-12 sm:py-16 lg:py-20">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-center">
-              {/* LEFT SIDE: Executive Hardware Copy & Actions */}
-              <div className="lg:col-span-6 flex flex-col justify-center">
-                {/* Small Eyebrow */}
-                <div className="animate-hero-rise inline-flex items-center gap-2.5 mb-4">
-                  <span className="h-[2px] w-7 bg-[#087BFF]" aria-hidden="true" />
-                  <p className="font-mono text-[11px] sm:text-xs font-semibold tracking-[0.16em] uppercase text-[#087BFF]">
-                    {displayKicker}
-                  </p>
-                </div>
+              {/* LEFT COLUMN: Clean Minimal Editorial Copy & Focused Actions */}
+              <div className="lg:col-span-5 text-center lg:text-left">
+                <p className="animate-hero-rise font-mono text-[11px] font-medium tracking-[0.22em] uppercase text-[#00C8FF] mb-4">
+                  {displayKicker}
+                </p>
 
-                {/* Main Headline */}
-                {isDefaultStackedHeadline ? (
-                  <h1 className="animate-hero-rise-delay-1 font-hero font-extrabold text-[44px] sm:text-[58px] lg:text-[66px] xl:text-[74px] leading-[0.98] tracking-[-0.035em] text-[#071A3D]">
-                    <span className="block">BUILD.</span>
-                    <span className="block mt-1">CREATE.</span>
-                    <span className="block mt-1 bg-gradient-to-r from-[#087BFF] via-[#087BFF] to-[#00A8E8] bg-clip-text text-transparent">
-                      INNOVATE.
-                    </span>
+                {isDefaultHeadline ? (
+                  <h1 className="animate-hero-rise-delay-1 font-hero font-extrabold text-[38px] sm:text-[50px] lg:text-[56px] xl:text-[62px] leading-[1.04] tracking-[-0.035em] text-[#F5F8FF] [text-wrap:balance]">
+                    Precision Robotics.
+                    <span className="block text-[#1677FF] mt-1">Built for Innovation.</span>
                   </h1>
                 ) : (
-                  <h1 className="animate-hero-rise-delay-1 font-hero font-extrabold text-[38px] sm:text-[52px] lg:text-[60px] leading-[1.04] tracking-[-0.03em] text-[#071A3D] [text-wrap:balance] max-w-xl">
+                  <h1 className="animate-hero-rise-delay-1 font-hero font-extrabold text-[36px] sm:text-[48px] lg:text-[54px] leading-[1.05] tracking-[-0.035em] text-[#F5F8FF] [text-wrap:balance]">
                     {displayTitle}
                   </h1>
                 )}
 
-                {/* Description */}
-                <p className="animate-hero-rise-delay-2 mt-5 sm:mt-6 text-[15px] sm:text-[17px] text-[#334155] max-w-[530px] leading-[1.65] font-normal">
+                <p className="animate-hero-rise-delay-2 mt-5 text-[15px] sm:text-[16px] text-[#A8B6CC] max-w-xl mx-auto lg:mx-0 leading-[1.68]">
                   {displaySubtitle}
                 </p>
 
-                {/* Primary & Secondary CTAs */}
-                <div className="animate-hero-rise-delay-2 mt-7 sm:mt-8 flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-3.5">
+                {/* Two Clean, Uncluttered Conversion Buttons */}
+                <div className="animate-hero-rise-delay-2 mt-7 sm:mt-8 flex flex-col sm:flex-row items-stretch sm:items-center justify-center lg:justify-start gap-3">
                   <button
                     type="button"
-                    onClick={onShopNow}
-                    className="group inline-flex items-center justify-center gap-2.5 px-6 sm:px-7 py-3.5 sm:py-4 rounded-xl bg-[#087BFF] hover:bg-[#0668DC] text-white text-[12px] sm:text-[13px] font-bold tracking-[0.06em] uppercase shadow-[0_14px_30px_-10px_rgba(8,123,255,0.52)] hover:shadow-[0_18px_36px_-10px_rgba(8,123,255,0.62)] hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F5F8FC]"
+                    onClick={() => {
+                      playTapSound();
+                      onShopNow();
+                    }}
+                    className="cta-sheen group inline-flex items-center justify-center gap-2.5 px-6 h-12 rounded-xl bg-[#1677FF] hover:bg-[#2684FF] text-white text-[13.5px] font-semibold tracking-tight shadow-[0_12px_30px_-10px_rgba(22,119,255,0.65)] hover:shadow-[0_16px_36px_-8px_rgba(22,119,255,0.78)] hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] transition-all duration-200 whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00C8FF] focus-visible:ring-offset-2 focus-visible:ring-offset-[#050B18]"
                   >
-                    <span>Explore Hardware</span>
+                    <span>Explore Hardware Catalog</span>
                     <ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" />
                   </button>
 
                   <button
                     type="button"
-                    onClick={onExploreKits}
-                    className="group inline-flex items-center justify-center gap-2.5 px-6 sm:px-7 py-3.5 sm:py-4 rounded-xl bg-white hover:bg-[#F8FAFC] text-[#071A3D] border border-[#071A3D]/18 hover:border-[#087BFF]/55 text-[12px] sm:text-[13px] font-bold tracking-[0.06em] uppercase shadow-[0_6px_18px_-8px_rgba(7,26,61,0.12)] hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F5F8FC]"
+                    onClick={() => {
+                      playTapSound();
+                      onExploreKits();
+                    }}
+                    className="group inline-flex items-center justify-center gap-2 px-6 h-12 rounded-xl bg-transparent hover:bg-[#101D33] text-[#F5F8FF] border border-[rgba(100,150,255,0.28)] hover:border-[#1677FF]/70 active:scale-[0.98] text-[13.5px] font-semibold tracking-tight transition-all duration-200 whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00C8FF] focus-visible:ring-offset-2 focus-visible:ring-offset-[#050B18]"
                   >
-                    <span>Discover Robotics</span>
-                    <ArrowRight className="w-4 h-4 text-[#087BFF] transition-transform duration-200 group-hover:translate-x-1" />
+                    <span>Discover Robotics Kits</span>
+                    <ArrowRight className="w-4 h-4 text-[#A8B6CC] group-hover:text-[#00C8FF] transition-all duration-200 group-hover:translate-x-0.5" />
                   </button>
                 </div>
 
-                {/* Minimal Trust Indicators (No Numerical Stats) */}
-                <div className="animate-hero-rise-delay-3 mt-8 pt-6 border-t border-slate-200/90 flex flex-wrap items-center gap-x-6 gap-y-2.5">
-                  {[
-                    'Authentic Components',
-                    'Nationwide Delivery',
-                    'Engineering Support',
-                  ].map((label) => (
-                    <span
-                      key={label}
-                      className="inline-flex items-center gap-2 text-[13px] font-medium text-[#1E293B]"
-                    >
-                      <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-[#087BFF]/12 text-[#087BFF]">
-                        <Check className="w-2.5 h-2.5" strokeWidth={3} />
-                      </span>
-                      <span>{label}</span>
-                    </span>
-                  ))}
-                </div>
+                {/* Quiet Inline Hardware Index (Zero Cards, Zero Pills — Pure Links & Real DB Prices) */}
+                {featuredLinks.length > 0 && (
+                  <div className="animate-hero-rise-delay-3 mt-8 pt-6 border-t border-[rgba(100,150,255,0.14)] flex flex-wrap items-center justify-center lg:justify-start gap-x-6 gap-y-2.5">
+                    {featuredLinks.map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => {
+                          playTapSound();
+                          openProductOrCatalog(item);
+                        }}
+                        className="group/link inline-flex items-center gap-1.5 text-left active:scale-[0.98] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00C8FF] rounded"
+                      >
+                        <span className="text-[12.5px] font-medium text-[#A8B6CC] group-hover/link:text-[#F5F8FF] transition-colors">
+                          {item.name}
+                        </span>
+                        <span className="font-mono text-[12px] font-semibold text-[#00C8FF] tabular-nums">
+                          ৳{item.price.toLocaleString()}
+                        </span>
+                        <ArrowUpRight className="w-3.5 h-3.5 text-[#A8B6CC]/70 group-hover/link:text-[#00C8FF] group-hover/link:translate-x-0.5 group-hover/link:-translate-y-0.5 transition-all" />
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
-              {/* RIGHT SIDE: Commercial Studio Hardware Showcase */}
-              <div className="lg:col-span-6 animate-hero-rise-delay-2 sm:px-3 lg:px-4">
+              {/* RIGHT COLUMN: Single Seamless Dark Studio Hardware Focal Stage */}
+              <div className="lg:col-span-7">
                 <div
-                  ref={showcaseRef}
-                  onMouseMove={handlePointerMove}
-                  onMouseLeave={handlePointerLeave}
-                  className="relative group"
+                  ref={stageRef}
+                  onMouseMove={handleStagePointerMove}
+                  onMouseLeave={handleStagePointerLeave}
+                  className="animate-hero-image-reveal group/stage relative aspect-[16/10] w-full rounded-2xl overflow-hidden bg-[#050B18] border border-[rgba(100,150,255,0.16)] shadow-[0_36px_80px_-28px_rgba(0,0,0,0.95)]"
                 >
-                  {/* Soft ambient rim backlight behind studio slab */}
-                  <div
-                    aria-hidden="true"
-                    className="pointer-events-none absolute -inset-3 rounded-[34px] bg-gradient-to-tr from-[#087BFF]/10 via-white/40 to-[#00CFFF]/14 blur-xl opacity-80 group-hover:opacity-100 transition-opacity duration-500"
+                  <img
+                    src={heroSrc}
+                    alt="Robotera BD dark robotics bench showcasing 6-DOF CNC robotic arm, 360 degree LiDAR scanner, Raspberry Pi, and ESP32 controller"
+                    referrerPolicy="no-referrer"
+                    style={{
+                      transform: `translate3d(${parallax.x}px, ${parallax.y}px, 0) scale(1.03)`,
+                      transition: 'transform 280ms cubic-bezier(0.16, 1, 0.3, 1)',
+                    }}
+                    onError={() => {
+                      if (heroSrc !== BRAND_STUDIO_MEDIA.roboticsArm) {
+                        setHeroSrc(BRAND_STUDIO_MEDIA.roboticsArm);
+                      }
+                    }}
+                    className="w-full h-full object-cover object-center block"
                   />
 
-                  {/* Studio Hardware Frame */}
+                  {/* Subtle Interactive Rim Highlight Following Parallax */}
                   <div
+                    aria-hidden="true"
                     style={{
-                      transform: `translate3d(${parallax.x}px, ${parallax.y}px, 0)`,
-                      transition: 'transform 220ms cubic-bezier(0.16, 1, 0.3, 1)',
+                      transform: `translate3d(${parallax.x * -1.8}px, ${parallax.y * -1.8}px, 0)`,
+                      transition: 'transform 320ms cubic-bezier(0.16, 1, 0.3, 1)',
                     }}
-                    className="relative rounded-[26px] bg-white p-2 sm:p-2.5 border border-slate-200/90 shadow-[0_28px_64px_-22px_rgba(7,26,61,0.18),0_10px_24px_-10px_rgba(8,123,255,0.10)]"
-                  >
-                    <div className="relative aspect-[4/3] w-full overflow-hidden rounded-[18px] bg-[#F5F8FC]">
-                      <img
-                        src={heroSrc}
-                        alt="Robotera BD hardware collection featuring ESP32 boards, Arduino microcontrollers, 360 LiDAR scanner, sensor modules, and desktop companion robot"
-                        referrerPolicy="no-referrer"
-                        onError={() => {
-                          if (heroSrc !== BRAND_STUDIO_MEDIA.heroShowcase) {
-                            setHeroSrc(BRAND_STUDIO_MEDIA.heroShowcase);
-                          }
-                        }}
-                        className="animate-hero-image-reveal w-full h-full object-cover object-center block transition-transform duration-700 ease-out group-hover:scale-[1.025]"
-                      />
+                    className="pointer-events-none absolute -inset-10 opacity-0 group-hover/stage:opacity-100 transition-opacity duration-500 bg-[radial-gradient(circle_at_55%_42%,rgba(0,200,255,0.12)_0%,transparent_55%)]"
+                  />
 
-                      {/* Subtle studio vignette polish along bottom corners */}
-                      <div
-                        aria-hidden="true"
-                        className="pointer-events-none absolute inset-0 rounded-[18px] ring-1 ring-inset ring-black/[0.04]"
-                      />
-
-                      {/* Minimal Precision Corner Brackets */}
-                      <span
-                        aria-hidden="true"
-                        className="pointer-events-none absolute top-3 left-3 w-3.5 h-3.5 border-t border-l border-[#087BFF]/35 rounded-tl-[4px]"
-                      />
-                      <span
-                        aria-hidden="true"
-                        className="pointer-events-none absolute top-3 right-3 w-3.5 h-3.5 border-t border-r border-[#087BFF]/35 rounded-tr-[4px]"
-                      />
-                      <span
-                        aria-hidden="true"
-                        className="pointer-events-none absolute bottom-3 left-3 w-3.5 h-3.5 border-b border-l border-[#087BFF]/35 rounded-bl-[4px]"
-                      />
-                      <span
-                        aria-hidden="true"
-                        className="pointer-events-none absolute bottom-3 right-3 w-3.5 h-3.5 border-b border-r border-[#087BFF]/35 rounded-br-[4px]"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Desktop & Tablet Floating Glassmorphic Product Detail Cards */}
-                  {floatingDetails.map((card) => {
-                    const Icon = card.icon;
-                    return (
-                      <button
-                        key={card.title}
-                        type="button"
-                        onClick={card.action}
-                        style={{
-                          transform: `translate3d(${Number((parallax.x * -0.45).toFixed(2))}px, ${Number((parallax.y * -0.45).toFixed(2))}px, 0)`,
-                          transition: 'transform 260ms cubic-bezier(0.16, 1, 0.3, 1)',
-                        }}
-                        className={`hidden sm:flex ${card.positionClass} ${card.floatClass} absolute z-20 items-center gap-2.5 px-3.5 py-2.5 rounded-2xl bg-white/90 backdrop-blur-md border border-slate-200/85 shadow-[0_14px_30px_-10px_rgba(7,26,61,0.16),0_4px_10px_-4px_rgba(8,123,255,0.08)] hover:border-[#087BFF]/45 hover:bg-white text-left transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF]`}
-                      >
-                        <span
-                          className={`inline-flex items-center justify-center w-8 h-8 rounded-xl shrink-0 ${card.iconBg}`}
-                        >
-                          <Icon className="w-4 h-4" strokeWidth={2} />
-                        </span>
-                        <div className="min-w-0 pr-0.5">
-                          <p className="font-mono text-[10px] font-bold tracking-[0.08em] uppercase text-[#071A3D] leading-tight whitespace-nowrap">
-                            {card.title}
-                          </p>
-                          <p className="text-[11px] font-medium text-[#475569] leading-tight mt-0.5 whitespace-nowrap">
-                            {card.subtitle}
-                          </p>
-                        </div>
-                      </button>
-                    );
-                  })}
-
-                  {/* Mobile Clean Glassmorphic Detail Strip (Zero Overlap with Photo) */}
-                  <div className="grid grid-cols-1 min-[460px]:grid-cols-3 sm:hidden gap-2.5 mt-3">
-                    {floatingDetails.map((card) => {
-                      const Icon = card.icon;
-                      return (
-                        <button
-                          key={card.title}
-                          type="button"
-                          onClick={card.action}
-                          className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-white/90 backdrop-blur-sm border border-slate-200/85 shadow-[0_8px_18px_-8px_rgba(7,26,61,0.12)] text-left"
-                        >
-                          <span
-                            className={`inline-flex items-center justify-center w-7 h-7 rounded-lg shrink-0 ${card.iconBg}`}
-                          >
-                            <Icon className="w-3.5 h-3.5" strokeWidth={2} />
-                          </span>
-                          <div className="min-w-0">
-                            <p className="font-mono text-[10px] font-bold tracking-[0.06em] uppercase text-[#071A3D] truncate">
-                              {card.title}
-                            </p>
-                            <p className="text-[11px] font-medium text-[#475569] truncate">
-                              {card.subtitle}
-                            </p>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
+                  {/* Soft All-Around Studio Vignette Blending Edges Smoothly Into #050B18 */}
+                  <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_52%,rgba(5,11,24,0.68)_100%)]"
+                  />
+                  <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-[#050B18]/85 via-[#050B18]/25 to-transparent"
+                  />
                 </div>
               </div>
             </div>
@@ -404,43 +297,38 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
         </div>
       </section>
 
-      {/* Crisp High-Contrast Trust & Service Strip */}
+      {/* Clean Minimal Dark Navy Trust Strip Framed to Match Lower Section Rails */}
       <section
-        aria-label="Service highlights"
-        className="bg-white min-[1500px]:bg-transparent min-[1500px]:pointer-events-none border-y border-slate-200/90 min-[1500px]:border-y-0"
+        aria-label="Trust and store policies"
+        className="bg-[#0A1428] min-[1500px]:bg-transparent min-[1500px]:pointer-events-none border-y border-[rgba(100,150,255,0.14)] min-[1500px]:border-y-0"
       >
-        <div className="relative z-20 pointer-events-auto w-full max-w-[1440px] mx-auto bg-white min-[1500px]:border-x min-[1500px]:border-t min-[1500px]:border-b min-[1500px]:border-slate-300/90 px-4 sm:px-6 lg:px-10 py-3.5 sm:py-4">
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-0 sm:divide-x divide-slate-200">
+        <div className="relative z-20 pointer-events-auto w-full max-w-[1440px] mx-auto bg-[#0A1428] text-[#F5F8FF] min-[1500px]:border-x min-[1500px]:border-x-slate-300/70 min-[1500px]:border-y min-[1500px]:border-y-[rgba(100,150,255,0.18)] px-5 sm:px-8 lg:px-12 py-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-0 sm:divide-x divide-[rgba(100,150,255,0.14)]">
             {[
               {
                 icon: Cpu,
-                title: 'Authentic Components',
-                desc: 'Original silicon & ESD-safe packing',
-                iconColor: 'text-[#087BFF]',
+                title: 'Original Silicon',
+                desc: 'ESD-safe lab tested stock',
               },
               {
                 icon: Truck,
                 title: 'Nationwide Delivery',
-                desc: 'Dhaka 2–3d (৳80) · Outside 2–4d (৳150)',
-                iconColor: 'text-[#0F766E]',
+                desc: 'Dhaka ৳80 · Outside ৳150',
               },
               {
                 icon: ShieldCheck,
-                title: 'Secure Payments',
+                title: 'Secure Checkout',
                 desc: 'bKash, Nagad, Cards & COD',
-                iconColor: 'text-[#0F766E]',
               },
               {
                 icon: Headphones,
-                title: 'Engineering Support',
-                desc: 'Pinout & integration guidance',
-                iconColor: 'text-[#087BFF]',
+                title: 'Technical Support',
+                desc: 'Pinout & setup guidance',
               },
               {
                 icon: Award,
-                title: 'Quality Assurance',
-                desc: 'Bench-tested & 7-day replacement',
-                iconColor: 'text-[#C2410C]',
+                title: '7-Day Warranty',
+                desc: 'Verified defect replacement',
                 spanFullMobile: true,
               },
             ].map((item, idx) => {
@@ -448,19 +336,16 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               return (
                 <div
                   key={item.title}
-                  className={`group flex items-center gap-2.5 py-1 ${
-                    idx === 0 ? 'sm:pr-4' : 'sm:px-4'
+                  className={`flex items-center gap-3 py-0.5 ${
+                    idx === 0 ? 'sm:pr-5' : 'sm:px-5'
                   } ${item.spanFullMobile ? 'col-span-2 sm:col-span-1' : ''}`}
                 >
-                  <Icon
-                    className={`w-4 h-4 shrink-0 ${item.iconColor} transition-transform duration-200 group-hover:scale-110`}
-                    strokeWidth={2}
-                  />
+                  <Icon className="w-4 h-4 text-[#F5F8FF]/90 shrink-0" strokeWidth={1.75} />
                   <div className="min-w-0">
-                    <p className="font-display text-xs font-bold text-[#071A3B] truncate">
+                    <p className="font-hero text-[12px] font-semibold text-[#F5F8FF] truncate">
                       {item.title}
                     </p>
-                    <p className="text-[11px] font-medium text-[#475569] truncate">{item.desc}</p>
+                    <p className="text-[11px] text-[#A8B6CC] truncate">{item.desc}</p>
                   </div>
                 </div>
               );
