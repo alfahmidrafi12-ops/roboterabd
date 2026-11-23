@@ -34,6 +34,7 @@ interface BestSellingSectionProps {
   availabilityFilter: AvailabilityFilter;
   sortBy: SortOption;
   wishlistIds: string[];
+  restockWatchedIds?: string[];
   compareIds?: string[];
   onSelectCategory: (id: CategoryId) => void;
   onSearchChange: (value: string) => void;
@@ -46,6 +47,7 @@ interface BestSellingSectionProps {
   onToggleCompare?: (productId: string) => void;
   onAddToCart: (product: Product, quantity: number) => void;
   onOpenDetail: (product: Product) => void;
+  onRequestRestockAlert?: (product: Product) => void;
 }
 
 const TECH_FILTER_KEYWORDS = [
@@ -90,6 +92,7 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
   availabilityFilter,
   sortBy,
   wishlistIds,
+  restockWatchedIds = [],
   compareIds = [],
   onSelectCategory,
   onSearchChange,
@@ -102,6 +105,7 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
   onToggleCompare,
   onAddToCart,
   onOpenDetail,
+  onRequestRestockAlert,
 }) => {
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -536,7 +540,7 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
   return (
     <section
       id="best-selling"
-      className="scroll-mt-20 bg-[#F3F7FC] min-[1500px]:bg-transparent min-[1500px]:pointer-events-none"
+      className="scroll-mt-[108px] bg-[#F3F7FC] min-[1500px]:bg-transparent min-[1500px]:pointer-events-none"
     >
       <div className="relative z-20 pointer-events-auto w-full max-w-[1440px] mx-auto bg-gradient-to-b from-white via-[#F3F7FC] to-white min-[1500px]:border-x min-[1500px]:border-slate-200/90 px-4 sm:px-6 lg:px-10 py-11 sm:py-14 lg:py-16">
         {/* Catalog Header */}
@@ -766,7 +770,7 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
 
         {/* Desktop Sidebar + Spacious Product Catalog Grid */}
         <div className="flex flex-col lg:flex-row gap-6 xl:gap-8 items-start">
-          <aside className="hidden lg:block w-[272px] xl:w-[284px] shrink-0 bg-white rounded-2xl border border-slate-200/90 shadow-[0_8px_24px_-12px_rgba(7,26,61,0.08)] p-5 sticky top-20">
+          <aside className="hidden lg:block w-[272px] xl:w-[284px] shrink-0 bg-white rounded-2xl border border-slate-200/90 shadow-[0_8px_24px_-12px_rgba(7,26,61,0.08)] p-5 sticky top-[108px]">
             {filterSidebarContent}
           </aside>
 
@@ -801,12 +805,14 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
                       categoryDisplayName={categoryLabels[product.category]}
                       highlightQuery={searchQuery}
                       isWishlisted={wishlistIds.includes(product.id)}
+                      isRestockWatched={restockWatchedIds.includes(product.id)}
                       isCompared={compareIds.includes(product.id)}
                       compareLimitReached={compareIds.length >= 3}
                       onToggleWishlist={onToggleWishlist}
                       onToggleCompare={onToggleCompare}
                       onAddToCart={onAddToCart}
                       onOpenDetail={onOpenDetail}
+                      onRequestRestockAlert={onRequestRestockAlert}
                     />
                   </div>
                 ))}
@@ -821,12 +827,14 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
                       categoryDisplayName={categoryLabels[product.category]}
                       highlightQuery={searchQuery}
                       isWishlisted={wishlistIds.includes(product.id)}
+                      isRestockWatched={restockWatchedIds.includes(product.id)}
                       isCompared={compareIds.includes(product.id)}
                       compareLimitReached={compareIds.length >= 3}
                       onToggleWishlist={onToggleWishlist}
                       onToggleCompare={onToggleCompare}
                       onAddToCart={onAddToCart}
                       onOpenDetail={onOpenDetail}
+                      onRequestRestockAlert={onRequestRestockAlert}
                     />
                   </Reveal>
                 ))}

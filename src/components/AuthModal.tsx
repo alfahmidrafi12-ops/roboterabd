@@ -4,11 +4,15 @@ import {
   AlertCircle,
   ArrowLeft,
   ArrowRight,
+  Check,
   CheckCircle2,
   Clock,
+  Copy,
+  Download,
   ExternalLink,
   Eye,
   EyeOff,
+  Gift,
   Loader2,
   Lock,
   LogOut,
@@ -32,11 +36,14 @@ import {
   signUpWithEmail,
   subscribeUserOrders,
 } from '../lib/firebase';
-import { OrderStatus, StoredOrder } from '../types/store';
+import { downloadGiftCardPng, loadGiftCards } from '../lib/giftCard';
+import { playTapSound, playVoucherCopySound } from '../lib/sound';
+import { GiftCardReward, OrderStatus, StoredOrder } from '../types/store';
 
 interface AuthModalProps {
   isOpen: boolean;
   user: User | null;
+  giftCards?: GiftCardReward[];
   onClose: () => void;
   onOpenAdmin: () => void;
   onTrackOrder?: (orderId: string) => void;
@@ -117,12 +124,15 @@ function getUserInitials(user: User): string {
 export const AuthModal: React.FC<AuthModalProps> = ({
   isOpen,
   user,
+  giftCards,
   onClose,
   onOpenAdmin,
   onTrackOrder,
 }) => {
   const [mode, setMode] = useState<'login' | 'signup' | 'reset'>('login');
-  const [profileTab, setProfileTab] = useState<'account' | 'orders'>('account');
+  const [profileTab, setProfileTab] = useState<'account' | 'orders' | 'gifts'>('account');
+  const [localGiftCards, setLocalGiftCards] = useState<GiftCardReward[]>(() => loadGiftCards());
+  const [copiedGiftCode, setCopiedGiftCode] = useState<string | null>(null);
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -136,6 +146,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [ordersError, setOrdersError] = useState('');
   const [ordersReloadKey, setOrdersReloadKey] = useState(0);
+
+  useEffect(() => {
+    if (isOpen) {
+      setLocalGiftCards(giftCards ?? loadGiftCards());
+    }
+  }, [isOpen, giftCards]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -183,6 +199,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   if (!isOpen) return null;
 
   const isAdmin = isVerifiedAdminUser(user);
+  const activeGiftCardsCount = localGiftCards.filter((c) => !c.redeemed).length;
+
+  const handleCopyGiftCode = (code: string) => {
+    playVoucherCopySound();
+    navigator.clipboard?.writeText(code).catch(() => {});
+    setCopiedGiftCode(code);
+    window.setTimeout(() => setCopiedGiftCode(null), 1800);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -294,32 +318,32 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             </div>
           </div>
 
-          {/* Profile / Order History Tabs */}
+          {/* Profile / Order History / Digital Gift Cards Tabs */}
           <div className="px-6 py-3 bg-[#EDF2F8] border-b border-slate-300/80 shrink-0">
-            <div className="grid grid-cols-2 gap-1.5 p-1 bg-white rounded-xl border border-slate-300/85">
+            <div className="grid grid-cols-3 gap-1.5 p-1 bg-white rounded-xl border border-slate-300/85">
               <button
                 type="button"
                 onClick={() => setProfileTab('account')}
-                className={`py-2 px-3 rounded-lg border text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors ${
+                className={`py-2 px-2 sm:px-3 rounded-lg border text-[11px] sm:text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors ${
                   profileTab === 'account'
                     ? 'bg-[#071A3B] border-[#071A3B] text-white'
                     : 'border-transparent text-[#334155] hover:text-[#071A3B] hover:bg-[#EDF2F8]'
                 }`}
               >
-                <UserIcon className="w-3.5 h-3.5" />
-                <span>Account Profile</span>
+                <UserIcon className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate">Profile</span>
               </button>
               <button
                 type="button"
                 onClick={() => setProfileTab('orders')}
-                className={`py-2 px-3 rounded-lg border text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors ${
+                className={`py-2 px-2 sm:px-3 rounded-lg border text-[11px] sm:text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors ${
                   profileTab === 'orders'
                     ? 'bg-[#071A3B] border-[#071A3B] text-white'
                     : 'border-transparent text-[#334155] hover:text-[#071A3B] hover:bg-[#EDF2F8]'
                 }`}
               >
-                <Package className="w-3.5 h-3.5" />
-                <span>Order History</span>
+                <Package className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate">Orders</span>
                 {userOrders.length > 0 && (
                   <span
                     className={`px-1.5 py-0.5 rounded-md text-[10px] font-mono tabular-nums ${
@@ -329,6 +353,29 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     }`}
                   >
                     {userOrders.length}
+                  </span>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => setProfileTab('gifts')}
+                className={`py-2 px-2 sm:px-3 rounded-lg border text-[11px] sm:text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors ${
+                  profileTab === 'gifts'
+                    ? 'bg-[#071A3B] border-[#071A3B] text-white'
+                    : 'border-transparent text-[#334155] hover:text-[#071A3B] hover:bg-[#EDF2F8]'
+                }`}
+              >
+                <Gift className="w-3.5 h-3.5 shrink-0 text-[#087BFF]" />
+                <span className="truncate">Gift Cards</span>
+                {activeGiftCardsCount > 0 && (
+                  <span
+                    className={`px-1.5 py-0.5 rounded-md text-[10px] font-mono tabular-nums ${
+                      profileTab === 'gifts'
+                        ? 'bg-[#00CFFF] text-[#071A3B] font-bold'
+                        : 'bg-sky-100 text-[#0866F5] font-bold'
+                    }`}
+                  >
+                    {activeGiftCardsCount}
                   </span>
                 )}
               </button>
@@ -431,7 +478,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   <span>Sign Out</span>
                 </button>
               </div>
-            ) : (
+            ) : profileTab === 'orders' ? (
               <div className="space-y-4">
                 <div className="flex items-center justify-between gap-2">
                   <div>
@@ -571,6 +618,119 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                         </div>
                       );
                     })}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div>
+                  <h3 className="font-display text-sm font-bold text-[#071A3B]">
+                    Digital Hardware Gift Cards
+                  </h3>
+                  <p className="text-[11px] text-[#475569] mt-0.5">
+                    Every completed checkout awards an instant credit card redeemable in your cart.
+                  </p>
+                </div>
+
+                {localGiftCards.length === 0 ? (
+                  <div className="py-10 px-4 bg-[#EDF2F8] rounded-2xl border border-slate-300/85 text-center space-y-2.5">
+                    <div className="w-11 h-11 mx-auto rounded-xl bg-white border border-slate-300 flex items-center justify-center text-[#087BFF]">
+                      <Gift className="w-5 h-5" />
+                    </div>
+                    <p className="font-display text-sm font-bold text-[#071A3B]">
+                      No gift cards earned yet
+                    </p>
+                    <p className="text-xs text-[#475569] max-w-xs mx-auto leading-relaxed">
+                      Place any hardware order on Robotera BD to unlock a downloadable holographic
+                      digital gift card worth ৳75–৳350.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {localGiftCards.map((card) => (
+                      <div
+                        key={card.code}
+                        className={`relative overflow-hidden rounded-2xl p-4 border transition-colors ${
+                          card.redeemed
+                            ? 'bg-slate-100 border-slate-200 text-slate-600'
+                            : 'bg-gradient-to-br from-[#06142E] via-[#071E47] to-[#0B326B] text-white border-[#00CFFF]/40'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p
+                              className={`font-mono text-[10px] font-bold uppercase tracking-wider ${
+                                card.redeemed ? 'text-slate-500' : 'text-[#2DD4BF]'
+                              }`}
+                            >
+                              {card.tierLabel}
+                            </p>
+                            <p className="font-mono text-sm sm:text-base font-extrabold tracking-wide mt-0.5 truncate">
+                              {card.code}
+                            </p>
+                            <p
+                              className={`text-[11px] mt-0.5 ${
+                                card.redeemed ? 'text-slate-500' : 'text-slate-300'
+                              }`}
+                            >
+                              {card.redeemed
+                                ? `Redeemed on #${card.redeemedOrderId || 'Order'}`
+                                : `From Order #${card.orderId} · Ready to use in Cart`}
+                            </p>
+                          </div>
+                          <span
+                            className={`px-2.5 py-1 rounded-xl font-mono text-sm font-extrabold tabular-nums shrink-0 ${
+                              card.redeemed
+                                ? 'bg-slate-200 text-slate-600'
+                                : 'bg-[#00CFFF]/20 border border-[#00CFFF]/45 text-white'
+                            }`}
+                          >
+                            ৳{card.value}
+                          </span>
+                        </div>
+
+                        <div className="mt-3 pt-2.5 border-t border-white/15 flex items-center justify-between gap-2">
+                          <span
+                            className={`font-mono text-[10px] ${
+                              card.redeemed ? 'text-slate-500' : 'text-slate-300'
+                            }`}
+                          >
+                            {card.issuedAt}
+                          </span>
+                          <div className="flex items-center gap-2">
+                            {!card.redeemed && (
+                              <button
+                                type="button"
+                                onClick={() => handleCopyGiftCode(card.code)}
+                                className="px-2.5 py-1 rounded-lg bg-[#087BFF] hover:bg-[#0669DB] text-white text-[11px] font-semibold inline-flex items-center gap-1 transition-colors"
+                              >
+                                {copiedGiftCode === card.code ? (
+                                  <Check className="w-3 h-3 text-[#2DD4BF]" />
+                                ) : (
+                                  <Copy className="w-3 h-3" />
+                                )}
+                                <span>{copiedGiftCode === card.code ? 'Copied' : 'Copy'}</span>
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                playTapSound();
+                                downloadGiftCardPng(card);
+                              }}
+                              className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold inline-flex items-center gap-1 transition-colors ${
+                                card.redeemed
+                                  ? 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-50'
+                                  : 'bg-white text-[#071A3B] hover:bg-sky-50'
+                              }`}
+                            >
+                              <Download className="w-3 h-3" />
+                              <span>PNG</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>

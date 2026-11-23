@@ -159,6 +159,23 @@
       },
       "required": ["id", "productId", "productName", "email", "baselinePrice", "status", "createdAt", "updatedAt"]
     },
+    "RestockAlert": {
+      "title": "RestockAlert",
+      "description": "Customer back-in-stock notification subscription for an out-of-stock product.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 64, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "productId": { "type": "string", "minLength": 1, "maxLength": 64, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "productName": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "email": { "type": "string", "minLength": 5, "maxLength": 120, "pattern": "^[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}$" },
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "status": { "type": "string", "enum": ["Active", "Notified"] },
+        "notifiedAt": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "productId", "productName", "email", "status", "createdAt", "updatedAt"]
+    },
     "PromoCode": {
       "title": "PromoCode",
       "description": "Storefront promo code created and managed by admins with single-use per account and Gmail enforcement.",
@@ -192,6 +209,45 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "code", "redemptionType", "userId", "orderId", "createdAt"]
+    },
+    "VisitorLog": {
+      "title": "VisitorLog",
+      "description": "App and web visitor IP, location, area (elaka), timestamp, platform, and device telemetry readable strictly by admins.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 64, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "sessionId": { "type": "string", "minLength": 1, "maxLength": 64, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "ip": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "ipType": { "type": "string", "maxLength": 16 },
+        "area": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "city": { "type": "string", "maxLength": 100 },
+        "region": { "type": "string", "maxLength": 100 },
+        "country": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "countryCode": { "type": "string", "maxLength": 8 },
+        "postal": { "type": "string", "maxLength": 24 },
+        "isp": { "type": "string", "maxLength": 140 },
+        "operatorArea": { "type": "string", "maxLength": 160 },
+        "operatorLatitude": { "type": "number" },
+        "operatorLongitude": { "type": "number" },
+        "latitude": { "type": "number" },
+        "longitude": { "type": "number" },
+        "gpsAccuracyMeters": { "type": "number" },
+        "locationAccuracy": { "type": "string", "enum": ["IP", "GPS"] },
+        "timezone": { "type": "string", "maxLength": 80 },
+        "localTime": { "type": "string", "maxLength": 80 },
+        "platform": { "type": "string", "enum": ["Web", "PWA App"] },
+        "deviceType": { "type": "string", "enum": ["Desktop", "Mobile", "Tablet"] },
+        "browser": { "type": "string", "maxLength": 60 },
+        "os": { "type": "string", "maxLength": 60 },
+        "screenSize": { "type": "string", "maxLength": 32 },
+        "pagePath": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "referrer": { "type": "string", "maxLength": 240 },
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "userEmail": { "type": "string", "maxLength": 120 },
+        "userName": { "type": "string", "maxLength": 120 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "sessionId", "ip", "area", "country", "locationAccuracy", "platform", "deviceType", "pagePath", "createdAt"]
     }
   },
   "firestore": {
@@ -231,9 +287,17 @@
       "schema": { "$ref": "#/entities/PriceAlert" },
       "description": "Customer price-drop email alert subscriptions; creatable by any shopper, readable only by the subscriber or admins."
     },
+    "/restock_alerts/{alertId}": {
+      "schema": { "$ref": "#/entities/RestockAlert" },
+      "description": "Customer back-in-stock email alert subscriptions; creatable by any shopper, readable only by the subscriber or admins."
+    },
     "/admins/{adminUid}": {
       "schema": { "$ref": "#/entities/AdminUser" },
       "description": "Admin access registry."
+    },
+    "/visitor_logs/{logId}": {
+      "schema": { "$ref": "#/entities/VisitorLog" },
+      "description": "Immutable visitor IP, location, area (elaka), and device telemetry; creatable by any visitor, readable and deletable strictly by admins."
     }
   }
 }

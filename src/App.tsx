@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { User } from 'firebase/auth';
-import { BellRing, CheckCircle2, ShoppingBag, X } from 'lucide-react';
+import { BellRing, CheckCircle2, MapPin, ShoppingBag, X } from 'lucide-react';
 import { AdminPanel } from './components/AdminPanel';
 import { ArchitecturalSideRails } from './components/ArchitecturalSideRails';
 import { AuthModal } from './components/AuthModal';
@@ -34,6 +34,7 @@ import {
 } from './data/catalog';
 import {
   createPriceAlert,
+  createRestockAlert,
   subscribeAuth,
   subscribeBanners,
   subscribeCategories,
@@ -44,18 +45,32 @@ import {
   testConnection,
 } from './lib/firebase';
 import {
+  loadGiftCards,
+  markGiftCardRedeemed,
+  saveGiftCard,
+} from './lib/giftCard';
+import {
   playAddToCartSound,
+  playRestockBellSound,
   playStepTickSound,
   playTapSound,
   playWishlistSound,
 } from './lib/sound';
+import {
+  BrowserGpsSnapshot,
+  getBrowserGpsSnapshot,
+  subscribeBrowserGpsSnapshot,
+  trackVisitorVisit,
+} from './lib/visitorTracker';
 import {
   AvailabilityFilter,
   BannerItem,
   CartItem,
   CategoryId,
   CategoryItem,
+  GiftCardReward,
   LocalPriceWatch,
+  LocalRestockWatch,
   Product,
   PromoCode,
   SiteImagesConfig,
@@ -68,6 +83,8 @@ const STORAGE_WISHLIST_KEY = 'robotera_bd_wishlist_v1';
 const STORAGE_LAST_ORDER_KEY = 'robotera_bd_last_order_v1';
 const STORAGE_RECENT_ORDERS_KEY = 'robotera_bd_recent_orders_v1';
 const STORAGE_PRICE_WATCHES_KEY = 'robotera_bd_price_watches_v1';
+const STORAGE_RESTOCK_WATCHES_KEY = 'robotera_bd_restock_watches_v1';
+const STORAGE_KNOWN_OOS_KEY = 'robotera_bd_known_oos_v1';
 
 function parseTrackingHash(): { isTrack: boolean; orderId: string | null } {
   if (typeof window === 'undefined') return { isTrack: false, orderId: null };
@@ -104,9 +121,13 @@ export default function App() {
   const [promoCodes, setPromoCodes] = useState<PromoCode[]>(DEFAULT_PROMO_CODES);
   const [siteSettings, setSiteSettings] = useState<SiteImagesConfig>(DEFAULT_SITE_SETTINGS);
   const [authUser, setAuthUser] = useState<User | null>(null);
+  const [authReady, setAuthReady] = useState(false);
   const [userOrders, setUserOrders] = useState<StoredOrder[]>([]);
   const [adminOpen, setAdminOpen] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [gpsSnapshot, setGpsSnapshot] = useState<BrowserGpsSnapshot>(() => getBrowserGpsSnapshot());
+  const [gpsBarDismissed, setGpsBarDismissed] = useState(false);
+  const [requestingGps, setRequestingGps] = useState(false);
 
   const [recentOrderIds, setRecentOrderIds] = useState<string[]>(() => {
     try {
@@ -149,6 +170,30 @@ export default function App() {
     email: string;
   } | null>(null);
 
+  // Back-in-stock / restock watches, newly restocked IDs, and digital gift cards
+  const [restockWatches, setRestockWatches] = useState<LocalRestockWatch[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_RESTOCK_WATCHES_KEY);
+      return saved ? (JSON.parse(saved) as LocalRestockWatch[]) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [knownOosIds, setKnownOosIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KNOWN_OOS_KEY);
+      return saved ? (JSON.parse(saved) as string[]) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [justRestockedIds, setJustRestockedIds] = useState<string[]>([]);
+  const [restockNotice, setRestockNotice] = useState<{
+    product: Product;
+    viaEmail?: string;
+  } | null>(null);
+  const [giftCards, setGiftCards] = useState<GiftCardReward[]>(() => loadGiftCards());
+
   const [cartItems, setCartItems] = useState<CartItem[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_CART_KEY);
@@ -171,7 +216,10 @@ export default function App() {
   useEffect(() => {
     testConnection();
 
-    const unsubAuth = subscribeAuth((user) => setAuthUser(user));
+    const unsubAuth = subscribeAuth((user) => {
+      setAuthUser(user);
+      setAuthReady(true);
+    });
     const unsubProducts = subscribeProducts(
       (cloudProducts) => {
         if (cloudProducts.length > 0) {
@@ -236,6 +284,42 @@ export default function App() {
     );
     return () => unsubUserOrders();
   }, [authUser?.uid]);
+
+  // Capture visitor IP, operator location, and exact user GPS location for admin analytics
+  useEffect(() => {
+    if (!authReady) return;
+    trackVisitorVisit(
+      authUser
+        ? {
+            uid: authUser.uid,
+            email: authUser.email,
+            displayName: authUser.displayName,
+          }
+        : null,
+      { requestGps: true }
+    );
+  }, [authReady, authUser?.uid]);
+
+  useEffect(() => {
+    return subscribeBrowserGpsSnapshot(setGpsSnapshot);
+  }, []);
+
+  const handleGrantBrowserGpsClick = () => {
+    playTapSound();
+    setRequestingGps(true);
+    trackVisitorVisit(
+      authUser
+        ? {
+            uid: authUser.uid,
+            email: authUser.email,
+            displayName: authUser.displayName,
+          }
+        : null,
+      { force: true, requestGps: true }
+    ).finally(() => {
+      setRequestingGps(false);
+    });
+  };
 
   const hasPlacedOrderBefore = useMemo(
     () => userOrders.some((o) => o.status !== 'Cancelled'),
@@ -311,6 +395,49 @@ export default function App() {
       setPriceDropNotice(triggered);
     }
   }, [products, priceWatches]);
+
+  // Detect live back-in-stock transitions for wishlisted or restock-watched items
+  useEffect(() => {
+    if (products.length === 0) return;
+
+    const watchedOrWishlisted = new Set([
+      ...wishlistIds,
+      ...restockWatches.map((w) => w.productId),
+    ]);
+
+    const currentOosToTrack = products
+      .filter((p) => p.stock <= 0 && watchedOrWishlisted.has(p.id))
+      .map((p) => p.id);
+
+    const restockedProducts = products.filter(
+      (p) =>
+        p.stock > 0 &&
+        (knownOosIds.includes(p.id) || restockWatches.some((w) => w.productId === p.id))
+    );
+
+    const restockedIdSet = new Set(restockedProducts.map((p) => p.id));
+
+    const nextKnownOos = Array.from(
+      new Set([...knownOosIds.filter((id) => !restockedIdSet.has(id)), ...currentOosToTrack])
+    );
+
+    const knownChanged =
+      nextKnownOos.length !== knownOosIds.length ||
+      nextKnownOos.some((id, idx) => id !== knownOosIds[idx]);
+
+    if (knownChanged) {
+      setKnownOosIds(nextKnownOos);
+    }
+
+    if (restockedProducts.length > 0) {
+      const firstRestocked = restockedProducts[0];
+      const matchedWatch = restockWatches.find((w) => w.productId === firstRestocked.id);
+      setJustRestockedIds((prev) => Array.from(new Set([...prev, ...restockedIdSet])));
+      setRestockWatches((prev) => prev.filter((w) => !restockedIdSet.has(w.productId)));
+      setRestockNotice({ product: firstRestocked, viaEmail: matchedWatch?.email });
+      playRestockBellSound();
+    }
+  }, [products, wishlistIds, restockWatches, knownOosIds]);
 
   // Secret Admin Access (#admin or ?admin=1 + Ctrl/Cmd+Shift+A) + Dedicated Tracking Page Hash Sync
   useEffect(() => {
@@ -445,6 +572,22 @@ export default function App() {
       // Ignore storage quota errors
     }
   }, [priceWatches]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_RESTOCK_WATCHES_KEY, JSON.stringify(restockWatches));
+    } catch {
+      // Ignore storage quota errors
+    }
+  }, [restockWatches]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KNOWN_OOS_KEY, JSON.stringify(knownOosIds));
+    } catch {
+      // Ignore storage quota errors
+    }
+  }, [knownOosIds]);
 
   const openTrackingPage = (orderId?: string) => {
     playTapSound();
@@ -652,6 +795,19 @@ export default function App() {
     ]);
   };
 
+  const handleSubscribeRestock = async (product: Product, email: string) => {
+    await createRestockAlert({
+      productId: product.id,
+      productName: product.name,
+      email,
+    });
+    setRestockWatches((prev) => [
+      { productId: product.id, productName: product.name, email, createdAt: Date.now() },
+      ...prev.filter((w) => w.productId !== product.id),
+    ]);
+    setKnownOosIds((prev) => (prev.includes(product.id) ? prev : [...prev, product.id]));
+  };
+
   const categoryLabels = useMemo(() => {
     const map: Record<string, string> = {};
     categories.forEach((c) => {
@@ -818,6 +974,62 @@ export default function App() {
               onSelectProduct={(product) => setSelectedProduct(product)}
             />
 
+            {!gpsBarDismissed &&
+              gpsSnapshot.state !== 'granted' &&
+              gpsSnapshot.state !== 'unsupported' && (
+                <div className="bg-[#0B162C] text-[#E6EEFF] border-b border-[#1E3A6E]/60">
+                  <div className="w-full max-w-[1440px] mx-auto px-5 sm:px-8 lg:px-12 py-2.5 flex flex-wrap items-center justify-between gap-2.5 text-xs">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <MapPin className="w-3.5 h-3.5 text-[#00C8FF] shrink-0" />
+                      <span className="leading-snug">
+                        {gpsSnapshot.blockedByPolicy ||
+                        (gpsSnapshot.state === 'denied' && gpsSnapshot.isEmbeddedIframe)
+                          ? 'Preview frame blocks GPS — open the direct storefront tab to grant browser location.'
+                          : gpsSnapshot.state === 'denied'
+                          ? 'Browser GPS is blocked — click the lock/site settings icon in your URL bar, set Location to Allow, then retry.'
+                          : 'Allow browser GPS for exact Dhaka delivery area & courier dispatch tracking.'}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {gpsSnapshot.blockedByPolicy ||
+                      (gpsSnapshot.state === 'denied' && gpsSnapshot.isEmbeddedIframe) ? (
+                        <a
+                          href={typeof window !== 'undefined' ? window.location.href : '/'}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="h-7 px-3 rounded-lg bg-[#1677FF] hover:bg-[#2684FF] text-white font-semibold inline-flex items-center gap-1.5 whitespace-nowrap transition-colors"
+                        >
+                          <span>Open Direct Tab</span>
+                        </a>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={handleGrantBrowserGpsClick}
+                          disabled={requestingGps}
+                          className="h-7 px-3 rounded-lg bg-[#1677FF] hover:bg-[#2684FF] disabled:opacity-60 text-white font-semibold inline-flex items-center gap-1.5 whitespace-nowrap transition-colors"
+                        >
+                          <span>
+                            {requestingGps
+                              ? 'Requesting...'
+                              : gpsSnapshot.state === 'denied'
+                              ? 'Retry GPS'
+                              : 'Grant Browser GPS'}
+                          </span>
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setGpsBarDismissed(true)}
+                        aria-label="Dismiss location prompt"
+                        className="p-1 text-slate-400 hover:text-white rounded"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
             <SectionDivider
               indexCode="01"
               label="Featured Campaigns"
@@ -866,6 +1078,7 @@ export default function App() {
               sortBy={sortBy}
               wishlistIds={wishlistIds}
               compareIds={compareIds}
+              restockWatchedIds={restockWatches.map((w) => w.productId)}
               onSelectCategory={setActiveCategory}
               onSearchChange={setSearchQuery}
               onMinPriceChange={setMinPrice}
@@ -877,6 +1090,7 @@ export default function App() {
               onToggleCompare={handleToggleCompare}
               onAddToCart={handleAddToCart}
               onOpenDetail={setSelectedProduct}
+              onRequestRestockAlert={(p) => setSelectedProduct(p)}
             />
 
             <SectionDivider
@@ -893,10 +1107,12 @@ export default function App() {
               categoryLabels={categoryLabels}
               wishlistIds={wishlistIds}
               compareIds={compareIds}
+              restockWatchedIds={restockWatches.map((w) => w.productId)}
               onToggleWishlist={handleToggleWishlist}
               onToggleCompare={handleToggleCompare}
               onAddToCart={handleAddToCart}
               onOpenDetail={setSelectedProduct}
+              onRequestRestockAlert={(p) => setSelectedProduct(p)}
             />
 
             <SectionDivider
@@ -982,6 +1198,11 @@ export default function App() {
             ? priceWatches.find((w) => w.productId === selectedProduct.id) ?? null
             : null
         }
+        watchedRestock={
+          selectedProduct
+            ? restockWatches.find((w) => w.productId === selectedProduct.id) ?? null
+            : null
+        }
         zIndexClass={compareModalOpen ? 'z-[60]' : 'z-50'}
         onClose={() => setSelectedProduct(null)}
         onToggleWishlist={handleToggleWishlist}
@@ -989,6 +1210,7 @@ export default function App() {
         onBuyNow={handleBuyNow}
         onSelectProduct={setSelectedProduct}
         onSubscribePriceDrop={handleSubscribePriceDrop}
+        onSubscribeRestock={handleSubscribeRestock}
       />
 
       <CartDrawer
@@ -998,6 +1220,7 @@ export default function App() {
         recommendedProducts={products}
         promoCodes={promoCodes}
         userOrders={userOrders}
+        availableGiftCards={giftCards}
         appliedCoupon={appliedCoupon}
         startInCheckout={startInCheckout}
         user={authUser}
@@ -1020,6 +1243,13 @@ export default function App() {
             // Ignore storage errors
           }
         }}
+        onGiftCardIssued={(newCard, redeemedCode) => {
+          saveGiftCard(newCard);
+          if (redeemedCode) {
+            markGiftCardRedeemed(redeemedCode, newCard.orderId);
+          }
+          setGiftCards(loadGiftCards());
+        }}
         onTrackOrder={(orderId) => {
           openTrackingPage(orderId);
         }}
@@ -1028,6 +1258,9 @@ export default function App() {
       <WishlistDrawer
         isOpen={wishlistOpen}
         products={wishlistedProducts}
+        restockWatches={restockWatches}
+        justRestockedIds={justRestockedIds}
+        defaultEmail={authUser?.email}
         onClose={() => setWishlistOpen(false)}
         onRemove={handleToggleWishlist}
         onMoveToCart={(product) => {
@@ -1040,12 +1273,14 @@ export default function App() {
           setWishlistOpen(false);
           setSelectedProduct(product);
         }}
+        onSubscribeRestock={handleSubscribeRestock}
       />
 
       {/* Account Sign-In / Sign-Up & Order History Modal */}
       <AuthModal
         isOpen={authModalOpen}
         user={authUser}
+        giftCards={giftCards}
         onClose={() => setAuthModalOpen(false)}
         onOpenAdmin={() => setAdminOpen(true)}
         onTrackOrder={(orderId) => {
@@ -1101,88 +1336,144 @@ export default function App() {
         onBrowseCatalog={() => scrollToSection('best-selling')}
       />
 
-      {/* Live Price Drop Notification Toast */}
-      {priceDropNotice && !cartOpen && (
+      {/* Unified Bottom-Left Notification Toast Stack (No Overlapping Alerts) */}
+      {(restockNotice || priceDropNotice || toastProduct) && !cartOpen && (
         <div
-          role="status"
           aria-live="polite"
-          className="animate-pop-in fixed bottom-[calc(8.5rem+env(safe-area-inset-bottom))] md:bottom-20 left-3 right-3 sm:right-auto sm:left-6 z-40 sm:max-w-sm bg-emerald-950 text-white rounded-xl shadow-2xl border border-emerald-500/40 p-3.5 flex items-center justify-between gap-3"
+          className="fixed bottom-[calc(8.35rem+env(safe-area-inset-bottom))] md:bottom-6 left-3 right-3 sm:right-auto sm:left-6 z-40 sm:w-[390px] flex flex-col gap-2 pointer-events-none"
         >
-          <div className="flex items-center gap-2.5 min-w-0">
-            <BellRing className="w-5 h-5 text-emerald-400 shrink-0" />
-            <div className="min-w-0">
-              <p className="text-xs font-bold truncate">
-                Price Drop: {priceDropNotice.product.name}
-              </p>
-              <p className="text-[11px] text-emerald-200 tabular-nums">
-                Now ৳{priceDropNotice.product.price.toLocaleString('en-IN')} (was ৳
-                {priceDropNotice.oldPrice.toLocaleString('en-IN')})
-              </p>
+          {restockNotice && (
+            <div
+              role="status"
+              className="pointer-events-auto animate-toast-slide bg-gradient-to-r from-[#062E2B] via-[#063A3B] to-[#072B47] text-white rounded-xl shadow-2xl border border-cyan-400/45 p-3.5 flex items-center justify-between gap-2.5"
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <BellRing className="animate-bell-ring w-5 h-5 text-cyan-300 shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-xs font-bold truncate">
+                    Back in Stock: {restockNotice.product.name}
+                  </p>
+                  <p className="text-[11px] text-cyan-200 truncate">
+                    {restockNotice.product.stock} units available · ৳
+                    {restockNotice.product.price.toLocaleString('en-IN')}
+                    {restockNotice.viaEmail ? ` · Alerted ${restockNotice.viaEmail}` : ''}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleAddToCart(restockNotice.product, 1, undefined, true);
+                    setRestockNotice(null);
+                  }}
+                  className="px-2.5 py-1.5 rounded-lg bg-cyan-400 hover:bg-cyan-300 text-slate-950 text-[11px] font-bold whitespace-nowrap"
+                >
+                  Add to Cart
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    playTapSound();
+                    setSelectedProduct(restockNotice.product);
+                    setRestockNotice(null);
+                  }}
+                  className="px-2 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-[11px] font-semibold whitespace-nowrap"
+                >
+                  View
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRestockNotice(null)}
+                  aria-label="Dismiss restock alert"
+                  className="p-1 text-cyan-200 hover:text-white rounded"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
             </div>
-          </div>
-          <div className="flex items-center gap-1.5 shrink-0">
-            <button
-              type="button"
-              onClick={() => {
-                setSelectedProduct(priceDropNotice.product);
-                setPriceDropNotice(null);
-              }}
-              className="px-2.5 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold whitespace-nowrap"
-            >
-              View
-            </button>
-            <button
-              type="button"
-              onClick={() => setPriceDropNotice(null)}
-              aria-label="Dismiss price drop alert"
-              className="p-1 text-emerald-300 hover:text-white rounded"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      )}
+          )}
 
-      {/* Add-to-Cart Toast Notification */}
-      {toastProduct && !cartOpen && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="animate-pop-in fixed bottom-[calc(8.25rem+env(safe-area-inset-bottom))] md:bottom-6 left-3 right-3 sm:right-auto sm:left-6 z-40 sm:max-w-sm bg-[#071A3B] text-white rounded-xl shadow-2xl border border-white/15 p-3.5 flex items-center justify-between gap-3"
-        >
-          <div className="flex items-center gap-2.5 min-w-0">
-            <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
-            <div className="min-w-0">
-              <p className="text-xs font-bold truncate">{toastProduct.name}</p>
-              <p className="text-[11px] text-slate-300">
-                Added {toastProduct.qty} {toastProduct.qty === 1 ? 'unit' : 'units'} to cart
-              </p>
+          {priceDropNotice && (
+            <div
+              role="status"
+              className="pointer-events-auto animate-toast-slide bg-emerald-950 text-white rounded-xl shadow-2xl border border-emerald-500/40 p-3.5 flex items-center justify-between gap-3"
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <BellRing className="w-5 h-5 text-emerald-400 shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-xs font-bold truncate">
+                    Price Drop: {priceDropNotice.product.name}
+                  </p>
+                  <p className="text-[11px] text-emerald-200 tabular-nums">
+                    Now ৳{priceDropNotice.product.price.toLocaleString('en-IN')} (was ৳
+                    {priceDropNotice.oldPrice.toLocaleString('en-IN')})
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedProduct(priceDropNotice.product);
+                    setPriceDropNotice(null);
+                  }}
+                  className="px-2.5 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold whitespace-nowrap"
+                >
+                  View
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPriceDropNotice(null)}
+                  aria-label="Dismiss price drop alert"
+                  className="p-1 text-emerald-300 hover:text-white rounded"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
             </div>
-          </div>
-          <div className="flex items-center gap-1.5 shrink-0">
-            <button
-              type="button"
-              onClick={() => {
-                playTapSound();
-                setToastProduct(null);
-                setStartInCheckout(false);
-                setCartOpen(true);
-              }}
-              className="cta-sheen active:scale-95 px-2.5 py-1.5 rounded-lg bg-[#0866F5] hover:bg-[#0866F5]/90 border border-[#1685FF]/40 text-white text-xs font-semibold inline-flex items-center gap-1.5 whitespace-nowrap transition-all"
+          )}
+
+          {toastProduct && (
+            <div
+              role="status"
+              className="pointer-events-auto animate-toast-slide bg-[#071A3B] text-white rounded-xl shadow-2xl border border-white/15 p-3.5 flex items-center justify-between gap-3"
             >
-              <span className="w-1.5 h-1.5 rounded-full bg-[#FB923C]" aria-hidden="true" />
-              <ShoppingBag className="w-3.5 h-3.5" />
-              <span>View Cart</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setToastProduct(null)}
-              aria-label="Dismiss cart notification"
-              className="p-1 text-slate-400 hover:text-white rounded"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
+              <div className="flex items-center gap-2.5 min-w-0">
+                <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-xs font-bold truncate">{toastProduct.name}</p>
+                  <p className="text-[11px] text-slate-300">
+                    Added {toastProduct.qty} {toastProduct.qty === 1 ? 'unit' : 'units'} to cart
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    playTapSound();
+                    setToastProduct(null);
+                    setStartInCheckout(false);
+                    setCartOpen(true);
+                  }}
+                  className="cta-sheen active:scale-95 px-2.5 py-1.5 rounded-lg bg-[#0866F5] hover:bg-[#0866F5]/90 border border-[#1685FF]/40 text-white text-xs font-semibold inline-flex items-center gap-1.5 whitespace-nowrap transition-all"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#FB923C]" aria-hidden="true" />
+                  <ShoppingBag className="w-3.5 h-3.5" />
+                  <span>View Cart</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setToastProduct(null)}
+                  aria-label="Dismiss cart notification"
+                  className="p-1 text-slate-400 hover:text-white rounded"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

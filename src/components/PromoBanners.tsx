@@ -91,9 +91,9 @@ export const PromoBanners: React.FC<PromoBannersProps> = ({
   return (
     <section
       id="bundles"
-      className="scroll-mt-20 bg-[#050B18] min-[1500px]:bg-transparent min-[1500px]:pointer-events-none"
+      className="scroll-mt-[108px] bg-[#050B18] min-[1500px]:bg-transparent min-[1500px]:pointer-events-none"
     >
-      <div className="relative z-20 pointer-events-auto w-full max-w-[1440px] mx-auto overflow-hidden bg-[#050B18] text-[#F5F8FF] min-[1500px]:border-x min-[1500px]:border-slate-300/70 px-5 sm:px-8 lg:px-12 py-12 sm:py-16 lg:py-20">
+      <div className="relative z-20 pointer-events-auto w-full max-w-[1440px] mx-auto overflow-hidden bg-[#050B18] text-[#F5F8FF] min-[1500px]:border-x min-[1500px]:border-[#1E3A6E]/60 px-5 sm:px-8 lg:px-12 py-12 sm:py-16 lg:py-20">
         {/* Ultra-Subtle Architectural Grid */}
         <div
           aria-hidden="true"
@@ -219,7 +219,7 @@ export const PromoBanners: React.FC<PromoBannersProps> = ({
                 {/* RIGHT: Stacked Dual Compute & Perception Plates */}
                 <div className="lg:col-span-5 grid grid-cols-1 gap-px bg-[rgba(100,150,255,0.14)]">
                   {/* PLATE 02 — Embedded AI & Compute */}
-                  <div className="group bg-[#0A1428] hover:bg-[#0E1A33] transition-colors duration-250 flex flex-col sm:flex-row items-stretch">
+                  <div className="group bg-[#0A1428] hover:bg-[#0E1A33] transition-colors duration-300 flex flex-col sm:flex-row items-stretch">
                     <div className="p-6 sm:p-7 flex-1 min-w-0 flex flex-col justify-between order-2 sm:order-1">
                       <div>
                         <p className="font-mono text-[10.5px] font-medium uppercase tracking-[0.18em] text-[#00C8FF]">
@@ -269,7 +269,7 @@ export const PromoBanners: React.FC<PromoBannersProps> = ({
                   </div>
 
                   {/* PLATE 03 — SLAM & Telemetry */}
-                  <div className="group bg-[#0A1428] hover:bg-[#0E1A33] transition-colors duration-250 flex flex-col sm:flex-row items-stretch">
+                  <div className="group bg-[#0A1428] hover:bg-[#0E1A33] transition-colors duration-300 flex flex-col sm:flex-row items-stretch">
                     <div className="p-6 sm:p-7 flex-1 min-w-0 flex flex-col justify-between order-2 sm:order-1">
                       <div>
                         <p className="font-mono text-[10.5px] font-medium uppercase tracking-[0.18em] text-[#00C8FF]">

@@ -1,17 +1,28 @@
 import React, { useEffect, useState } from 'react';
 import { User } from 'firebase/auth';
 import {
+  Activity,
+  ArrowRight,
   Bell,
+  BellRing,
   Check,
   CheckCircle2,
+  Clock,
+  Copy,
   Database,
+  Download,
   Edit3,
+  ExternalLink,
   FolderTree,
+  Globe,
   Image as ImageIcon,
+  LayoutDashboard,
   LayoutTemplate,
   Link2,
   LogOut,
   Mail,
+  MapPin,
+  Monitor,
   Package,
   Plus,
   Radio,
@@ -20,19 +31,30 @@ import {
   Search,
   ShieldAlert,
   ShoppingBag,
+  Smartphone,
   Ticket,
   Trash2,
   Video,
   X,
 } from 'lucide-react';
 import { BLOG_POSTS, DEFAULT_SITE_SETTINGS } from '../data/catalog';
+import {
+  BrowserGpsSnapshot,
+  getBrowserGpsSnapshot,
+  subscribeBrowserGpsSnapshot,
+  trackVisitorVisit,
+} from '../lib/visitorTracker';
 import { isValidHttpUrl, resolveProductVideo } from '../lib/video';
 import {
   ADMIN_EMAIL,
+  clearVisitorLogs,
   deleteOrderInFirestore,
   deletePriceAlert,
+  deleteRestockAlert,
+  deleteVisitorLog,
   isVerifiedAdminUser,
   markPriceAlertNotified,
+  markRestockAlertNotified,
   normalizePromoCodeString,
   removeBanner,
   removeCategory,
@@ -50,6 +72,8 @@ import {
   signOutAdmin,
   subscribeOrders,
   subscribePriceAlerts,
+  subscribeRestockAlerts,
+  subscribeVisitorLogs,
   updateOrderInFirestore,
 } from '../lib/firebase';
 import {
@@ -63,8 +87,10 @@ import {
   Product,
   PromoCode,
   PromoDiscountType,
+  RestockAlert,
   SiteImagesConfig,
   StoredOrder,
+  VisitorLog,
 } from '../types/store';
 import { formatAuthErrorMessage } from './AuthModal';
 import { HardwareArtwork } from './HardwareArtwork';
@@ -123,10 +149,26 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onClose,
 }) => {
   const [activeTab, setActiveTab] = useState<
-    'orders' | 'products' | 'categories' | 'banners' | 'promo-codes' | 'updates' | 'site-images' | 'alerts'
-  >('orders');
+    | 'dashboard'
+    | 'visitors'
+    | 'orders'
+    | 'products'
+    | 'categories'
+    | 'banners'
+    | 'promo-codes'
+    | 'updates'
+    | 'site-images'
+    | 'alerts'
+  >('dashboard');
   const [orders, setOrders] = useState<StoredOrder[]>([]);
   const [priceAlerts, setPriceAlerts] = useState<PriceAlert[]>([]);
+  const [restockAlerts, setRestockAlerts] = useState<RestockAlert[]>([]);
+  const [visitorLogs, setVisitorLogs] = useState<VisitorLog[]>([]);
+  const [visitorSearch, setVisitorSearch] = useState('');
+  const [visitorFilter, setVisitorFilter] = useState<'all' | 'Web' | 'PWA App' | 'Bangladesh' | 'GPS'>('all');
+  const [copiedIpId, setCopiedIpId] = useState<string | null>(null);
+  const [capturingVisit, setCapturingVisit] = useState(false);
+  const [gpsSnapshot, setGpsSnapshot] = useState<BrowserGpsSnapshot>(() => getBrowserGpsSnapshot());
   const [orderStatusFilter, setOrderStatusFilter] = useState<OrderStatus | 'All'>('All');
   const [orderSearch, setOrderSearch] = useState('');
   const [productSearch, setProductSearch] = useState('');
@@ -167,12 +209,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     setDraftSiteSettings(siteSettings);
   }, [siteSettings]);
 
+  useEffect(() => {
+    return subscribeBrowserGpsSnapshot(setGpsSnapshot);
+  }, []);
+
   const isAdmin = isVerifiedAdminUser(user);
 
   useEffect(() => {
     if (!isOpen || !isAdmin) {
       setOrders([]);
       setPriceAlerts([]);
+      setRestockAlerts([]);
+      setVisitorLogs([]);
       return;
     }
 
@@ -190,6 +238,20 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       }
     );
 
+    const unsubRestockAlerts = subscribeRestockAlerts(
+      (list) => setRestockAlerts(list),
+      (err) => {
+        console.error('Failed to load restock alerts:', err);
+      }
+    );
+
+    const unsubVisitors = subscribeVisitorLogs(
+      (list) => setVisitorLogs(list),
+      (err) => {
+        console.error('Failed to load visitor logs:', err);
+      }
+    );
+
     if (!seedingDone) {
       seedCatalogIfEmpty()
         .then(() => setSeedingDone(true))
@@ -199,6 +261,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     return () => {
       unsubOrders();
       unsubAlerts();
+      unsubRestockAlerts();
+      unsubVisitors();
     };
   }, [isOpen, isAdmin, seedingDone]);
 
@@ -406,16 +470,73 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         notifiedCount = matchingAlerts.length;
       }
 
+      let restockNotifiedCount = 0;
+      if (previousProduct && previousProduct.stock <= 0 && payload.stock > 0) {
+        const matchingRestocks = restockAlerts.filter(
+          (a) => a.productId === payload.id && a.status === 'Active'
+        );
+        await Promise.all(matchingRestocks.map((a) => markRestockAlertNotified(a.id)));
+        restockNotifiedCount = matchingRestocks.length;
+      }
+
       setEditingProduct(null);
-      showBusyToast(
-        notifiedCount > 0
-          ? `Product saved. Flagged ${notifiedCount} price-drop subscriber(s)!`
-          : 'Product saved.',
-        3000
-      );
+      if (restockNotifiedCount > 0 && notifiedCount > 0) {
+        showBusyToast(
+          `Product saved. Notified ${restockNotifiedCount} restock & ${notifiedCount} price subscribers!`,
+          3400
+        );
+      } else if (restockNotifiedCount > 0) {
+        showBusyToast(
+          `Product restocked! Notified ${restockNotifiedCount} back-in-stock subscriber(s).`,
+          3200
+        );
+      } else if (notifiedCount > 0) {
+        showBusyToast(`Product saved. Flagged ${notifiedCount} price-drop subscriber(s)!`, 3000);
+      } else {
+        showBusyToast('Product saved.', 2500);
+      }
     } catch (err) {
       setBusyMessage('');
       setAdminError(formatAdminErr(err, 'Could not save product.'));
+    }
+  };
+
+  const handleQuickStockChange = async (product: Product, nextStock: number) => {
+    setAdminError('');
+    setBusyMessage(nextStock > 0 ? `Restocking ${product.sku}...` : `Marking ${product.sku} OOS...`);
+    try {
+      const updatedTag =
+        nextStock <= 0
+          ? 'Restocking Soon'
+          : product.tag === 'Restocking Soon'
+          ? undefined
+          : product.tag;
+      await saveProduct({
+        ...product,
+        stock: nextStock,
+        tag: updatedTag,
+      });
+
+      let notified = 0;
+      if (product.stock <= 0 && nextStock > 0) {
+        const matching = restockAlerts.filter(
+          (a) => a.productId === product.id && a.status === 'Active'
+        );
+        await Promise.all(matching.map((a) => markRestockAlertNotified(a.id)));
+        notified = matching.length;
+      }
+
+      showBusyToast(
+        nextStock > 0
+          ? notified > 0
+            ? `Restocked ${product.sku} (+${nextStock}). Alerted ${notified} subscriber(s)!`
+            : `Restocked ${product.sku} (+${nextStock}).`
+          : `Marked ${product.sku} as Out of Stock.`,
+        2800
+      );
+    } catch (err) {
+      setBusyMessage('');
+      setAdminError(formatAdminErr(err, 'Could not update product stock.'));
     }
   };
 
@@ -890,6 +1011,303 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     .filter((o) => o.status !== 'Cancelled')
     .reduce((sum, o) => sum + (o.total || 0), 0);
 
+  const getVisitorMillis = (ts: unknown): number => {
+    if (!ts || typeof ts !== 'object') return 0;
+    if ('toMillis' in ts && typeof (ts as { toMillis: () => number }).toMillis === 'function') {
+      return (ts as { toMillis: () => number }).toMillis();
+    }
+    if ('seconds' in ts && typeof (ts as { seconds: number }).seconds === 'number') {
+      return (ts as { seconds: number }).seconds * 1000;
+    }
+    return 0;
+  };
+
+  const formatVisitorDhakaTime = (ts: unknown, fallbackLocal?: string): string => {
+    const ms = getVisitorMillis(ts);
+    if (!ms) return fallbackLocal || 'Just now';
+    return new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Asia/Dhaka',
+      dateStyle: 'medium',
+      timeStyle: 'medium',
+      hour12: true,
+    }).format(new Date(ms));
+  };
+
+  const formatVisitorRelativeTime = (ts: unknown): string => {
+    const ms = getVisitorMillis(ts);
+    if (!ms) return 'Live';
+    const diffSec = Math.max(0, Math.floor((Date.now() - ms) / 1000));
+    if (diffSec < 60) return 'Just now';
+    if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m ago`;
+    if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h ago`;
+    return `${Math.floor(diffSec / 86400)}d ago`;
+  };
+
+  const dedupedVisitorLogs = (() => {
+    const gpsSessionIds = new Set(
+      visitorLogs
+        .filter((v) => v.locationAccuracy === 'GPS' && v.sessionId)
+        .map((v) => v.sessionId)
+    );
+    const seenGpsSessions = new Set<string>();
+    return visitorLogs.filter((v) => {
+      if (v.sessionId && gpsSessionIds.has(v.sessionId)) {
+        if (v.locationAccuracy !== 'GPS') return false;
+        if (seenGpsSessions.has(v.sessionId)) return false;
+        seenGpsSessions.add(v.sessionId);
+      }
+      return true;
+    });
+  })();
+
+  const uniqueVisitorIps = new Set(
+    dedupedVisitorLogs.map((v) => v.ip).filter((ip) => ip && ip !== 'Unavailable')
+  ).size;
+  const pwaVisitsCount = dedupedVisitorLogs.filter((v) => v.platform === 'PWA App').length;
+  const webVisitsCount = dedupedVisitorLogs.length - pwaVisitsCount;
+  const gpsVerifiedCount = dedupedVisitorLogs.filter((v) => v.locationAccuracy === 'GPS').length;
+
+  const topAreaEntry = (() => {
+    const counts = new Map<string, number>();
+    for (const v of dedupedVisitorLogs) {
+      const label = (v.area || v.operatorArea || '').trim();
+      if (!label || label === 'Unknown Area' || label === 'Location Pending') continue;
+      counts.set(label, (counts.get(label) || 0) + 1);
+    }
+    let bestLabel = '—';
+    let bestCount = 0;
+    for (const [label, count] of counts.entries()) {
+      if (count > bestCount) {
+        bestLabel = label;
+        bestCount = count;
+      }
+    }
+    return { label: bestLabel, count: bestCount };
+  })();
+
+  const areaBreakdown = (() => {
+    const counts = new Map<string, number>();
+    for (const v of dedupedVisitorLogs) {
+      const label =
+        v.area?.trim() || v.operatorArea?.trim() || v.city?.trim() || v.country || 'Unknown';
+      counts.set(label, (counts.get(label) || 0) + 1);
+    }
+    return Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 6);
+  })();
+
+  const deviceBreakdown = (() => {
+    const mobile = dedupedVisitorLogs.filter((v) => v.deviceType === 'Mobile').length;
+    const desktop = dedupedVisitorLogs.filter((v) => v.deviceType === 'Desktop').length;
+    const tablet = dedupedVisitorLogs.filter((v) => v.deviceType === 'Tablet').length;
+    return [
+      { label: 'Mobile', count: mobile },
+      { label: 'Desktop', count: desktop },
+      { label: 'Tablet', count: tablet },
+    ];
+  })();
+
+  const browserBreakdown = (() => {
+    const counts = new Map<string, number>();
+    for (const v of dedupedVisitorLogs) {
+      const label = v.browser?.trim() || 'Other';
+      counts.set(label, (counts.get(label) || 0) + 1);
+    }
+    return Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 4);
+  })();
+
+  const todayDhakaDate = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Dhaka',
+  }).format(new Date());
+
+  const todayVisitsCount = dedupedVisitorLogs.filter((v) => {
+    const ms = getVisitorMillis(v.createdAt);
+    if (!ms) return false;
+    return (
+      new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Dhaka' }).format(new Date(ms)) ===
+      todayDhakaDate
+    );
+  }).length;
+
+  const handleCaptureLiveVisitNow = async () => {
+    setAdminError('');
+    setCapturingVisit(true);
+    try {
+      const res = await trackVisitorVisit(
+        user
+          ? {
+              uid: user.uid,
+              email: user.email,
+              displayName: user.displayName,
+            }
+          : null,
+        { force: true, requestGps: true }
+      );
+      if (res.recorded) {
+        const modeLabel =
+          res.accuracy === 'GPS'
+            ? `User GPS Granted${typeof res.gpsAccuracyMeters === 'number' ? ` (±${res.gpsAccuracyMeters}m)` : ''}`
+            : res.blockedByPolicy || res.isEmbeddedIframe
+            ? 'Blocked by preview iframe — open direct tab to grant GPS'
+            : `Operator Geo only${res.gpsReason ? ` (${res.gpsReason})` : ''}`;
+        showBusyToast(
+          `Captured ${res.ip || 'IP'} · ${res.area || res.operatorArea || 'Area'} · ${modeLabel}`,
+          4500
+        );
+      } else {
+        setAdminError('Could not record live visit right now. Please check connection.');
+      }
+    } catch (err) {
+      setAdminError(formatAdminErr(err, 'Failed to capture live visit.'));
+    } finally {
+      setCapturingVisit(false);
+    }
+  };
+
+  const filteredVisitorLogs = dedupedVisitorLogs.filter((log) => {
+    if (visitorFilter === 'Web' && log.platform !== 'Web') return false;
+    if (visitorFilter === 'PWA App' && log.platform !== 'PWA App') return false;
+    if (
+      visitorFilter === 'Bangladesh' &&
+      log.countryCode?.toUpperCase() !== 'BD' &&
+      !log.country.toLowerCase().includes('bangladesh')
+    ) {
+      return false;
+    }
+    if (visitorFilter === 'GPS' && log.locationAccuracy !== 'GPS') return false;
+
+    const q = visitorSearch.trim().toLowerCase();
+    if (!q) return true;
+    return [
+      log.ip,
+      log.area,
+      log.operatorArea,
+      log.city,
+      log.region,
+      log.country,
+      log.postal,
+      log.isp,
+      log.browser,
+      log.os,
+      log.deviceType,
+      log.platform,
+      log.userEmail,
+      log.userName,
+      log.pagePath,
+    ]
+      .filter(Boolean)
+      .some((field) => String(field).toLowerCase().includes(q));
+  });
+
+  const handleCopyVisitorIp = async (logId: string, ip: string) => {
+    try {
+      await navigator.clipboard.writeText(ip);
+      setCopiedIpId(logId);
+      window.setTimeout(() => {
+        setCopiedIpId((prev) => (prev === logId ? null : prev));
+      }, 1500);
+    } catch {
+      showBusyToast(`IP: ${ip}`, 2000);
+    }
+  };
+
+  const handleExportVisitorsCsv = () => {
+    const csvEscape = (val: unknown) => {
+      const str = val === undefined || val === null ? '' : String(val);
+      return `"${str.replace(/"/g, '""')}"`;
+    };
+    const headers = [
+      'Dhaka Time (BDT)',
+      'Visitor Local Time',
+      'Timezone',
+      'IP Address',
+      'IP Type',
+      'Accuracy Mode',
+      'User Location (GPS Elaka)',
+      'GPS Accuracy (m)',
+      'User Latitude',
+      'User Longitude',
+      'Operator / ISP Area',
+      'Operator Latitude',
+      'Operator Longitude',
+      'City',
+      'Region',
+      'Country',
+      'Postal',
+      'ISP / Network',
+      'Platform',
+      'Device',
+      'Browser',
+      'OS',
+      'Screen',
+      'Page Path',
+      'Referrer',
+      'User Email',
+      'User Name',
+    ];
+    const rows = filteredVisitorLogs.map((v) =>
+      [
+        formatVisitorDhakaTime(v.createdAt, v.localTime),
+        v.localTime || '',
+        v.timezone || '',
+        v.ip,
+        v.ipType || '',
+        v.locationAccuracy,
+        v.locationAccuracy === 'GPS' ? v.area : '',
+        v.gpsAccuracyMeters ?? '',
+        v.locationAccuracy === 'GPS' ? (v.latitude ?? '') : '',
+        v.locationAccuracy === 'GPS' ? (v.longitude ?? '') : '',
+        v.operatorArea || v.area,
+        v.operatorLatitude ?? v.latitude ?? '',
+        v.operatorLongitude ?? v.longitude ?? '',
+        v.city || '',
+        v.region || '',
+        v.country,
+        v.postal || '',
+        v.isp || '',
+        v.platform,
+        v.deviceType,
+        v.browser || '',
+        v.os || '',
+        v.screenSize || '',
+        v.pagePath,
+        v.referrer || '',
+        v.userEmail || '',
+        v.userName || '',
+      ]
+        .map(csvEscape)
+        .join(',')
+    );
+    const csvContent = [headers.map(csvEscape).join(','), ...rows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `robotera-bd-visitors-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    showBusyToast(`Exported ${filteredVisitorLogs.length} visitor logs to CSV.`, 2200);
+  };
+
+  const handleClearAllVisitors = async () => {
+    if (visitorLogs.length === 0) return;
+    setAdminError('');
+    setConfirmKey(null);
+    setBusyMessage('Clearing visitor logs...');
+    try {
+      await clearVisitorLogs(visitorLogs.map((v) => v.id));
+      showBusyToast('All visitor logs cleared.', 2200);
+    } catch (err) {
+      setBusyMessage('');
+      setAdminError(formatAdminErr(err, 'Failed to clear visitor logs.'));
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-1.5 sm:p-5">
       <div
@@ -1097,12 +1515,36 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           /* Authenticated Admin Workspace */
           <>
             {/* Summary Strip + Tabs */}
-            <div className="px-5 sm:px-7 py-3 bg-[#F6F8FB] border-b border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+            <div className="px-4 sm:px-7 py-3 bg-[#F6F8FB] border-b border-slate-200 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5 lg:pb-0 flex-nowrap lg:flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('dashboard')}
+                  className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap shrink-0 ${
+                    activeTab === 'dashboard'
+                      ? 'bg-[#06142E] text-white'
+                      : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
+                  }`}
+                >
+                  <LayoutDashboard className="w-3.5 h-3.5" />
+                  <span>Dashboard</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('visitors')}
+                  className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap shrink-0 ${
+                    activeTab === 'visitors'
+                      ? 'bg-[#0057E7] text-white'
+                      : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
+                  }`}
+                >
+                  <Globe className="w-3.5 h-3.5" />
+                  <span>Visitor IPs ({dedupedVisitorLogs.length})</span>
+                </button>
                 <button
                   type="button"
                   onClick={() => setActiveTab('orders')}
-                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap ${
+                  className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap shrink-0 ${
                     activeTab === 'orders'
                       ? 'bg-[#0057E7] text-white'
                       : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
@@ -1114,7 +1556,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 <button
                   type="button"
                   onClick={() => setActiveTab('products')}
-                  className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap ${
+                  className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap shrink-0 ${
                     activeTab === 'products'
                       ? 'bg-[#0057E7] text-white'
                       : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
@@ -1126,7 +1568,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 <button
                   type="button"
                   onClick={() => setActiveTab('categories')}
-                  className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap ${
+                  className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap shrink-0 ${
                     activeTab === 'categories'
                       ? 'bg-[#0057E7] text-white'
                       : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
@@ -1138,7 +1580,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 <button
                   type="button"
                   onClick={() => setActiveTab('banners')}
-                  className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap ${
+                  className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap shrink-0 ${
                     activeTab === 'banners'
                       ? 'bg-[#0057E7] text-white'
                       : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
@@ -1150,7 +1592,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 <button
                   type="button"
                   onClick={() => setActiveTab('promo-codes')}
-                  className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap ${
+                  className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap shrink-0 ${
                     activeTab === 'promo-codes'
                       ? 'bg-[#0057E7] text-white'
                       : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
@@ -1162,7 +1604,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 <button
                   type="button"
                   onClick={() => setActiveTab('updates')}
-                  className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap ${
+                  className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap shrink-0 ${
                     activeTab === 'updates'
                       ? 'bg-[#0057E7] text-white'
                       : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
@@ -1176,7 +1618,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 <button
                   type="button"
                   onClick={() => setActiveTab('site-images')}
-                  className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap ${
+                  className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap shrink-0 ${
                     activeTab === 'site-images'
                       ? 'bg-[#0057E7] text-white'
                       : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
@@ -1188,30 +1630,30 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 <button
                   type="button"
                   onClick={() => setActiveTab('alerts')}
-                  className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap ${
+                  className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap shrink-0 ${
                     activeTab === 'alerts'
                       ? 'bg-[#0057E7] text-white'
                       : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
                   }`}
                 >
                   <Bell className="w-3.5 h-3.5" />
-                  <span>Price Alerts ({priceAlerts.length})</span>
+                  <span>Alerts ({priceAlerts.length + restockAlerts.length})</span>
                 </button>
               </div>
 
-              <div className="flex items-center gap-4 text-xs text-slate-600">
+              <div className="flex items-center gap-4 text-xs text-slate-600 shrink-0">
                 <span>
-                  Active Revenue:{' '}
+                  Revenue:{' '}
                   <strong className="font-mono text-[#06142E] tabular-nums">
                     ৳{totalRevenue.toLocaleString('en-IN')}
                   </strong>
                 </span>
-                <span className="hidden md:inline font-mono text-slate-400">{user.email}</span>
+                <span className="hidden xl:inline font-mono text-slate-400">{user.email}</span>
               </div>
             </div>
 
             {/* Tab Workspace Content */}
-            <div className="flex-1 overflow-y-auto p-5 sm:p-7 space-y-5">
+            <div className="flex-1 overflow-y-auto p-5 sm:p-7 space-y-6">
               {adminError && (
                 <div className="flex items-center justify-between gap-3 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-xs text-red-700">
                   <span>{adminError}</span>
@@ -1226,33 +1668,463 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 </div>
               )}
 
-              {/* Quick Operations KPI Row */}
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                <div className="bg-[#F6F8FB] border border-slate-200 rounded-xl p-3.5">
-                  <p className="text-[11px] font-medium text-slate-500">Total Orders</p>
-                  <p className="font-display text-xl font-bold text-[#06142E] tabular-nums mt-0.5">
-                    {orders.length}
-                  </p>
+              {/* TAB 0: ADMIN OVERVIEW & LIVE VISITOR IP DASHBOARD */}
+              {activeTab === 'dashboard' && (
+                <div className="space-y-6">
+                  {/* Dashboard Header */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-200">
+                    <div>
+                      <h3 className="font-display text-lg font-bold text-[#06142E]">
+                        Store &amp; Live Visitor Telemetry Dashboard
+                      </h3>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Real-time visitor IP addresses, Elaka/area detection, platform split (Web &amp; PWA App), and store order health.
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 shrink-0">
+                      {gpsSnapshot.state !== 'granted' && (
+                        gpsSnapshot.blockedByPolicy ||
+                        (gpsSnapshot.state === 'denied' && gpsSnapshot.isEmbeddedIframe) ? (
+                          <a
+                            href={typeof window !== 'undefined' ? window.location.href : '/'}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="h-9 px-3.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold inline-flex items-center gap-1.5 whitespace-nowrap"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                            <span>Open Direct Tab for GPS</span>
+                          </a>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={handleCaptureLiveVisitNow}
+                            disabled={capturingVisit}
+                            className="h-9 px-3.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white text-xs font-semibold inline-flex items-center gap-1.5 whitespace-nowrap"
+                          >
+                            <MapPin className="w-3.5 h-3.5" />
+                            <span>
+                              {capturingVisit
+                                ? 'Requesting GPS...'
+                                : gpsSnapshot.state === 'denied'
+                                ? 'Retry Browser GPS'
+                                : 'Grant Browser GPS'}
+                            </span>
+                          </button>
+                        )
+                      )}
+                      <button
+                        type="button"
+                        onClick={handleCaptureLiveVisitNow}
+                        disabled={capturingVisit}
+                        className="h-9 px-3.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-60 text-[#06142E] text-xs font-semibold inline-flex items-center gap-1.5 whitespace-nowrap"
+                      >
+                        <Activity className={`w-3.5 h-3.5 text-[#0057E7] ${capturingVisit ? 'animate-spin' : ''}`} />
+                        <span>{capturingVisit ? 'Capturing...' : 'Capture Live Visit'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('visitors')}
+                        className="h-9 px-3.5 rounded-lg bg-[#0057E7] hover:bg-[#0044BB] text-white text-xs font-semibold inline-flex items-center gap-1.5 whitespace-nowrap"
+                      >
+                        <Globe className="w-3.5 h-3.5" />
+                        <span>All Visitor IPs ({dedupedVisitorLogs.length})</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {gpsSnapshot.state !== 'granted' && (
+                    <div className="rounded-xl border border-slate-200 bg-[#F6F8FB] px-4 py-2.5 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-700">
+                      <span className="leading-snug">
+                        {gpsSnapshot.blockedByPolicy ||
+                        (gpsSnapshot.state === 'denied' && gpsSnapshot.isEmbeddedIframe)
+                          ? 'Embedded preview iframe blocks geolocation permission. Open the direct app URL in a browser tab to grant Browser GPS.'
+                          : gpsSnapshot.state === 'denied'
+                          ? 'Browser GPS permission is blocked in this browser. Click the lock/site-settings icon beside your address bar, allow Location, then click Retry Browser GPS.'
+                          : 'Click "Grant Browser GPS" to allow your browser to capture exact User Location alongside Operator Geo-IP.'}
+                      </span>
+                      <span className="font-mono text-[11px] font-semibold text-slate-500 uppercase">
+                        Status: {gpsSnapshot.blockedByPolicy ? 'Iframe Blocked' : gpsSnapshot.state}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* 5-Column KPI Overview */}
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                    <div className="bg-[#F6F8FB] border border-slate-200 rounded-xl p-3.5">
+                      <p className="text-[11px] font-medium text-slate-500">Total Logged Visits</p>
+                      <p className="font-display text-2xl font-bold text-[#06142E] tabular-nums mt-1">
+                        {dedupedVisitorLogs.length}
+                      </p>
+                      <p className="text-[11px] text-slate-500 mt-1 font-mono tabular-nums">
+                        {todayVisitsCount} today (BDT)
+                      </p>
+                    </div>
+
+                    <div className="bg-[#F6F8FB] border border-slate-200 rounded-xl p-3.5">
+                      <p className="text-[11px] font-medium text-slate-500">Unique IPs</p>
+                      <p className="font-display text-2xl font-bold text-[#0057E7] tabular-nums mt-1">
+                        {uniqueVisitorIps}
+                      </p>
+                      <p className="text-[11px] text-slate-500 mt-1 font-mono tabular-nums">
+                        {gpsVerifiedCount} User GPS · {Math.max(0, dedupedVisitorLogs.length - gpsVerifiedCount)} Operator only
+                      </p>
+                    </div>
+
+                    <div className="bg-[#F6F8FB] border border-slate-200 rounded-xl p-3.5">
+                      <p className="text-[11px] font-medium text-slate-500">Web vs App (PWA)</p>
+                      <p className="font-display text-2xl font-bold text-[#06142E] tabular-nums mt-1">
+                        {webVisitsCount} <span className="text-sm font-normal text-slate-400">/</span> {pwaVisitsCount}
+                      </p>
+                      <p className="text-[11px] text-slate-500 mt-1">Browser vs Installed App</p>
+                    </div>
+
+                    <div className="bg-[#F6F8FB] border border-slate-200 rounded-xl p-3.5">
+                      <p className="text-[11px] font-medium text-slate-500">Top Area (Elaka)</p>
+                      <p
+                        className="font-display text-sm font-bold text-[#06142E] mt-1.5 truncate"
+                        title={topAreaEntry.label}
+                      >
+                        {topAreaEntry.label}
+                      </p>
+                      <p className="text-[11px] text-slate-500 mt-1.5 font-mono tabular-nums">
+                        {topAreaEntry.count > 0 ? `${topAreaEntry.count} visits` : 'No visits yet'}
+                      </p>
+                    </div>
+
+                    <div className="bg-[#F6F8FB] border border-slate-200 rounded-xl p-3.5 col-span-2 md:col-span-1">
+                      <p className="text-[11px] font-medium text-slate-500">Active Revenue</p>
+                      <p className="font-display text-2xl font-bold text-[#06142E] tabular-nums mt-1">
+                        ৳{totalRevenue.toLocaleString('en-IN')}
+                      </p>
+                      <p className="text-[11px] text-slate-500 mt-1 font-mono tabular-nums">
+                        {orders.filter((o) => o.status === 'Pending' || o.status === 'Confirmed').length} pending · {products.filter((p) => p.stock <= 5).length} low stock
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Analytics Split: Top Areas (Elaka) + Device & Platform Breakdown */}
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                    <div className="lg:col-span-7 border border-slate-200 rounded-xl bg-white p-4 sm:p-5">
+                      <div className="flex items-center justify-between gap-2 pb-3 border-b border-slate-100">
+                        <h4 className="font-display text-sm font-bold text-[#06142E]">
+                          Top Visitor Areas (Elaka &amp; Cities)
+                        </h4>
+                        <span className="text-[11px] font-mono text-slate-500 tabular-nums">
+                          {areaBreakdown.length} active zones
+                        </span>
+                      </div>
+                      {areaBreakdown.length === 0 ? (
+                        <p className="text-xs text-slate-500 py-8 text-center">
+                          Area statistics will appear as visitors browse the storefront or app.
+                        </p>
+                      ) : (
+                        <div className="mt-3 space-y-2.5">
+                          {areaBreakdown.map(([areaLabel, count]) => {
+                            const pct =
+                              dedupedVisitorLogs.length > 0
+                                ? Math.round((count / dedupedVisitorLogs.length) * 100)
+                                : 0;
+                            return (
+                              <div key={areaLabel} className="space-y-1">
+                                <div className="flex items-center justify-between gap-3 text-xs">
+                                  <span className="font-medium text-[#06142E] truncate">{areaLabel}</span>
+                                  <span className="font-mono text-slate-600 tabular-nums shrink-0">
+                                    {count} ({pct}%)
+                                  </span>
+                                </div>
+                                <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
+                                  <div
+                                    className="h-full rounded-full bg-[#0057E7]"
+                                    style={{ width: `${Math.max(6, pct)}%` }}
+                                  />
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="lg:col-span-5 border border-slate-200 rounded-xl bg-white p-4 sm:p-5 flex flex-col justify-between gap-4">
+                      <div>
+                        <div className="flex items-center justify-between gap-2 pb-3 border-b border-slate-100">
+                          <h4 className="font-display text-sm font-bold text-[#06142E]">
+                            Device &amp; Browser Share
+                          </h4>
+                          <span className="text-[11px] font-mono text-slate-500 tabular-nums">
+                            {dedupedVisitorLogs.length} sessions
+                          </span>
+                        </div>
+                        <div className="mt-3 grid grid-cols-3 gap-2">
+                          {deviceBreakdown.map((item) => {
+                            const pct =
+                              dedupedVisitorLogs.length > 0
+                                ? Math.round((item.count / dedupedVisitorLogs.length) * 100)
+                                : 0;
+                            return (
+                              <div
+                                key={item.label}
+                                className="border border-slate-200 rounded-lg p-2.5 bg-[#F6F8FB]"
+                              >
+                                <p className="text-[11px] text-slate-500">{item.label}</p>
+                                <p className="font-mono text-base font-bold text-[#06142E] tabular-nums mt-0.5">
+                                  {item.count}
+                                </p>
+                                <p className="font-mono text-[10px] text-slate-500 tabular-nums">{pct}%</p>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      <div>
+                        <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-2">
+                          Top Browsers
+                        </p>
+                        {browserBreakdown.length === 0 ? (
+                          <p className="text-xs text-slate-400">No browser sessions yet.</p>
+                        ) : (
+                          <div className="divide-y divide-slate-100 border border-slate-200 rounded-lg">
+                            {browserBreakdown.map(([browserName, count]) => (
+                              <div
+                                key={browserName}
+                                className="px-3 py-1.5 flex items-center justify-between text-xs"
+                              >
+                                <span className="font-medium text-slate-700">{browserName}</span>
+                                <span className="font-mono text-slate-600 tabular-nums">{count}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* High-Density Live Visitor IP Feed Table */}
+                  <div className="border border-slate-200 rounded-xl bg-white overflow-hidden">
+                    <div className="px-4 sm:px-5 py-3.5 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 bg-[#F6F8FB]">
+                      <div>
+                        <h4 className="font-display text-sm font-bold text-[#06142E]">
+                          Recent Live Visitor IPs (Latest 12)
+                        </h4>
+                        <p className="text-[11px] text-slate-500">
+                          Displays both exact User Location (GPS) and Operator / ISP Location side-by-side with Dhaka time (BDT).
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('visitors')}
+                        className="inline-flex items-center gap-1 text-xs font-semibold text-[#0057E7] hover:underline whitespace-nowrap"
+                      >
+                        <span>Open Full Visitor IP Console</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+
+                    {dedupedVisitorLogs.length === 0 ? (
+                      <div className="p-8 text-center space-y-3">
+                        <p className="text-xs text-slate-500">
+                          No visitor IP telemetry recorded yet. Click below to capture your current visit or browse the storefront.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={handleCaptureLiveVisitNow}
+                          disabled={capturingVisit}
+                          className="h-9 px-4 rounded-lg bg-[#0057E7] hover:bg-[#0044BB] disabled:opacity-60 text-white text-xs font-semibold inline-flex items-center gap-1.5"
+                        >
+                          <Activity className="w-3.5 h-3.5" />
+                          <span>{capturingVisit ? 'Capturing Live Visit...' : 'Log My Live IP & Elaka Now'}</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse min-w-[840px]">
+                          <thead>
+                            <tr className="border-b border-slate-200 bg-slate-50 text-[11px] font-semibold text-slate-500">
+                              <th className="py-2.5 px-4">IP Address</th>
+                              <th className="py-2.5 px-3">User Location (GPS)</th>
+                              <th className="py-2.5 px-3">Operator / ISP Location</th>
+                              <th className="py-2.5 px-3">Dhaka Time (BDT)</th>
+                              <th className="py-2.5 px-4">Platform &amp; Device</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 text-xs">
+                            {dedupedVisitorLogs.slice(0, 12).map((log) => {
+                              const isGps = log.locationAccuracy === 'GPS';
+                              const hasUserCoords =
+                                isGps &&
+                                typeof log.latitude === 'number' &&
+                                typeof log.longitude === 'number';
+                              const opLat = log.operatorLatitude ?? (!isGps ? log.latitude : undefined);
+                              const opLon = log.operatorLongitude ?? (!isGps ? log.longitude : undefined);
+                              const hasOpCoords =
+                                typeof opLat === 'number' && typeof opLon === 'number';
+                              const operatorLabel =
+                                log.operatorArea ||
+                                (!isGps ? log.area : [log.city, log.region, log.country].filter(Boolean).join(', ')) ||
+                                'Unavailable';
+
+                              return (
+                                <tr key={log.id} className="hover:bg-slate-50/80 transition-colors">
+                                  <td className="py-2.5 px-4 whitespace-nowrap">
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-mono font-bold text-[#06142E] tabular-nums">
+                                        {log.ip}
+                                      </span>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleCopyVisitorIp(log.id, log.ip)}
+                                        aria-label={`Copy IP ${log.ip}`}
+                                        className="p-1 rounded hover:bg-slate-200 text-slate-500 hover:text-[#06142E]"
+                                      >
+                                        {copiedIpId === log.id ? (
+                                          <Check className="w-3.5 h-3.5 text-emerald-600" />
+                                        ) : (
+                                          <Copy className="w-3.5 h-3.5" />
+                                        )}
+                                      </button>
+                                    </div>
+                                    <div className="text-[11px] text-slate-500 tabular-nums">
+                                      {log.ipType || 'IP'} ·{' '}
+                                      {isGps
+                                        ? `GPS Exact${typeof log.gpsAccuracyMeters === 'number' ? ` ±${log.gpsAccuracyMeters}m` : ''}`
+                                        : 'Operator Geo'}
+                                    </div>
+                                  </td>
+                                  <td className="py-2.5 px-3 max-w-[230px]">
+                                    {isGps ? (
+                                      <>
+                                        <p className="font-semibold text-[#06142E] truncate" title={log.area}>
+                                          {log.area}
+                                        </p>
+                                        <div className="flex items-center gap-1.5 text-[11px] text-emerald-700 truncate">
+                                          <span>
+                                            GPS Exact
+                                            {typeof log.gpsAccuracyMeters === 'number'
+                                              ? ` (±${log.gpsAccuracyMeters}m)`
+                                              : ''}
+                                          </span>
+                                          {hasUserCoords && (
+                                            <>
+                                              <span aria-hidden="true">·</span>
+                                              <a
+                                                href={`https://www.google.com/maps?q=${log.latitude},${log.longitude}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="text-[#0057E7] hover:underline font-medium shrink-0"
+                                              >
+                                                User Map
+                                              </a>
+                                            </>
+                                          )}
+                                        </div>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <p className="font-medium text-slate-400">GPS not granted</p>
+                                        <p className="text-[11px] text-slate-500 truncate">
+                                          Using Operator IP location
+                                        </p>
+                                      </>
+                                    )}
+                                  </td>
+                                  <td className="py-2.5 px-3 max-w-[230px]">
+                                    <p className="font-semibold text-[#06142E] truncate" title={operatorLabel}>
+                                      {operatorLabel}
+                                    </p>
+                                    <div className="flex items-center gap-1.5 text-[11px] text-slate-500 truncate">
+                                      <span className="truncate" title={log.isp || log.country}>
+                                        {log.isp || log.country}
+                                      </span>
+                                      {hasOpCoords && (
+                                        <>
+                                          <span aria-hidden="true">·</span>
+                                          <a
+                                            href={`https://www.google.com/maps?q=${opLat},${opLon}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-[#0057E7] hover:underline font-medium shrink-0"
+                                          >
+                                            ISP Map
+                                          </a>
+                                        </>
+                                      )}
+                                    </div>
+                                  </td>
+                                  <td className="py-2.5 px-3 whitespace-nowrap">
+                                    <p className="font-mono text-[#06142E] tabular-nums">
+                                      {formatVisitorDhakaTime(log.createdAt, log.localTime)}
+                                    </p>
+                                    <p className="text-[11px] text-slate-500">
+                                      {formatVisitorRelativeTime(log.createdAt)}
+                                    </p>
+                                  </td>
+                                  <td className="py-2.5 px-4 whitespace-nowrap">
+                                    <p className="font-medium text-[#06142E]">
+                                      {log.platform} · {log.deviceType}
+                                    </p>
+                                    <p className="text-[11px] text-slate-500">
+                                      {[log.os, log.browser].filter(Boolean).join(' · ') || 'Browser'}
+                                    </p>
+                                    {log.userEmail && (
+                                      <p className="text-[11px] text-[#0057E7] truncate max-w-[170px]">
+                                        {log.userEmail}
+                                      </p>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Recent Orders Snapshot */}
+                  <div className="border border-slate-200 rounded-xl bg-white overflow-hidden">
+                    <div className="px-4 sm:px-5 py-3 border-b border-slate-200 flex items-center justify-between gap-2 bg-[#F6F8FB]">
+                      <h4 className="font-display text-sm font-bold text-[#06142E]">
+                        Recent Orders ({orders.length})
+                      </h4>
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('orders')}
+                        className="inline-flex items-center gap-1 text-xs font-semibold text-[#0057E7] hover:underline whitespace-nowrap"
+                      >
+                        <span>Manage All Orders</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                    {orders.length === 0 ? (
+                      <p className="text-xs text-slate-500 p-6 text-center">No customer orders yet.</p>
+                    ) : (
+                      <div className="divide-y divide-slate-100">
+                        {orders.slice(0, 5).map((order) => (
+                          <div
+                            key={order.orderId}
+                            className="px-4 sm:px-5 py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs hover:bg-slate-50/70"
+                          >
+                            <div className="min-w-0">
+                              <span className="font-mono font-bold text-[#06142E]">#{order.orderId}</span>
+                              <span className="mx-2 text-slate-300">·</span>
+                              <span className="font-medium text-slate-700">{order.customerName}</span>
+                              <span className="mx-2 text-slate-300">·</span>
+                              <span className="text-slate-500">{order.district}</span>
+                            </div>
+                            <div className="flex items-center gap-3 font-mono tabular-nums">
+                              <span className="text-slate-600">{order.status}</span>
+                              <span className="font-bold text-[#06142E]">
+                                ৳{order.total.toLocaleString('en-IN')}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div className="bg-[#F6F8FB] border border-slate-200 rounded-xl p-3.5">
-                  <p className="text-[11px] font-medium text-slate-500">Pending Dispatch</p>
-                  <p className="font-display text-xl font-bold text-[#0057E7] tabular-nums mt-0.5">
-                    {orders.filter((o) => o.status === 'Pending' || o.status === 'Confirmed').length}
-                  </p>
-                </div>
-                <div className="bg-[#F6F8FB] border border-slate-200 rounded-xl p-3.5">
-                  <p className="text-[11px] font-medium text-slate-500">Low / Out of Stock</p>
-                  <p className="font-display text-xl font-bold text-amber-700 tabular-nums mt-0.5">
-                    {products.filter((p) => p.stock <= 5).length}
-                  </p>
-                </div>
-                <div className="bg-[#F6F8FB] border border-slate-200 rounded-xl p-3.5">
-                  <p className="text-[11px] font-medium text-slate-500">Active Revenue</p>
-                  <p className="font-display text-xl font-bold text-[#06142E] tabular-nums mt-0.5">
-                    ৳{totalRevenue.toLocaleString('en-IN')}
-                  </p>
-                </div>
-              </div>
+              )}
 
               {/* TAB 1: ORDERS */}
               {activeTab === 'orders' && (
@@ -1468,11 +2340,38 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                             <td className="py-3 px-3 font-mono font-bold text-right text-[#06142E] tabular-nums whitespace-nowrap">
                               ৳{product.price.toLocaleString('en-IN')}
                             </td>
-                            <td className="py-3 px-3 font-mono text-right tabular-nums">
-                              {product.stock}
+                            <td className="py-3 px-3 font-mono text-right tabular-nums whitespace-nowrap">
+                              <span
+                                className={`inline-flex items-center px-2 py-0.5 rounded font-semibold ${
+                                  product.stock <= 0
+                                    ? 'bg-red-50 text-red-700 border border-red-200'
+                                    : product.stock <= 5
+                                    ? 'bg-amber-50 text-amber-800 border border-amber-200'
+                                    : 'text-slate-700'
+                                }`}
+                              >
+                                {product.stock <= 0 ? '0 (OOS)' : product.stock}
+                              </span>
                             </td>
                             <td className="py-3 px-4 text-right whitespace-nowrap">
                               <div className="inline-flex items-center gap-1.5">
+                                {product.stock <= 0 ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleQuickStockChange(product, 10)}
+                                    className="px-2.5 py-1.5 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
+                                  >
+                                    +10 Restock
+                                  </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleQuickStockChange(product, 0)}
+                                    className="px-2 py-1.5 rounded-md border border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-800 font-semibold"
+                                  >
+                                    Set 0
+                                  </button>
+                                )}
                                 <button
                                   type="button"
                                   onClick={() => openEditProduct(product)}
@@ -2360,109 +3259,673 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 </form>
               )}
 
-              {/* TAB 6: PRICE DROP ALERTS */}
+              {/* TAB 7: BACK-IN-STOCK & PRICE DROP ALERTS */}
               {activeTab === 'alerts' && (
-                <div className="space-y-4">
-                  <div>
-                    <h3 className="font-display text-base font-bold text-[#06142E]">
-                      Customer Price Drop Alerts
-                    </h3>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      Shoppers who subscribed for email notifications when a product&apos;s price drops. Lowering a product price automatically flags matching alerts.
-                    </p>
-                  </div>
-
-                  {priceAlerts.length === 0 ? (
-                    <div className="border border-slate-200 rounded-xl p-10 text-center text-sm text-slate-500">
-                      No price drop alert subscriptions yet.
+                <div className="space-y-8">
+                  {/* Back-in-Stock Subscribers */}
+                  <div className="space-y-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <h3 className="font-display text-base font-bold text-[#06142E] flex items-center gap-2">
+                          <BellRing className="w-4 h-4 text-[#0057E7]" />
+                          <span>Back-in-Stock Alerts (Wishlist &amp; Product Subscribers)</span>
+                        </h3>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          Customers waiting for out-of-stock hardware. Restocking any item automatically flags active subscribers and alerts their wishlist dashboard.
+                        </p>
+                      </div>
+                      <span className="font-mono text-xs font-bold px-2.5 py-1 rounded-lg bg-[#F6F8FB] border border-slate-200 text-[#06142E] tabular-nums">
+                        {restockAlerts.filter((a) => a.status === 'Active').length} Active ·{' '}
+                        {restockAlerts.length} Total
+                      </span>
                     </div>
-                  ) : (
-                    <div className="space-y-2.5">
-                      {priceAlerts.map((alert) => {
-                        const liveProd = products.find((p) => p.id === alert.productId);
-                        const currentPrice = liveProd?.price ?? alert.baselinePrice;
-                        const priceDropped = currentPrice < alert.baselinePrice;
-                        const mailSubject = encodeURIComponent(
-                          `Price Drop Alert: ${alert.productName} is now ৳${currentPrice.toLocaleString('en-IN')} at Robotera BD`
-                        );
-                        const mailBody = encodeURIComponent(
-                          `Hello,\n\nGood news! The price of ${alert.productName} just dropped from ৳${alert.baselinePrice.toLocaleString('en-IN')} to ৳${currentPrice.toLocaleString('en-IN')} at Robotera BD.\n\nOrder now while Dhaka stock lasts!\n\nRegards,\nRobotera BD`
-                        );
 
-                        return (
-                          <div
-                            key={alert.id}
-                            className="border border-slate-200 rounded-xl p-4 bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-                          >
-                            <div className="space-y-1 min-w-0">
-                              <div className="flex flex-wrap items-center gap-2 text-xs">
-                                <span className="font-bold text-[#06142E] truncate">
-                                  {alert.productName}
-                                </span>
-                                <span
-                                  className={`px-2 py-0.5 rounded text-[11px] font-semibold border ${
-                                    alert.status === 'Notified'
-                                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                      : priceDropped
-                                      ? 'bg-amber-50 text-amber-800 border-amber-200'
-                                      : 'bg-blue-50 text-[#0057E7] border-blue-200'
-                                  }`}
-                                >
-                                  {alert.status === 'Notified'
-                                    ? 'Notified'
-                                    : priceDropped
-                                    ? 'Price Dropped — Ready'
-                                    : 'Watching'}
-                                </span>
+                    {restockAlerts.length === 0 ? (
+                      <div className="border border-slate-200 rounded-xl p-8 text-center text-sm text-slate-500">
+                        No back-in-stock restock alert subscriptions yet.
+                      </div>
+                    ) : (
+                      <div className="space-y-2.5">
+                        {restockAlerts.map((alert) => {
+                          const liveProd = products.find((p) => p.id === alert.productId);
+                          const liveStock = liveProd?.stock ?? 0;
+                          const isBackInStock = liveStock > 0;
+                          const mailSubject = encodeURIComponent(
+                            `Back in Stock: ${alert.productName} is ready to order at Robotera BD`
+                          );
+                          const mailBody = encodeURIComponent(
+                            `Hello,\n\nGreat news! ${alert.productName} from your Robotera BD restock watchlist is back in stock (${liveStock} units available at ৳${(liveProd?.price ?? 0).toLocaleString('en-IN')}).\n\nOrder now while Dhaka lab inventory lasts.\n\nRegards,\nRobotera BD`
+                          );
+
+                          return (
+                            <div
+                              key={alert.id}
+                              className="border border-slate-200 rounded-xl p-4 bg-white flex flex-col lg:flex-row lg:items-center justify-between gap-3"
+                            >
+                              <div className="space-y-1 min-w-0">
+                                <div className="flex flex-wrap items-center gap-2 text-xs">
+                                  <span className="font-bold text-[#06142E] truncate">
+                                    {alert.productName}
+                                  </span>
+                                  <span
+                                    className={`px-2 py-0.5 rounded text-[11px] font-semibold border ${
+                                      alert.status === 'Notified'
+                                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                        : isBackInStock
+                                        ? 'bg-cyan-50 text-cyan-800 border-cyan-200'
+                                        : 'bg-amber-50 text-amber-800 border-amber-200'
+                                    }`}
+                                  >
+                                    {alert.status === 'Notified'
+                                      ? 'Notified'
+                                      : isBackInStock
+                                      ? 'Restocked — Send Email'
+                                      : 'Watching Restock'}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-slate-600 font-mono truncate">
+                                  {alert.email}
+                                </p>
+                                <p className="text-[11px] text-slate-500 font-mono tabular-nums">
+                                  Live Stock:{' '}
+                                  <strong className={isBackInStock ? 'text-emerald-700' : 'text-red-600'}>
+                                    {liveStock > 0 ? `${liveStock} units` : '0 (Out of Stock)'}
+                                  </strong>
+                                  {liveProd ? ` · ৳${liveProd.price.toLocaleString('en-IN')}` : ''}
+                                </p>
                               </div>
-                              <p className="text-xs text-slate-600 font-mono truncate">
-                                {alert.email}
-                              </p>
-                              <p className="text-[11px] text-slate-500 font-mono tabular-nums">
-                                Subscribed at: ৳{alert.baselinePrice.toLocaleString('en-IN')} · Live Price: ৳
-                                {currentPrice.toLocaleString('en-IN')}
-                              </p>
-                            </div>
 
-                            <div className="flex items-center gap-2 shrink-0">
-                              <a
-                                href={`mailto:${alert.email}?subject=${mailSubject}&body=${mailBody}`}
-                                className="h-8 px-3 rounded-lg bg-[#0057E7] hover:bg-[#0044BB] text-white text-xs font-semibold inline-flex items-center gap-1.5"
-                              >
-                                <Mail className="w-3.5 h-3.5" />
-                                <span>Email Buyer</span>
-                              </a>
-                              {alert.status !== 'Notified' && (
+                              <div className="flex flex-wrap items-center gap-2 shrink-0">
+                                {liveProd && liveStock <= 0 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleQuickStockChange(liveProd, 10)}
+                                    className="h-8 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold inline-flex items-center gap-1"
+                                  >
+                                    <span>+10 Restock Now</span>
+                                  </button>
+                                )}
+                                <a
+                                  href={`mailto:${alert.email}?subject=${mailSubject}&body=${mailBody}`}
+                                  className="h-8 px-3 rounded-lg bg-[#0057E7] hover:bg-[#0044BB] text-white text-xs font-semibold inline-flex items-center gap-1.5"
+                                >
+                                  <Mail className="w-3.5 h-3.5" />
+                                  <span>Email Buyer</span>
+                                </a>
+                                {alert.status !== 'Notified' && (
+                                  <button
+                                    type="button"
+                                    onClick={async () => {
+                                      try {
+                                        await markRestockAlertNotified(alert.id);
+                                        showBusyToast('Restock alert marked as notified.', 1800);
+                                      } catch (err) {
+                                        setAdminError(
+                                          formatAdminErr(err, 'Failed to update restock alert.')
+                                        );
+                                      }
+                                    }}
+                                    className="h-8 px-2.5 rounded-lg border border-slate-200 hover:bg-slate-100 text-xs font-semibold text-slate-700"
+                                  >
+                                    Mark Sent
+                                  </button>
+                                )}
                                 <button
                                   type="button"
                                   onClick={async () => {
                                     try {
-                                      await markPriceAlertNotified(alert.id, currentPrice);
-                                      showBusyToast('Alert marked as notified.', 1800);
+                                      await deleteRestockAlert(alert.id);
+                                      showBusyToast('Restock alert removed.', 1500);
                                     } catch (err) {
-                                      setAdminError(formatAdminErr(err, 'Failed to update alert.'));
+                                      setAdminError(
+                                        formatAdminErr(err, 'Failed to delete restock alert.')
+                                      );
                                     }
                                   }}
-                                  className="h-8 px-2.5 rounded-lg border border-slate-200 hover:bg-slate-100 text-xs font-semibold text-slate-700"
+                                  aria-label={`Delete restock alert for ${alert.email}`}
+                                  className="h-8 px-2 rounded-lg border border-red-200 hover:bg-red-50 text-red-600 inline-flex items-center"
                                 >
-                                  Mark Sent
+                                  <Trash2 className="w-3.5 h-3.5" />
                                 </button>
-                              )}
-                              <button
-                                type="button"
-                                onClick={async () => {
-                                  try {
-                                    await deletePriceAlert(alert.id);
-                                    showBusyToast('Price alert removed.', 1500);
-                                  } catch (err) {
-                                    setAdminError(formatAdminErr(err, 'Failed to delete alert.'));
-                                  }
-                                }}
-                                aria-label={`Delete price alert for ${alert.email}`}
-                                className="h-8 px-2 rounded-lg border border-red-200 hover:bg-red-50 text-red-600 inline-flex items-center"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Customer Price Drop Alerts */}
+                  <div className="space-y-4 pt-6 border-t border-slate-200">
+                    <div>
+                      <h3 className="font-display text-base font-bold text-[#06142E]">
+                        Customer Price Drop Alerts
+                      </h3>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Shoppers who subscribed for email notifications when a product&apos;s price drops. Lowering a product price automatically flags matching alerts.
+                      </p>
+                    </div>
+
+                    {priceAlerts.length === 0 ? (
+                      <div className="border border-slate-200 rounded-xl p-10 text-center text-sm text-slate-500">
+                        No price drop alert subscriptions yet.
+                      </div>
+                    ) : (
+                      <div className="space-y-2.5">
+                        {priceAlerts.map((alert) => {
+                          const liveProd = products.find((p) => p.id === alert.productId);
+                          const currentPrice = liveProd?.price ?? alert.baselinePrice;
+                          const priceDropped = currentPrice < alert.baselinePrice;
+                          const mailSubject = encodeURIComponent(
+                            `Price Drop Alert: ${alert.productName} is now ৳${currentPrice.toLocaleString('en-IN')} at Robotera BD`
+                          );
+                          const mailBody = encodeURIComponent(
+                            `Hello,\n\nGood news! The price of ${alert.productName} just dropped from ৳${alert.baselinePrice.toLocaleString('en-IN')} to ৳${currentPrice.toLocaleString('en-IN')} at Robotera BD.\n\nOrder now while Dhaka stock lasts!\n\nRegards,\nRobotera BD`
+                          );
+
+                          return (
+                            <div
+                              key={alert.id}
+                              className="border border-slate-200 rounded-xl p-4 bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                            >
+                              <div className="space-y-1 min-w-0">
+                                <div className="flex flex-wrap items-center gap-2 text-xs">
+                                  <span className="font-bold text-[#06142E] truncate">
+                                    {alert.productName}
+                                  </span>
+                                  <span
+                                    className={`px-2 py-0.5 rounded text-[11px] font-semibold border ${
+                                      alert.status === 'Notified'
+                                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                        : priceDropped
+                                        ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                        : 'bg-blue-50 text-[#0057E7] border-blue-200'
+                                    }`}
+                                  >
+                                    {alert.status === 'Notified'
+                                      ? 'Notified'
+                                      : priceDropped
+                                      ? 'Price Dropped — Ready'
+                                      : 'Watching'}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-slate-600 font-mono truncate">
+                                  {alert.email}
+                                </p>
+                                <p className="text-[11px] text-slate-500 font-mono tabular-nums">
+                                  Subscribed at: ৳{alert.baselinePrice.toLocaleString('en-IN')} · Live Price: ৳
+                                  {currentPrice.toLocaleString('en-IN')}
+                                </p>
+                              </div>
+
+                              <div className="flex items-center gap-2 shrink-0">
+                                <a
+                                  href={`mailto:${alert.email}?subject=${mailSubject}&body=${mailBody}`}
+                                  className="h-8 px-3 rounded-lg bg-[#0057E7] hover:bg-[#0044BB] text-white text-xs font-semibold inline-flex items-center gap-1.5"
+                                >
+                                  <Mail className="w-3.5 h-3.5" />
+                                  <span>Email Buyer</span>
+                                </a>
+                                {alert.status !== 'Notified' && (
+                                  <button
+                                    type="button"
+                                    onClick={async () => {
+                                      try {
+                                        await markPriceAlertNotified(alert.id, currentPrice);
+                                        showBusyToast('Alert marked as notified.', 1800);
+                                      } catch (err) {
+                                        setAdminError(formatAdminErr(err, 'Failed to update alert.'));
+                                      }
+                                    }}
+                                    className="h-8 px-2.5 rounded-lg border border-slate-200 hover:bg-slate-100 text-xs font-semibold text-slate-700"
+                                  >
+                                    Mark Sent
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    try {
+                                      await deletePriceAlert(alert.id);
+                                      showBusyToast('Price alert removed.', 1500);
+                                    } catch (err) {
+                                      setAdminError(formatAdminErr(err, 'Failed to delete alert.'));
+                                    }
+                                  }}
+                                  aria-label={`Delete price alert for ${alert.email}`}
+                                  className="h-8 px-2 rounded-lg border border-red-200 hover:bg-red-50 text-red-600 inline-flex items-center"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 8: VISITOR ANALYTICS (IP, LOCATION, AREA / ELAKA, TIME, PLATFORM) */}
+              {activeTab === 'visitors' && (
+                <div className="space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <h3 className="font-display text-base font-bold text-[#06142E] flex items-center gap-2">
+                        <Globe className="w-4 h-4 text-[#0057E7]" />
+                        <span>Live App &amp; Web Visitor Telemetry (IP · Elaka · Time)</span>
+                      </h3>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Real-time visitor telemetry from Web browsers and PWA App showing both exact User Location (GPS) and Operator / ISP Location.
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {gpsSnapshot.state !== 'granted' && (
+                        gpsSnapshot.blockedByPolicy ||
+                        (gpsSnapshot.state === 'denied' && gpsSnapshot.isEmbeddedIframe) ? (
+                          <a
+                            href={typeof window !== 'undefined' ? window.location.href : '/'}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="h-9 px-3.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold inline-flex items-center gap-1.5"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                            <span>Open Direct Tab for GPS</span>
+                          </a>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={handleCaptureLiveVisitNow}
+                            disabled={capturingVisit}
+                            className="h-9 px-3.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white text-xs font-semibold inline-flex items-center gap-1.5"
+                          >
+                            <MapPin className="w-3.5 h-3.5" />
+                            <span>
+                              {capturingVisit
+                                ? 'Requesting GPS...'
+                                : gpsSnapshot.state === 'denied'
+                                ? 'Retry Browser GPS'
+                                : 'Grant Browser GPS'}
+                            </span>
+                          </button>
+                        )
+                      )}
+                      <button
+                        type="button"
+                        onClick={handleCaptureLiveVisitNow}
+                        disabled={capturingVisit}
+                        className="h-9 px-3.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-60 text-[#06142E] text-xs font-semibold inline-flex items-center gap-1.5"
+                      >
+                        <Activity className={`w-3.5 h-3.5 text-[#0057E7] ${capturingVisit ? 'animate-spin' : ''}`} />
+                        <span>{capturingVisit ? 'Capturing...' : 'Capture Live Visit'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleExportVisitorsCsv}
+                        disabled={filteredVisitorLogs.length === 0}
+                        className="h-9 px-3.5 rounded-lg bg-[#0057E7] hover:bg-[#0044BB] disabled:opacity-50 text-white text-xs font-semibold inline-flex items-center gap-1.5"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        <span>Export CSV</span>
+                      </button>
+                      {visitorLogs.length > 0 && (
+                        confirmKey === 'clear-visitors' ? (
+                          <div className="inline-flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={handleClearAllVisitors}
+                              className="h-9 px-3 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-semibold"
+                            >
+                              Confirm Clear ({visitorLogs.length})
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setConfirmKey(null)}
+                              className="h-9 px-2.5 rounded-lg border border-slate-200 hover:bg-slate-100 text-xs font-semibold text-slate-700"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setConfirmKey('clear-visitors')}
+                            className="h-9 px-3 rounded-lg border border-red-200 hover:bg-red-50 text-red-600 text-xs font-semibold inline-flex items-center gap-1.5"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Clear All</span>
+                          </button>
+                        )
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Visitor KPI Row */}
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                    <div className="bg-[#F6F8FB] border border-slate-200 rounded-xl p-3.5">
+                      <p className="text-[11px] font-medium text-slate-500">Logged Visits</p>
+                      <p className="font-display text-xl font-bold text-[#06142E] tabular-nums mt-0.5">
+                        {dedupedVisitorLogs.length}
+                      </p>
+                      <p className="text-[11px] text-slate-500 mt-0.5 tabular-nums">
+                        {gpsVerifiedCount} User GPS · {Math.max(0, dedupedVisitorLogs.length - gpsVerifiedCount)} Operator Geo
+                      </p>
+                    </div>
+                    <div className="bg-[#F6F8FB] border border-slate-200 rounded-xl p-3.5">
+                      <p className="text-[11px] font-medium text-slate-500">Unique IP Addresses</p>
+                      <p className="font-display text-xl font-bold text-[#0057E7] tabular-nums mt-0.5">
+                        {uniqueVisitorIps}
+                      </p>
+                      <p className="text-[11px] text-slate-500 mt-0.5">Distinct network endpoints</p>
+                    </div>
+                    <div className="bg-[#F6F8FB] border border-slate-200 rounded-xl p-3.5">
+                      <p className="text-[11px] font-medium text-slate-500">App (PWA) vs Web</p>
+                      <p className="font-display text-xl font-bold text-[#06142E] tabular-nums mt-0.5">
+                        {pwaVisitsCount} <span className="text-sm font-normal text-slate-400">App</span> · {webVisitsCount}{' '}
+                        <span className="text-sm font-normal text-slate-400">Web</span>
+                      </p>
+                      <p className="text-[11px] text-slate-500 mt-0.5">Platform distribution</p>
+                    </div>
+                    <div className="bg-[#F6F8FB] border border-slate-200 rounded-xl p-3.5">
+                      <p className="text-[11px] font-medium text-slate-500">Top Elaka / Area</p>
+                      <p
+                        className="font-display text-sm font-bold text-[#06142E] mt-1 truncate"
+                        title={topAreaEntry.label}
+                      >
+                        {topAreaEntry.label}
+                      </p>
+                      <p className="text-[11px] text-slate-500 mt-0.5 tabular-nums">
+                        {topAreaEntry.count > 0 ? `${topAreaEntry.count} visits recorded` : 'Waiting for traffic'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Search & Filter Controls */}
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                    <div className="relative flex-1 max-w-md">
+                      <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="text"
+                        value={visitorSearch}
+                        onChange={(e) => setVisitorSearch(e.target.value)}
+                        placeholder="Search IP, user elaka, operator area, ISP, browser, email..."
+                        className="w-full h-9 pl-9 pr-3 rounded-lg border border-slate-200 text-xs bg-white focus:outline-none focus:border-[#0057E7]"
+                      />
+                    </div>
+                    <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+                      {(
+                        [
+                          { id: 'all', label: 'All' },
+                          { id: 'Web', label: 'Web' },
+                          { id: 'PWA App', label: 'PWA App' },
+                          { id: 'Bangladesh', label: 'Bangladesh' },
+                          { id: 'GPS', label: 'User GPS Exact' },
+                        ] as const
+                      ).map((f) => (
+                        <button
+                          key={f.id}
+                          type="button"
+                          onClick={() => setVisitorFilter(f.id)}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap ${
+                            visitorFilter === f.id
+                              ? 'bg-[#06142E] text-white'
+                              : 'bg-[#F6F8FB] text-slate-600 border border-slate-200 hover:bg-slate-100'
+                          }`}
+                        >
+                          {f.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Visitor Log List */}
+                  {filteredVisitorLogs.length === 0 ? (
+                    <div className="border border-slate-200 rounded-xl p-10 text-center text-sm text-slate-500">
+                      {dedupedVisitorLogs.length === 0
+                        ? 'No visitor sessions recorded yet. Open the storefront or installed app to see live visitor telemetry.'
+                        : 'No visitor records match your current search or filter.'}
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {filteredVisitorLogs.map((log) => {
+                        const isGps = log.locationAccuracy === 'GPS';
+                        const hasUserCoords =
+                          isGps &&
+                          typeof log.latitude === 'number' &&
+                          typeof log.longitude === 'number';
+                        const userMapHref = hasUserCoords
+                          ? `https://www.google.com/maps?q=${log.latitude},${log.longitude}`
+                          : undefined;
+
+                        const opLat = log.operatorLatitude ?? (!isGps ? log.latitude : undefined);
+                        const opLon = log.operatorLongitude ?? (!isGps ? log.longitude : undefined);
+                        const hasOpCoords =
+                          typeof opLat === 'number' && typeof opLon === 'number';
+                        const operatorMapHref = hasOpCoords
+                          ? `https://www.google.com/maps?q=${opLat},${opLon}`
+                          : undefined;
+                        const operatorAreaText =
+                          log.operatorArea ||
+                          (!isGps ? log.area : [log.city, log.region, log.country].filter(Boolean).join(', ')) ||
+                          'Unavailable';
+
+                        return (
+                          <div
+                            key={log.id}
+                            className="border border-slate-200 rounded-xl p-4 bg-white hover:border-slate-300 transition-colors"
+                          >
+                            <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-3">
+                              {/* Left: IP, Both User & Operator Locations, ISP, Device */}
+                              <div className="space-y-2.5 min-w-0 flex-1">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className="font-mono text-sm font-bold text-[#06142E] tabular-nums">
+                                    {log.ip}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleCopyVisitorIp(log.id, log.ip)}
+                                    title="Copy IP address"
+                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-medium transition-colors"
+                                  >
+                                    {copiedIpId === log.id ? (
+                                      <>
+                                        <Check className="w-3 h-3 text-emerald-600" />
+                                        <span className="text-emerald-700">Copied</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Copy className="w-3 h-3" />
+                                        <span>Copy IP</span>
+                                      </>
+                                    )}
+                                  </button>
+                                  {log.ipType && (
+                                    <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-600 font-mono text-[10px] font-semibold">
+                                      {log.ipType}
+                                    </span>
+                                  )}
+                                  <span
+                                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold border ${
+                                      log.platform === 'PWA App'
+                                        ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                                        : 'bg-blue-50 text-[#0057E7] border-blue-200'
+                                    }`}
+                                  >
+                                    {log.platform === 'PWA App' ? (
+                                      <Smartphone className="w-3 h-3" />
+                                    ) : (
+                                      <Monitor className="w-3 h-3" />
+                                    )}
+                                    <span>{log.platform}</span>
+                                  </span>
+                                  <span
+                                    className={`px-2 py-0.5 rounded text-[11px] font-semibold border tabular-nums ${
+                                      isGps
+                                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                        : 'bg-amber-50 text-amber-800 border-amber-200'
+                                    }`}
+                                  >
+                                    {isGps
+                                      ? `User GPS${typeof log.gpsAccuracyMeters === 'number' ? ` ±${log.gpsAccuracyMeters}m` : ''}`
+                                      : 'Operator Geo Only'}
+                                  </span>
+                                  <span className="text-[11px] font-mono text-slate-600">
+                                    {formatVisitorRelativeTime(log.createdAt)}
+                                  </span>
+                                </div>
+
+                                {/* Side-by-Side User Exact Location vs Operator / ISP Location (flat hairline divider, zero nested cards) */}
+                                <div className="pt-2.5 border-t border-slate-100 grid grid-cols-1 md:grid-cols-2 gap-3">
+                                  {/* User Exact GPS Location */}
+                                  <div className="min-w-0 space-y-1">
+                                    <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                                      <MapPin className={`w-3.5 h-3.5 shrink-0 ${isGps ? 'text-emerald-600' : 'text-slate-400'}`} />
+                                      <span>User Exact Location (Browser / PWA GPS)</span>
+                                    </div>
+                                    {isGps ? (
+                                      <>
+                                        <p className="text-xs font-bold text-[#06142E] break-words">
+                                          {log.area}
+                                        </p>
+                                        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-slate-600">
+                                          <span>
+                                            {[log.city, log.region, log.country, log.postal ? `Postal ${log.postal}` : null]
+                                              .filter(Boolean)
+                                              .join(' · ')}
+                                          </span>
+                                          {userMapHref && (
+                                            <a
+                                              href={userMapHref}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="inline-flex items-center gap-1 text-[#0057E7] hover:underline font-semibold font-mono tabular-nums"
+                                            >
+                                              <span>
+                                                {log.latitude?.toFixed(4)}, {log.longitude?.toFixed(4)}
+                                              </span>
+                                              <ExternalLink className="w-3 h-3" />
+                                            </a>
+                                          )}
+                                        </div>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <p className="text-xs font-semibold text-slate-500">
+                                          Browser GPS not granted
+                                        </p>
+                                        <p className="text-[11px] text-slate-400">
+                                          Visitor has not allowed browser/app location permission yet; Operator Geo shown beside.
+                                        </p>
+                                      </>
+                                    )}
+                                  </div>
+
+                                  {/* Operator / ISP Network Location */}
+                                  <div className="min-w-0 space-y-1 md:border-l md:border-slate-100 md:pl-3">
+                                    <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                                      <Globe className="w-3.5 h-3.5 shrink-0 text-[#0057E7]" />
+                                      <span>Operator / ISP Location</span>
+                                    </div>
+                                    <p className="text-xs font-bold text-[#06142E] break-words">
+                                      {operatorAreaText}
+                                    </p>
+                                    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-slate-600">
+                                      <span>
+                                        {log.isp ? `${log.isp} · ` : ''}
+                                        {log.country}
+                                        {log.countryCode ? ` (${log.countryCode})` : ''}
+                                      </span>
+                                      {operatorMapHref && (
+                                        <a
+                                          href={operatorMapHref}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="inline-flex items-center gap-1 text-[#0057E7] hover:underline font-semibold font-mono tabular-nums"
+                                        >
+                                          <span>
+                                            {opLat?.toFixed(4)}, {opLon?.toFixed(4)}
+                                          </span>
+                                          <ExternalLink className="w-3 h-3" />
+                                        </a>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Meta Info Row: Device, OS, Browser, Screen, Page, Signed-in Account */}
+                                <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-600">
+                                  <span>
+                                    Device:{' '}
+                                    <strong className="text-[#06142E]">
+                                      {log.deviceType}
+                                      {log.os ? ` · ${log.os}` : ''}
+                                      {log.browser ? ` · ${log.browser}` : ''}
+                                    </strong>
+                                  </span>
+                                  {log.screenSize && (
+                                    <span className="font-mono text-slate-500">{log.screenSize}</span>
+                                  )}
+                                  <span className="font-mono text-slate-500">Path: {log.pagePath}</span>
+                                  {log.userEmail && (
+                                    <span className="text-[#0057E7] font-medium">
+                                      User: {log.userName ? `${log.userName} (${log.userEmail})` : log.userEmail}
+                                    </span>
+                                  )}
+                                </div>
+                                {log.referrer && (
+                                  <p className="text-[11px] text-slate-400 truncate">
+                                    Referrer: {log.referrer}
+                                  </p>
+                                )}
+                              </div>
+
+                              {/* Right: Exact Times + Delete Action */}
+                              <div className="flex lg:flex-col items-start lg:items-end justify-between gap-2 shrink-0 border-t lg:border-t-0 pt-2 lg:pt-0 border-slate-100">
+                                <div className="lg:text-right space-y-0.5">
+                                  <div className="inline-flex items-center gap-1 text-xs font-semibold text-[#06142E] tabular-nums">
+                                    <Clock className="w-3.5 h-3.5 text-[#0057E7]" />
+                                    <span>{formatVisitorDhakaTime(log.createdAt, log.localTime)}</span>
+                                  </div>
+                                  <p className="text-[10px] font-mono text-slate-500">
+                                    BDT (Asia/Dhaka)
+                                  </p>
+                                  {log.timezone && (
+                                    <p className="text-[10px] text-slate-500">
+                                      Visitor TZ: {log.timezone}
+                                      {log.localTime ? ` · ${log.localTime}` : ''}
+                                    </p>
+                                  )}
+                                </div>
+
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    try {
+                                      const siblingIds = log.sessionId
+                                        ? visitorLogs
+                                            .filter((v) => v.sessionId === log.sessionId)
+                                            .map((v) => v.id)
+                                        : [log.id];
+                                      if (siblingIds.length > 1) {
+                                        await clearVisitorLogs(siblingIds);
+                                      } else {
+                                        await deleteVisitorLog(log.id);
+                                      }
+                                      showBusyToast('Visitor log deleted.', 1500);
+                                    } catch (err) {
+                                      setAdminError(
+                                        formatAdminErr(err, 'Failed to delete visitor log.')
+                                      );
+                                    }
+                                  }}
+                                  aria-label={`Delete visitor log ${log.ip}`}
+                                  className="h-8 px-2.5 rounded-lg border border-red-200 hover:bg-red-50 text-red-600 text-xs font-semibold inline-flex items-center gap-1"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                  <span>Delete</span>
+                                </button>
+                              </div>
                             </div>
                           </div>
                         );

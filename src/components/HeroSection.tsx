@@ -147,7 +147,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
         id="top"
         className="bg-[#050B18] min-[1500px]:bg-transparent min-[1500px]:pointer-events-none"
       >
-        <div className="relative z-20 pointer-events-auto w-full max-w-[1440px] mx-auto overflow-hidden bg-[#050B18] text-[#F5F8FF] min-[1500px]:border-x min-[1500px]:border-slate-300/70">
+        <div className="relative z-20 pointer-events-auto w-full max-w-[1440px] mx-auto overflow-hidden bg-[#050B18] text-[#F5F8FF] min-[1500px]:border-x min-[1500px]:border-[#1E3A6E]/60">
           {/* Ultra-Subtle Architectural Grid */}
           <div
             aria-hidden="true"
@@ -162,8 +162,10 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
           {/* Quiet Breathing Key-Light Radial Behind the Hardware Showcase */}
           <div
             aria-hidden="true"
-            className="animate-keylight pointer-events-none absolute top-1/2 right-[8%] w-[780px] h-[540px] rounded-full bg-[radial-gradient(ellipse_at_center,rgba(22,119,255,0.18)_0%,rgba(0,200,255,0.05)_44%,transparent_72%)]"
-          />
+            className="pointer-events-none absolute inset-x-0 top-1/2 flex justify-center lg:justify-end lg:pr-[6%]"
+          >
+            <div className="animate-keylight w-[780px] h-[540px] shrink-0 rounded-full bg-[radial-gradient(ellipse_at_center,rgba(22,119,255,0.18)_0%,rgba(0,200,255,0.05)_44%,transparent_72%)]" />
+          </div>
 
           {/* Subtle Signal Light Beam Across Top Rail */}
           <div
@@ -302,7 +304,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
         aria-label="Trust and store policies"
         className="bg-[#0A1428] min-[1500px]:bg-transparent min-[1500px]:pointer-events-none border-y border-[rgba(100,150,255,0.14)] min-[1500px]:border-y-0"
       >
-        <div className="relative z-20 pointer-events-auto w-full max-w-[1440px] mx-auto bg-[#0A1428] text-[#F5F8FF] min-[1500px]:border-x min-[1500px]:border-x-slate-300/70 min-[1500px]:border-y min-[1500px]:border-y-[rgba(100,150,255,0.18)] px-5 sm:px-8 lg:px-12 py-4">
+        <div className="relative z-20 pointer-events-auto w-full max-w-[1440px] mx-auto bg-[#0A1428] text-[#F5F8FF] min-[1500px]:border-x min-[1500px]:border-x-[#1E3A6E]/60 min-[1500px]:border-y min-[1500px]:border-y-[rgba(100,150,255,0.18)] px-5 sm:px-8 lg:px-12 py-4">
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-0 sm:divide-x divide-[rgba(100,150,255,0.14)]">
             {[
               {

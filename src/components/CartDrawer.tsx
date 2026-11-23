@@ -7,6 +7,9 @@ import {
   CheckCircle2,
   ClipboardCheck,
   Copy,
+  Download,
+  Gift,
+  LocateFixed,
   Lock,
   LogIn,
   MapPin,
@@ -17,17 +20,38 @@ import {
   Radio,
   ShieldCheck,
   ShoppingBag,
+  Sparkles,
   Trash2,
   Truck,
   X,
 } from 'lucide-react';
+import { trackVisitorVisit } from '../lib/visitorTracker';
 import {
   checkUserPromoRedemption,
   createOrderInFirestore,
   normalizePromoCodeString,
 } from '../lib/firebase';
-import { playErrorSound, playSuccessSound, playTapSound } from '../lib/sound';
-import { CartItem, OrderReceipt, Product, PromoCode, StoredOrder } from '../types/store';
+import {
+  downloadGiftCardPng,
+  generateGiftCardReward,
+  markGiftCardRedeemed,
+  saveGiftCard,
+} from '../lib/giftCard';
+import {
+  playErrorSound,
+  playGiftCardRevealSound,
+  playSuccessSound,
+  playTapSound,
+  playVoucherCopySound,
+} from '../lib/sound';
+import {
+  CartItem,
+  GiftCardReward,
+  OrderReceipt,
+  Product,
+  PromoCode,
+  StoredOrder,
+} from '../types/store';
 import { HardwareArtwork } from './HardwareArtwork';
 
 interface CartDrawerProps {
@@ -37,6 +61,7 @@ interface CartDrawerProps {
   recommendedProducts?: Product[];
   promoCodes?: PromoCode[];
   userOrders?: StoredOrder[];
+  availableGiftCards?: GiftCardReward[];
   appliedCoupon: string | null;
   startInCheckout?: boolean;
   user: User | null;
@@ -49,6 +74,7 @@ interface CartDrawerProps {
   onApplyCoupon: (code: string | null) => void;
   onClearCart: () => void;
   onOrderCreated?: (orderId: string) => void;
+  onGiftCardIssued?: (card: GiftCardReward, redeemedCode?: string) => void;
   onTrackOrder?: (orderId: string) => void;
 }
 
@@ -70,6 +96,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   recommendedProducts = [],
   promoCodes = [],
   userOrders = [],
+  availableGiftCards = [],
   appliedCoupon,
   startInCheckout = false,
   user,
@@ -82,12 +109,14 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   onApplyCoupon,
   onClearCart,
   onOrderCreated,
+  onGiftCardIssued,
   onTrackOrder,
 }) => {
   const [step, setStep] = useState<'cart' | 'checkout' | 'receipt'>('cart');
   const [couponInput, setCouponInput] = useState('');
   const [couponError, setCouponError] = useState('');
   const [checkingCoupon, setCheckingCoupon] = useState(false);
+  const [selectedGiftCardCode, setSelectedGiftCardCode] = useState<string | null>(null);
   const [cartPulsing, setCartPulsing] = useState(false);
   const prevPulseKeyRef = useRef(cartPulseKey);
 
@@ -103,7 +132,11 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   const [pendingOrderId, setPendingOrderId] = useState('');
   const [checkoutError, setCheckoutError] = useState('');
   const [receipt, setReceipt] = useState<OrderReceipt | null>(null);
+  const [issuedGiftCard, setIssuedGiftCard] = useState<GiftCardReward | null>(null);
   const [copiedId, setCopiedId] = useState(false);
+  const [copiedGiftCode, setCopiedGiftCode] = useState(false);
+  const [detectingLocation, setDetectingLocation] = useState(false);
+  const [locationNote, setLocationNote] = useState('');
 
   useEffect(() => {
     if (cartPulseKey <= prevPulseKeyRef.current) {
@@ -191,6 +224,14 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   const effectivePromo = isPromoEligible ? matchedPromo : null;
   const effectiveCoupon = effectivePromo?.code ?? null;
 
+  const unredeemedGiftCards = availableGiftCards.filter((c) => !c.redeemed);
+  const activeGiftCard =
+    !effectivePromo && selectedGiftCardCode
+      ? unredeemedGiftCards.find(
+          (c) => c.code.toUpperCase() === selectedGiftCardCode.toUpperCase()
+        ) ?? null
+      : null;
+
   let discount = 0;
   if (effectivePromo) {
     if (effectivePromo.discountType === 'percent') {
@@ -203,6 +244,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
       discount = Math.round(effectivePromo.discountValue);
     }
     discount = Math.min(subtotal, Math.max(0, discount));
+  } else if (activeGiftCard) {
+    discount = Math.min(subtotal, Math.max(0, Math.round(activeGiftCard.value)));
   }
 
   const discountedSubtotal = Math.max(0, subtotal - discount);
@@ -283,6 +326,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
         return;
       }
       playSuccessSound();
+      setSelectedGiftCardCode(null);
       onApplyCoupon(promo.code);
       setCouponError('');
       setCouponInput('');
@@ -337,6 +381,11 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     const stageTimer2 = window.setTimeout(() => setDispatchStageIdx(2), 480);
 
     try {
+      const giftNote = activeGiftCard
+        ? `Gift Card Redeemed: ${activeGiftCard.code} (-৳${discount})`
+        : '';
+      const combinedNotes = [orderNotes.trim(), giftNote].filter(Boolean).join(' · ').slice(0, 300);
+
       const minAnimPromise = new Promise<void>((resolve) => window.setTimeout(resolve, 750));
       const writePromise = createOrderInFirestore({
         orderId: orderNumber,
@@ -359,7 +408,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
         deliveryFee,
         total,
         couponCode: effectiveCoupon ?? undefined,
-        notes: orderNotes.trim() || undefined,
+        notes: combinedNotes || undefined,
       });
 
       await Promise.all([writePromise, minAnimPromise]);
@@ -374,7 +423,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
         items: [...items],
         subtotal,
         discount,
-        couponCode: effectiveCoupon ?? undefined,
+        couponCode: effectiveCoupon ?? activeGiftCard?.code ?? undefined,
         deliveryFee,
         total,
         createdAt: new Date().toLocaleString('en-BD', {
@@ -382,8 +431,20 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
           timeStyle: 'short',
         }),
       };
+
+      const rewardCard = generateGiftCardReward(newReceipt);
+      saveGiftCard(rewardCard);
+      if (activeGiftCard) {
+        markGiftCardRedeemed(activeGiftCard.code, orderNumber);
+      }
+      onGiftCardIssued?.(rewardCard, activeGiftCard?.code);
+
       playSuccessSound();
+      window.setTimeout(() => playGiftCardRevealSound(), 240);
       setReceipt(newReceipt);
+      setIssuedGiftCard(rewardCard);
+      setCopiedGiftCode(false);
+      setSelectedGiftCardCode(null);
       setStep('receipt');
       setOrderNotes('');
       if (effectiveCoupon) {
@@ -413,6 +474,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     if (submitting) return;
     setStep('cart');
     setReceipt(null);
+    setIssuedGiftCard(null);
+    setCopiedGiftCode(false);
     setCheckoutError('');
     setCouponError('');
     onClose();
@@ -423,6 +486,13 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     navigator.clipboard?.writeText(id).catch(() => {});
     setCopiedId(true);
     window.setTimeout(() => setCopiedId(false), 1800);
+  };
+
+  const handleCopyGiftCode = (code: string) => {
+    playVoucherCopySound();
+    navigator.clipboard?.writeText(code).catch(() => {});
+    setCopiedGiftCode(true);
+    window.setTimeout(() => setCopiedGiftCode(false), 1800);
   };
 
   const emptyRecommendations = recommendedProducts.filter((p) => p.stock > 0).slice(0, 3);
@@ -628,6 +698,77 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 })}
               </div>
             </div>
+
+            {/* Post-Order Holographic Digital Gift Card */}
+            {issuedGiftCard && (
+              <div className="animate-gift-card-reveal relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#040B1A] via-[#071E47] to-[#0B326B] text-white p-5 border border-[#00CFFF]/45 shadow-[0_18px_40px_-14px_rgba(8,123,255,0.45)]">
+                <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-lab-grid-dark opacity-70" />
+                <div
+                  aria-hidden="true"
+                  className="animate-holo-sweep pointer-events-none absolute inset-y-0 w-1/2 bg-gradient-to-r from-transparent via-[#00CFFF]/20 to-transparent skew-x-[-18deg]"
+                />
+                <div className="relative z-10 space-y-3.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="inline-flex items-center gap-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[#2DD4BF]">
+                        <Sparkles className="w-3.5 h-3.5 text-[#00CFFF] shrink-0" />
+                        <span>{issuedGiftCard.tierLabel} Unlocked</span>
+                      </p>
+                      <h4 className="font-display text-base font-bold text-white mt-0.5 flex items-center gap-1.5">
+                        <Gift className="w-4 h-4 text-[#00CFFF] shrink-0" />
+                        <span>Robotera BD Digital Gift Card</span>
+                      </h4>
+                    </div>
+                    <div className="px-2.5 py-1 rounded-xl bg-[#00CFFF]/15 border border-[#00CFFF]/45 text-right shrink-0">
+                      <p className="font-mono text-[9px] uppercase tracking-wider text-sky-200">
+                        Credit
+                      </p>
+                      <p className="font-mono text-base font-extrabold text-white tabular-nums leading-tight">
+                        ৳{issuedGiftCard.value}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl bg-white/[0.08] border border-white/20 px-3.5 py-2.5 flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-mono text-[9.5px] uppercase tracking-wider text-slate-300">
+                        Gift Card Serial Code
+                      </p>
+                      <p className="font-mono text-sm sm:text-base font-extrabold tracking-wider text-white truncate">
+                        {issuedGiftCard.code}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyGiftCode(issuedGiftCard.code)}
+                      className="h-8 px-2.5 rounded-lg bg-[#087BFF] hover:bg-[#0669DB] text-white text-[11px] font-semibold inline-flex items-center gap-1 shrink-0 transition-colors"
+                    >
+                      {copiedGiftCode ? (
+                        <Check className="w-3 h-3 text-[#2DD4BF] animate-icon-pop" />
+                      ) : (
+                        <Copy className="w-3 h-3" />
+                      )}
+                      <span>{copiedGiftCode ? 'Copied' : 'Copy'}</span>
+                    </button>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-2 text-[11px] text-slate-300">
+                    <span className="truncate">Issued for {issuedGiftCard.recipientName}</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        playTapSound();
+                        downloadGiftCardPng(issuedGiftCard);
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white text-[#071A3B] hover:bg-sky-50 font-bold text-[11px] shrink-0 transition-colors"
+                    >
+                      <Download className="w-3.5 h-3.5 text-[#087BFF]" />
+                      <span>Download Card PNG</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div
               className="animate-cart-enter border border-slate-200 rounded-xl p-4 space-y-1.5 text-xs bg-[#F8FAFC]"
@@ -960,6 +1101,59 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   </form>
                 )}
                 {couponError && <p className="text-xs text-red-600 mt-1.5">{couponError}</p>}
+
+                {/* Redeem Earned Digital Gift Card Credit (Mutually Exclusive with Promo) */}
+                {unredeemedGiftCards.length > 0 && (
+                  <div className="mt-2.5 space-y-1.5">
+                    {activeGiftCard ? (
+                      <div className="animate-pop-in flex items-center justify-between bg-[#071A3B] text-white border border-[#00CFFF]/45 rounded-xl px-3.5 py-2.5 text-xs">
+                        <span className="inline-flex items-center gap-1.5 min-w-0">
+                          <Gift className="w-3.5 h-3.5 text-[#00CFFF] shrink-0" />
+                          <span className="truncate">
+                            Gift Card <strong className="font-mono">{activeGiftCard.code}</strong> (-৳
+                            {discount.toLocaleString('en-IN')}) applied
+                          </span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            playTapSound();
+                            setSelectedGiftCardCode(null);
+                          }}
+                          className="text-sky-300 hover:underline font-semibold shrink-0 ml-2"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="rounded-xl bg-[#EFF6FF] border border-blue-200 px-3 py-2.5 flex items-center justify-between gap-2">
+                        <div className="min-w-0 flex items-center gap-2">
+                          <Gift className="w-4 h-4 text-[#0866F5] shrink-0" />
+                          <div className="min-w-0">
+                            <p className="text-[11px] font-bold text-[#071A3B] truncate">
+                              Use Gift Card {unredeemedGiftCards[0].code}
+                            </p>
+                            <p className="text-[10.5px] text-[#475569] tabular-nums">
+                              ৳{unredeemedGiftCards[0].value.toLocaleString('en-IN')} credit available
+                              {effectivePromo ? ' · Remove promo to use' : ''}
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            playSuccessSound();
+                            if (effectivePromo) onApplyCoupon(null);
+                            setSelectedGiftCardCode(unredeemedGiftCards[0].code);
+                          }}
+                          className="px-2.5 py-1.5 rounded-lg bg-[#071A3B] hover:bg-[#087BFF] text-white text-[11px] font-semibold shrink-0 transition-colors"
+                        >
+                          Apply -৳{unredeemedGiftCards[0].value}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -981,6 +1175,14 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                         : `৳${effectivePromo.discountValue.toLocaleString('en-IN')}`}
                       )
                     </span>
+                    <span className="font-mono tabular-nums">
+                      -৳{discount.toLocaleString('en-IN')}
+                    </span>
+                  </div>
+                )}
+                {discount > 0 && activeGiftCard && (
+                  <div className="flex justify-between text-[#0866F5] font-semibold">
+                    <span>Gift Card ({activeGiftCard.code})</span>
                     <span className="font-mono tabular-nums">
                       -৳{discount.toLocaleString('en-IN')}
                     </span>
@@ -1186,9 +1388,70 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
               </div>
 
               <div>
-                <label htmlFor="chk-address" className="block text-xs font-semibold text-[#101828] mb-1">
-                  Full Delivery Address
-                </label>
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <label htmlFor="chk-address" className="block text-xs font-semibold text-[#101828]">
+                    Full Delivery Address
+                  </label>
+                  <button
+                    type="button"
+                    disabled={detectingLocation}
+                    onClick={async () => {
+                      playTapSound();
+                      setDetectingLocation(true);
+                      setLocationNote('');
+                      try {
+                        const res = await trackVisitorVisit(
+                          user
+                            ? { uid: user.uid, email: user.email, displayName: user.displayName }
+                            : null,
+                          { force: true, requestGps: true }
+                        );
+                        if (res.area && res.area !== 'Unknown Area') {
+                          setAddress((prev) =>
+                            prev.trim() ? `${prev.trim()} (${res.area})` : res.area || ''
+                          );
+                          const lower = res.area.toLowerCase();
+                          if (lower.includes('dhaka') && !lower.includes('savar') && !lower.includes('gazipur')) {
+                            setDistrict('Dhaka Metro');
+                          } else if (lower.includes('chattogram') || lower.includes('chittagong')) {
+                            setDistrict('Chattogram');
+                          } else if (lower.includes('sylhet')) {
+                            setDistrict('Sylhet');
+                          } else if (lower.includes('rajshahi')) {
+                            setDistrict('Rajshahi');
+                          } else if (lower.includes('khulna')) {
+                            setDistrict('Khulna');
+                          } else if (lower.includes('gazipur') || lower.includes('savar')) {
+                            setDistrict('Gazipur / Savar');
+                          }
+                          setLocationNote(
+                            res.accuracy === 'GPS'
+                              ? `Exact GPS area granted: ${res.area}${
+                                  typeof res.gpsAccuracyMeters === 'number'
+                                    ? ` (±${res.gpsAccuracyMeters}m)`
+                                    : ''
+                                }`
+                              : res.blockedByPolicy || res.isEmbeddedIframe
+                              ? `Operator area: ${res.area} · Embedded frame blocks browser GPS (open direct link for exact GPS).`
+                              : res.gpsReason
+                              ? `Operator area: ${res.area} · (${res.gpsReason})`
+                              : `Detected area: ${res.area} (type house/road if needed)`
+                          );
+                        } else {
+                          setLocationNote('Could not auto-detect area. Please type your address.');
+                        }
+                      } catch {
+                        setLocationNote('Could not auto-detect area. Please type your address.');
+                      } finally {
+                        setDetectingLocation(false);
+                      }
+                    }}
+                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#0866F5] hover:underline disabled:opacity-60 whitespace-nowrap"
+                  >
+                    <LocateFixed className={`w-3 h-3 ${detectingLocation ? 'animate-spin' : ''}`} />
+                    <span>{detectingLocation ? 'Detecting...' : 'Detect My Area (GPS)'}</span>
+                  </button>
+                </div>
                 <textarea
                   id="chk-address"
                   required
@@ -1199,6 +1462,9 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   placeholder="House, Road, Block / Campus Hall"
                   className="w-full p-3 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#0866F5] transition-colors"
                 />
+                {locationNote && (
+                  <p className="mt-1 text-[11px] text-[#0F766E]">{locationNote}</p>
+                )}
               </div>
 
               <div>

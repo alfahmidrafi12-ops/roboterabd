@@ -231,6 +231,27 @@ service cloud.firestore {
         && data.updatedAt == request.time;
     }
 
+    function isValidRestockAlert(data) {
+      return data.keys().hasAll([
+          'id', 'productId', 'productName', 'email', 'status', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'productId', 'productName', 'email', 'userId',
+          'status', 'notifiedAt', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.id)
+        && isValidId(data.productId)
+        && data.productId.size() <= 64
+        && data.productName is string && data.productName.size() >= 1 && data.productName.size() <= 160
+        && data.email is string && data.email.size() >= 5 && data.email.size() <= 120
+        && data.email.matches('^[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}$')
+        && (!('userId' in data) || (data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128))
+        && data.status in ['Active', 'Notified']
+        && (!('notifiedAt' in data) || data.notifiedAt is timestamp)
+        && data.createdAt is timestamp
+        && data.updatedAt == request.time;
+    }
+
     function isValidPromoCodeId(code) {
       return code is string && code.size() >= 3 && code.size() <= 32 && code.matches('^[A-Z0-9_\\-]+$');
     }
@@ -296,6 +317,53 @@ service cloud.firestore {
       return (!exists(/databases/$(database)/documents/promo_codes/$(code)) && code == 'ROBOTERA15')
         || (exists(/databases/$(database)/documents/promo_codes/$(code))
             && get(/databases/$(database)/documents/promo_codes/$(code)).data.active == true);
+    }
+
+    function isValidVisitorLog(data) {
+      return data.keys().hasAll([
+          'id', 'sessionId', 'ip', 'area', 'country',
+          'locationAccuracy', 'platform', 'deviceType', 'pagePath', 'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'sessionId', 'ip', 'ipType', 'area', 'city', 'region',
+          'country', 'countryCode', 'postal', 'isp',
+          'operatorArea', 'operatorLatitude', 'operatorLongitude',
+          'latitude', 'longitude', 'gpsAccuracyMeters',
+          'locationAccuracy', 'timezone', 'localTime', 'platform', 'deviceType',
+          'browser', 'os', 'screenSize', 'pagePath', 'referrer',
+          'userId', 'userEmail', 'userName', 'createdAt'
+        ])
+        && isValidId(data.id) && data.id.size() <= 64
+        && isValidId(data.sessionId) && data.sessionId.size() <= 64
+        && data.ip is string && data.ip.size() >= 1 && data.ip.size() <= 64
+        && (!('ipType' in data) || (data.ipType is string && data.ipType.size() <= 16))
+        && data.area is string && data.area.size() >= 1 && data.area.size() <= 160
+        && (!('city' in data) || (data.city is string && data.city.size() <= 100))
+        && (!('region' in data) || (data.region is string && data.region.size() <= 100))
+        && data.country is string && data.country.size() >= 1 && data.country.size() <= 100
+        && (!('countryCode' in data) || (data.countryCode is string && data.countryCode.size() <= 8))
+        && (!('postal' in data) || (data.postal is string && data.postal.size() <= 24))
+        && (!('isp' in data) || (data.isp is string && data.isp.size() <= 140))
+        && (!('operatorArea' in data) || (data.operatorArea is string && data.operatorArea.size() <= 160))
+        && (!('operatorLatitude' in data) || (data.operatorLatitude is number && data.operatorLatitude >= -90 && data.operatorLatitude <= 90))
+        && (!('operatorLongitude' in data) || (data.operatorLongitude is number && data.operatorLongitude >= -180 && data.operatorLongitude <= 180))
+        && (!('latitude' in data) || (data.latitude is number && data.latitude >= -90 && data.latitude <= 90))
+        && (!('longitude' in data) || (data.longitude is number && data.longitude >= -180 && data.longitude <= 180))
+        && (!('gpsAccuracyMeters' in data) || (data.gpsAccuracyMeters is number && data.gpsAccuracyMeters >= 0 && data.gpsAccuracyMeters <= 100000))
+        && data.locationAccuracy in ['IP', 'GPS']
+        && (!('timezone' in data) || (data.timezone is string && data.timezone.size() <= 80))
+        && (!('localTime' in data) || (data.localTime is string && data.localTime.size() <= 80))
+        && data.platform in ['Web', 'PWA App']
+        && data.deviceType in ['Desktop', 'Mobile', 'Tablet']
+        && (!('browser' in data) || (data.browser is string && data.browser.size() <= 60))
+        && (!('os' in data) || (data.os is string && data.os.size() <= 60))
+        && (!('screenSize' in data) || (data.screenSize is string && data.screenSize.size() <= 32))
+        && data.pagePath is string && data.pagePath.size() >= 1 && data.pagePath.size() <= 200
+        && (!('referrer' in data) || (data.referrer is string && data.referrer.size() <= 240))
+        && (!('userId' in data) || (data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128))
+        && (!('userEmail' in data) || (data.userEmail is string && data.userEmail.size() <= 120))
+        && (!('userName' in data) || (data.userName is string && data.userName.size() <= 120))
+        && data.createdAt == request.time;
     }
 
     // Connection health check document
@@ -464,6 +532,38 @@ service cloud.firestore {
       );
     }
 
+    // Back-in-stock alert subscriptions (PII protected: shoppers can create; owners/admins can read/list/delete; admins can update status)
+    match /restock_alerts/{alertId} {
+      allow get: if isValidId(alertId) && (
+        (isSignedIn() && ('userId' in existing()) && existing().userId == request.auth.uid) ||
+        isAdmin()
+      );
+      allow list: if (isSignedIn() && existing().userId == request.auth.uid) || isAdmin();
+      allow create: if isValidId(alertId)
+        && isValidRestockAlert(incoming())
+        && incoming().id == alertId
+        && incoming().status == 'Active'
+        && !('notifiedAt' in incoming())
+        && (!('userId' in incoming()) || (isSignedIn() && incoming().userId == request.auth.uid))
+        && incoming().createdAt == request.time;
+      allow update: if isAdmin()
+        && isValidId(alertId)
+        && isValidRestockAlert(incoming())
+        && incoming().id == existing().id
+        && incoming().productId == existing().productId
+        && incoming().email == existing().email
+        && incoming().createdAt == existing().createdAt
+        && (('userId' in incoming()) == ('userId' in existing()))
+        && (!('userId' in existing()) || incoming().userId == existing().userId)
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'status', 'notifiedAt', 'updatedAt'
+        ]);
+      allow delete: if isValidId(alertId) && (
+        (isSignedIn() && ('userId' in existing()) && existing().userId == request.auth.uid) ||
+        isAdmin()
+      );
+    }
+
     // Public promo codes catalog; Admin-only mutations
     match /promo_codes/{code} {
       allow list: if true;
@@ -529,6 +629,19 @@ service cloud.firestore {
       allow get: if isAdmin() && isValidId(adminUid);
       allow list: if isAdmin();
       allow create, update, delete: if false;
+    }
+
+    // Immutable visitor IP, location, area (elaka), and time telemetry (PII isolated strictly to Admins)
+    match /visitor_logs/{logId} {
+      allow get: if isAdmin() && isValidId(logId);
+      allow list: if isAdmin();
+      allow create: if isValidId(logId)
+        && isValidVisitorLog(incoming())
+        && incoming().id == logId
+        && (!('userId' in incoming()) || (isSignedIn() && incoming().userId == request.auth.uid))
+        && incoming().createdAt == request.time;
+      allow update: if false;
+      allow delete: if isAdmin() && isValidId(logId);
     }
   }
 }

@@ -460,7 +460,7 @@ export const Header: React.FC<HeaderProps> = ({
       {showNewsTicker && (
         <div
           aria-label="Store news and hardware updates"
-          className="ticker-container relative w-full h-8 sm:h-9 bg-[#071A3D] text-[#F5F8FF] border-t border-slate-200/70 border-b border-[rgba(100,150,255,0.2)] overflow-hidden"
+          className="ticker-container relative w-full h-8 sm:h-9 bg-[#071A3D] text-[#F5F8FF] border-t border-[#16346B]/80 border-b border-[rgba(100,150,255,0.2)] overflow-hidden"
         >
           <div className="max-w-[1440px] mx-auto h-full flex items-center relative">
             <div className="relative z-10 h-full px-3 sm:px-4 bg-[#0A1428] border-r border-[rgba(100,150,255,0.22)] flex items-center gap-1.5 shrink-0">

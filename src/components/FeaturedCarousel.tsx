@@ -9,11 +9,13 @@ interface FeaturedCarouselProps {
   allProducts?: Product[];
   categoryLabels?: Record<string, string>;
   wishlistIds: string[];
+  restockWatchedIds?: string[];
   compareIds?: string[];
   onToggleWishlist: (productId: string) => void;
   onToggleCompare?: (productId: string) => void;
   onAddToCart: (product: Product, quantity: number) => void;
   onOpenDetail: (product: Product) => void;
+  onRequestRestockAlert?: (product: Product) => void;
 }
 
 type SpotlightTab = 'new' | 'trending' | 'makers';
@@ -23,11 +25,13 @@ export const FeaturedCarousel: React.FC<FeaturedCarouselProps> = ({
   allProducts = [],
   categoryLabels,
   wishlistIds,
+  restockWatchedIds = [],
   compareIds = [],
   onToggleWishlist,
   onToggleCompare,
   onAddToCart,
   onOpenDetail,
+  onRequestRestockAlert,
 }) => {
   const trackRef = useRef<HTMLDivElement>(null);
   const [activeTab, setActiveTab] = useState<SpotlightTab>('new');
@@ -55,7 +59,7 @@ export const FeaturedCarousel: React.FC<FeaturedCarouselProps> = ({
   };
 
   return (
-    <section id="just-arrived" className="scroll-mt-20 bg-white min-[1500px]:bg-transparent min-[1500px]:pointer-events-none">
+    <section id="just-arrived" className="scroll-mt-[108px] bg-white min-[1500px]:bg-transparent min-[1500px]:pointer-events-none">
       <div className="relative z-20 pointer-events-auto w-full max-w-[1440px] mx-auto bg-white min-[1500px]:border-x min-[1500px]:border-slate-200/90 px-4 sm:px-6 lg:px-10 py-11 sm:py-14">
         <Reveal>
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-7 sm:mb-8">
@@ -131,12 +135,14 @@ export const FeaturedCarousel: React.FC<FeaturedCarouselProps> = ({
                     product={product}
                     categoryDisplayName={categoryLabels?.[product.category]}
                     isWishlisted={wishlistIds.includes(product.id)}
+                    isRestockWatched={restockWatchedIds.includes(product.id)}
                     isCompared={compareIds.includes(product.id)}
                     compareLimitReached={compareIds.length >= 3}
                     onToggleWishlist={onToggleWishlist}
                     onToggleCompare={onToggleCompare}
                     onAddToCart={onAddToCart}
                     onOpenDetail={onOpenDetail}
+                    onRequestRestockAlert={onRequestRestockAlert}
                   />
                 </Reveal>
               </div>

@@ -33,9 +33,11 @@ export const SectionDivider: React.FC<SectionDividerProps> = ({
     return (
       <div
         aria-hidden="true"
-        className="relative w-full pointer-events-none select-none overflow-hidden"
+        className="relative w-full pointer-events-none select-none overflow-hidden min-[1500px]:bg-transparent"
       >
-        <div className="h-px w-full bg-gradient-to-r from-[#071A3D] via-[#087BFF]/45 to-[#071A3D]" />
+        <div className="relative z-20 w-full max-w-[1440px] mx-auto min-[1500px]:border-x min-[1500px]:border-[#1E3A6E]/55">
+          <div className="h-px w-full bg-gradient-to-r from-[#071A3D] via-[#087BFF]/45 to-[#071A3D]" />
+        </div>
       </div>
     );
   }

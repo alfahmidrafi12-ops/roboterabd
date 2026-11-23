@@ -20,6 +20,7 @@ import {
   getDocFromServer,
   getDocs,
   getFirestore,
+  limit,
   onSnapshot,
   orderBy,
   query,
@@ -44,8 +45,10 @@ import {
   PriceAlert,
   Product,
   PromoCode,
+  RestockAlert,
   SiteImagesConfig,
   StoredOrder,
+  VisitorLog,
 } from '../types/store';
 
 const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
@@ -1031,6 +1034,215 @@ export async function deletePriceAlert(alertId: string): Promise<void> {
   const path = `price_alerts/${alertId}`;
   try {
     await deleteDoc(doc(db, 'price_alerts', alertId));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
+  }
+}
+
+export async function createRestockAlert(params: {
+  productId: string;
+  productName: string;
+  email: string;
+}): Promise<string> {
+  const safeId = `ra-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`.slice(0, 64);
+  const safeProductId = params.productId.replace(/[^a-zA-Z0-9_-]/g, '-').slice(0, 64);
+  const path = `restock_alerts/${safeId}`;
+  try {
+    const currentUid = auth.currentUser?.uid;
+    const payload = stripUndefined({
+      id: safeId,
+      productId: safeProductId,
+      productName: truncateStr(params.productName, 160) || 'Robotics Component',
+      email: truncateStr(params.email.trim().toLowerCase(), 120) || '',
+      userId: currentUid ? truncateStr(currentUid, 128) : undefined,
+      status: 'Active',
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+    await setDoc(doc(db, 'restock_alerts', safeId), payload);
+    return safeId;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.CREATE, path);
+  }
+}
+
+export function subscribeRestockAlerts(
+  onData: (alerts: RestockAlert[]) => void,
+  onError?: (err: unknown) => void
+): () => void {
+  const path = 'restock_alerts';
+  const q = query(collection(db, path), orderBy('createdAt', 'desc'));
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const list = snapshot.docs.map((d) => d.data() as RestockAlert);
+      onData(list);
+    },
+    (error) => {
+      if (onError) onError(error);
+      else handleFirestoreError(error, OperationType.LIST, path);
+    }
+  );
+}
+
+export async function markRestockAlertNotified(alertId: string): Promise<void> {
+  const path = `restock_alerts/${alertId}`;
+  try {
+    await updateDoc(doc(db, 'restock_alerts', alertId), {
+      status: 'Notified',
+      notifiedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, path);
+  }
+}
+
+export async function deleteRestockAlert(alertId: string): Promise<void> {
+  const path = `restock_alerts/${alertId}`;
+  try {
+    await deleteDoc(doc(db, 'restock_alerts', alertId));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
+  }
+}
+
+export async function recordVisitorLog(
+  entry: Omit<VisitorLog, 'id' | 'createdAt'> & { id?: string }
+): Promise<string> {
+  const rawId =
+    entry.id ||
+    `vis-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+  const safeId = rawId.replace(/[^a-zA-Z0-9_-]/g, '-').slice(0, 64);
+  const safeSessionId =
+    (entry.sessionId || `sid-${Date.now().toString(36)}`)
+      .replace(/[^a-zA-Z0-9_-]/g, '-')
+      .slice(0, 64) || `sid-${Date.now().toString(36)}`;
+  const path = `visitor_logs/${safeId}`;
+
+  try {
+    const currentUid = auth.currentUser?.uid;
+    const validLat =
+      typeof entry.latitude === 'number' &&
+      Number.isFinite(entry.latitude) &&
+      entry.latitude >= -90 &&
+      entry.latitude <= 90
+        ? Number(entry.latitude.toFixed(6))
+        : undefined;
+    const validLon =
+      typeof entry.longitude === 'number' &&
+      Number.isFinite(entry.longitude) &&
+      entry.longitude >= -180 &&
+      entry.longitude <= 180
+        ? Number(entry.longitude.toFixed(6))
+        : undefined;
+    const validOpLat =
+      typeof entry.operatorLatitude === 'number' &&
+      Number.isFinite(entry.operatorLatitude) &&
+      entry.operatorLatitude >= -90 &&
+      entry.operatorLatitude <= 90
+        ? Number(entry.operatorLatitude.toFixed(6))
+        : undefined;
+    const validOpLon =
+      typeof entry.operatorLongitude === 'number' &&
+      Number.isFinite(entry.operatorLongitude) &&
+      entry.operatorLongitude >= -180 &&
+      entry.operatorLongitude <= 180
+        ? Number(entry.operatorLongitude.toFixed(6))
+        : undefined;
+    const validGpsAccuracy =
+      typeof entry.gpsAccuracyMeters === 'number' &&
+      Number.isFinite(entry.gpsAccuracyMeters) &&
+      entry.gpsAccuracyMeters >= 0 &&
+      entry.gpsAccuracyMeters <= 100000
+        ? Math.round(entry.gpsAccuracyMeters)
+        : undefined;
+
+    const payload = stripUndefined({
+      id: safeId,
+      sessionId: safeSessionId,
+      ip: truncateStr(entry.ip, 64) || 'Unavailable',
+      ipType: truncateStr(entry.ipType, 16) || undefined,
+      area: truncateStr(entry.area, 160) || 'Location Pending',
+      city: truncateStr(entry.city, 100) || undefined,
+      region: truncateStr(entry.region, 100) || undefined,
+      country: truncateStr(entry.country, 100) || 'Unknown',
+      countryCode: truncateStr(entry.countryCode, 8) || undefined,
+      postal: truncateStr(entry.postal, 24) || undefined,
+      isp: truncateStr(entry.isp, 140) || undefined,
+      operatorArea: truncateStr(entry.operatorArea, 160) || undefined,
+      operatorLatitude: validOpLat,
+      operatorLongitude: validOpLon,
+      latitude: validLat,
+      longitude: validLon,
+      gpsAccuracyMeters: validGpsAccuracy,
+      locationAccuracy: entry.locationAccuracy === 'GPS' ? 'GPS' : 'IP',
+      timezone: truncateStr(entry.timezone, 80) || undefined,
+      localTime: truncateStr(entry.localTime, 80) || undefined,
+      platform: entry.platform === 'PWA App' ? 'PWA App' : 'Web',
+      deviceType:
+        entry.deviceType === 'Mobile' || entry.deviceType === 'Tablet'
+          ? entry.deviceType
+          : 'Desktop',
+      browser: truncateStr(entry.browser, 60) || undefined,
+      os: truncateStr(entry.os, 60) || undefined,
+      screenSize: truncateStr(entry.screenSize, 32) || undefined,
+      pagePath: truncateStr(entry.pagePath, 200) || '/',
+      referrer: truncateStr(entry.referrer, 240) || undefined,
+      userId: currentUid ? truncateStr(currentUid, 128) : undefined,
+      userEmail: currentUid && entry.userEmail ? truncateStr(entry.userEmail, 120) : undefined,
+      userName: currentUid && entry.userName ? truncateStr(entry.userName, 120) : undefined,
+      createdAt: serverTimestamp(),
+    });
+
+    await setDoc(doc(db, 'visitor_logs', safeId), payload);
+    return safeId;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.CREATE, path);
+  }
+}
+
+export function subscribeVisitorLogs(
+  onData: (logs: VisitorLog[]) => void,
+  onError?: (err: unknown) => void
+): () => void {
+  const path = 'visitor_logs';
+  const q = query(collection(db, path), orderBy('createdAt', 'desc'), limit(250));
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const list = snapshot.docs.map((d) => d.data() as VisitorLog);
+      onData(list);
+    },
+    (error) => {
+      if (onError) onError(error);
+      else handleFirestoreError(error, OperationType.LIST, path);
+    }
+  );
+}
+
+export async function deleteVisitorLog(logId: string): Promise<void> {
+  const path = `visitor_logs/${logId}`;
+  try {
+    await deleteDoc(doc(db, 'visitor_logs', logId));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
+  }
+}
+
+export async function clearVisitorLogs(logIds: string[]): Promise<void> {
+  if (logIds.length === 0) return;
+  const path = 'visitor_logs';
+  try {
+    const chunkSize = 400;
+    for (let i = 0; i < logIds.length; i += chunkSize) {
+      const batch = writeBatch(db);
+      const chunk = logIds.slice(i, i + chunkSize);
+      for (const id of chunk) {
+        batch.delete(doc(db, 'visitor_logs', id));
+      }
+      await batch.commit();
+    }
   } catch (error) {
     handleFirestoreError(error, OperationType.DELETE, path);
   }

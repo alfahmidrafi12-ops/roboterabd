@@ -49,7 +49,7 @@ export const BlogSection: React.FC<BlogSectionProps> = ({ blogImages }) => {
   }, [activePost]);
 
   return (
-    <section id="lab-guides" className="scroll-mt-20 bg-gradient-to-b from-[#F5F8FC] to-white min-[1500px]:bg-transparent min-[1500px]:pointer-events-none">
+    <section id="lab-guides" className="scroll-mt-[108px] bg-gradient-to-b from-[#F5F8FC] to-white min-[1500px]:bg-transparent min-[1500px]:pointer-events-none">
       <div className="relative z-20 pointer-events-auto w-full max-w-[1440px] mx-auto bg-gradient-to-b from-[#F5F8FC] to-white min-[1500px]:border-x min-[1500px]:border-slate-200/90 px-4 sm:px-6 lg:px-10 py-12 sm:py-16">
         <Reveal>
           <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 mb-8">

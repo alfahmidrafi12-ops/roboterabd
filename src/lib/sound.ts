@@ -190,3 +190,67 @@ export function playBootChime(): void {
     volume: 0.045,
   });
 }
+
+/** Shimmering arpeggiated reward chord when unlocking a post-order Digital Gift Card */
+export function playGiftCardRevealSound(): void {
+  const arpeggio = [587.33, 739.99, 880, 1174.66, 1479.98]; // D5 - F#5 - A5 - D6 - F#6
+  arpeggio.forEach((freq, idx) => {
+    scheduleTone({
+      type: idx >= 3 ? 'triangle' : 'sine',
+      freqStart: freq,
+      duration: idx === arpeggio.length - 1 ? 0.34 : 0.14,
+      delay: idx * 0.055,
+      volume: idx === arpeggio.length - 1 ? 0.055 : 0.042,
+    });
+  });
+}
+
+/** Bright crystal two-tone bell chime when a wishlisted item returns to stock */
+export function playRestockBellSound(): void {
+  scheduleTone({
+    type: 'sine',
+    freqStart: 1046.5, // C6
+    duration: 0.16,
+    delay: 0,
+    volume: 0.052,
+  });
+  scheduleTone({
+    type: 'triangle',
+    freqStart: 1318.51, // E6
+    duration: 0.24,
+    delay: 0.09,
+    volume: 0.05,
+  });
+}
+
+/** Subtle glass-slide cue when opening a product detail modal */
+export function playModalOpenSound(): void {
+  scheduleTone({
+    type: 'sine',
+    freqStart: 420,
+    freqEnd: 680,
+    duration: 0.055,
+    volume: 0.025,
+  });
+}
+
+/** Crisp double-tick confirmation when copying a Gift Card or promo code */
+export function playVoucherCopySound(): void {
+  scheduleTone({
+    type: 'triangle',
+    freqStart: 920,
+    freqEnd: 1180,
+    duration: 0.045,
+    delay: 0,
+    volume: 0.036,
+  });
+  scheduleTone({
+    type: 'sine',
+    freqStart: 1240,
+    freqEnd: 1420,
+    duration: 0.06,
+    delay: 0.045,
+    volume: 0.034,
+  });
+}
+

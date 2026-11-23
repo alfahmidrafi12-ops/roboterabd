@@ -112,7 +112,7 @@ export const CompareDock: React.FC<CompareDockProps> = ({
     <div
       role="region"
       aria-label="Product comparison tray"
-      className="animate-pop-in fixed bottom-[calc(4.65rem+env(safe-area-inset-bottom))] md:bottom-5 left-1/2 -translate-x-1/2 z-30 w-[calc(100%-1.5rem)] max-w-2xl md:max-w-[calc(100vw-24rem)] lg:max-w-2xl"
+      className="animate-pop-in fixed bottom-[calc(8.35rem+env(safe-area-inset-bottom))] md:bottom-5 left-1/2 -translate-x-1/2 z-30 w-[calc(100%-1.5rem)] max-w-2xl md:max-w-[calc(100vw-24rem)] lg:max-w-2xl"
     >
       <div className="bg-[#071A3D]/95 backdrop-blur-md text-white rounded-2xl border border-[#1E3A6E] shadow-[0_20px_44px_-12px_rgba(7,26,61,0.55)] p-3 sm:px-4 sm:py-3">
         {limitNotice && (

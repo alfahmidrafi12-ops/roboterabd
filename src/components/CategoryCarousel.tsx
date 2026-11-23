@@ -92,7 +92,7 @@ export const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
   return (
     <section
       id="categories"
-      className="scroll-mt-20 bg-[#F3F7FC] min-[1500px]:bg-transparent min-[1500px]:pointer-events-none"
+      className="scroll-mt-[108px] bg-[#F3F7FC] min-[1500px]:bg-transparent min-[1500px]:pointer-events-none"
     >
       <div className="relative z-20 pointer-events-auto w-full max-w-[1440px] mx-auto bg-gradient-to-b from-[#F5F8FC] via-[#F3F7FC] to-[#F5F8FC] min-[1500px]:border-x min-[1500px]:border-slate-200/90 px-4 sm:px-6 lg:px-10 py-9 sm:py-12">
         <Reveal>
@@ -252,7 +252,7 @@ export const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
                   setShowAll((prev) => !prev);
                 }}
                 aria-expanded={showAll}
-                className="group inline-flex items-center justify-center gap-2.5 px-5 py-3 rounded-xl bg-white hover:bg-[#071A3D] border border-slate-200 hover:border-[#071A3D] text-xs font-bold tracking-[0.04em] uppercase text-[#071A3D] hover:text-white active:scale-[0.97] shadow-[0_6px_18px_-8px_rgba(7,26,61,0.10)] transition-all duration-250 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF]"
+                className="group inline-flex items-center justify-center gap-2.5 px-5 py-3 rounded-xl bg-white hover:bg-[#071A3D] border border-slate-200 hover:border-[#071A3D] text-xs font-bold tracking-[0.04em] uppercase text-[#071A3D] hover:text-white active:scale-[0.97] shadow-[0_6px_18px_-8px_rgba(7,26,61,0.10)] transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF]"
               >
                 {showAll ? (
                   <span>Show Less Categories</span>

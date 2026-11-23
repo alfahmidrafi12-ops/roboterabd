@@ -219,3 +219,71 @@ export interface LocalPriceWatch {
   email: string;
   baselinePrice: number;
 }
+
+export interface RestockAlert {
+  id: string;
+  productId: string;
+  productName: string;
+  email: string;
+  userId?: string;
+  status: 'Active' | 'Notified';
+  notifiedAt?: unknown;
+  createdAt: unknown;
+  updatedAt: unknown;
+}
+
+export interface LocalRestockWatch {
+  productId: string;
+  productName: string;
+  email: string;
+}
+
+export interface GiftCardReward {
+  code: string;
+  value: number;
+  orderId: string;
+  recipientName: string;
+  issuedAt: string;
+  tierLabel: string;
+  redeemed: boolean;
+  redeemedOrderId?: string;
+  redeemedAt?: string;
+}
+
+export type VisitorPlatform = 'Web' | 'PWA App';
+export type VisitorDeviceType = 'Desktop' | 'Mobile' | 'Tablet';
+export type VisitorLocationAccuracy = 'IP' | 'GPS';
+
+export interface VisitorLog {
+  id: string;
+  sessionId: string;
+  ip: string;
+  ipType?: string;
+  area: string;
+  city?: string;
+  region?: string;
+  country: string;
+  countryCode?: string;
+  postal?: string;
+  isp?: string;
+  operatorArea?: string;
+  operatorLatitude?: number;
+  operatorLongitude?: number;
+  latitude?: number;
+  longitude?: number;
+  gpsAccuracyMeters?: number;
+  locationAccuracy: VisitorLocationAccuracy;
+  timezone?: string;
+  localTime?: string;
+  platform: VisitorPlatform;
+  deviceType: VisitorDeviceType;
+  browser?: string;
+  os?: string;
+  screenSize?: string;
+  pagePath: string;
+  referrer?: string;
+  userId?: string;
+  userEmail?: string;
+  userName?: string;
+  createdAt: unknown;
+}

@@ -352,7 +352,7 @@ export const ScrollingBannerSection: React.FC<ScrollingBannerSectionProps> = ({
     <section
       id="campaigns"
       aria-label="Featured campaigns"
-      className="scroll-mt-20 bg-white min-[1500px]:bg-transparent min-[1500px]:pointer-events-none"
+      className="scroll-mt-[108px] bg-white min-[1500px]:bg-transparent min-[1500px]:pointer-events-none"
     >
       <div className="relative z-20 pointer-events-auto w-full max-w-[1440px] mx-auto bg-white min-[1500px]:border-x min-[1500px]:border-slate-200/90 px-4 sm:px-6 lg:px-10 py-8 sm:py-11">
         <Reveal>

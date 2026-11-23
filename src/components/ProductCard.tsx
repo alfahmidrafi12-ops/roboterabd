@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   BatteryCharging,
+  Bell,
+  BellRing,
   Bot,
   Check,
   Cog,
@@ -27,6 +29,7 @@ interface ProductCardProps {
   categoryDisplayName?: string;
   highlightQuery?: string;
   isWishlisted: boolean;
+  isRestockWatched?: boolean;
   isCompared?: boolean;
   compareLimitReached?: boolean;
   layout?: 'grid' | 'list';
@@ -34,6 +37,7 @@ interface ProductCardProps {
   onToggleCompare?: (productId: string) => void;
   onAddToCart: (product: Product, quantity: number) => void;
   onOpenDetail: (product: Product) => void;
+  onRequestRestockAlert?: (product: Product) => void;
 }
 
 function getNeutralPlaceholderIcon(category: string, artwork: ArtworkKind) {
@@ -114,6 +118,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   categoryDisplayName,
   highlightQuery = '',
   isWishlisted,
+  isRestockWatched = false,
   isCompared = false,
   compareLimitReached = false,
   layout = 'grid',
@@ -121,6 +126,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   onToggleCompare,
   onAddToCart,
   onOpenDetail,
+  onRequestRestockAlert,
 }) => {
   const isOutOfStock = product.stock <= 0;
   const isLowStock = product.stock > 0 && product.stock <= 5;
@@ -352,30 +358,59 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                 </button>
               </div>
 
-              <button
-                type="button"
-                disabled={isOutOfStock}
-                onClick={handleAdd}
-                className={`cta-sheen h-9 px-4 rounded-xl text-[11px] font-bold tracking-[0.04em] uppercase inline-flex items-center justify-center gap-1.5 whitespace-nowrap active:scale-[0.96] transition-all duration-200 disabled:bg-slate-200 disabled:text-slate-500 disabled:cursor-not-allowed ${
-                  isOutOfStock
-                    ? ''
-                    : justAdded
-                    ? 'animate-spring-pop bg-[#071A3D] text-white'
-                    : 'bg-[#087BFF] hover:bg-[#0669DB] text-white shadow-[0_6px_14px_-6px_rgba(8,123,255,0.45)]'
-                }`}
-              >
-                {justAdded ? (
-                  <>
-                    <Check className="w-3.5 h-3.5 shrink-0 animate-icon-pop text-[#00CFFF]" />
-                    <span>Added</span>
-                  </>
-                ) : (
-                  <>
-                    <ShoppingCart className="w-3.5 h-3.5 shrink-0" />
-                    <span>{isOutOfStock ? 'Unavailable' : 'Add to Cart'}</span>
-                  </>
-                )}
-              </button>
+              {isOutOfStock ? (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    playTapSound();
+                    if (onRequestRestockAlert) {
+                      onRequestRestockAlert(product);
+                    } else {
+                      onOpenDetail(product);
+                    }
+                  }}
+                  className={`h-9 px-3.5 rounded-xl text-[11px] font-bold tracking-[0.04em] uppercase inline-flex items-center justify-center gap-1.5 whitespace-nowrap active:scale-[0.96] transition-all duration-200 border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF] ${
+                    isRestockWatched
+                      ? 'bg-emerald-50 border-emerald-300 text-emerald-800 hover:bg-emerald-100'
+                      : 'bg-[#071A3D] border-[#071A3D] hover:bg-[#087BFF] hover:border-[#087BFF] text-white'
+                  }`}
+                >
+                  {isRestockWatched ? (
+                    <>
+                      <BellRing className="w-3.5 h-3.5 shrink-0 text-emerald-600 animate-bell-ring" />
+                      <span>Alert Set</span>
+                    </>
+                  ) : (
+                    <>
+                      <Bell className="w-3.5 h-3.5 shrink-0 text-[#00CFFF]" />
+                      <span>Notify Me</span>
+                    </>
+                  )}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleAdd}
+                  className={`cta-sheen h-9 px-4 rounded-xl text-[11px] font-bold tracking-[0.04em] uppercase inline-flex items-center justify-center gap-1.5 whitespace-nowrap active:scale-[0.96] transition-all duration-200 ${
+                    justAdded
+                      ? 'animate-spring-pop bg-[#071A3D] text-white'
+                      : 'bg-[#087BFF] hover:bg-[#0669DB] text-white shadow-[0_6px_14px_-6px_rgba(8,123,255,0.45)]'
+                  }`}
+                >
+                  {justAdded ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 shrink-0 animate-icon-pop text-[#00CFFF]" />
+                      <span>Added</span>
+                    </>
+                  ) : (
+                    <>
+                      <ShoppingCart className="w-3.5 h-3.5 shrink-0" />
+                      <span>Add to Cart</span>
+                    </>
+                  )}
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -573,30 +608,59 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             </button>
           </div>
 
-          <button
-            type="button"
-            disabled={isOutOfStock}
-            onClick={handleAdd}
-            className={`cta-sheen w-full sm:flex-1 h-9 px-3 rounded-xl text-[11px] font-bold tracking-[0.04em] uppercase inline-flex items-center justify-center gap-1.5 whitespace-nowrap active:scale-[0.96] transition-all duration-200 disabled:bg-slate-200 disabled:text-slate-500 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF] ${
-              isOutOfStock
-                ? ''
-                : justAdded
-                ? 'animate-spring-pop bg-[#071A3D] text-white'
-                : 'bg-[#087BFF] hover:bg-[#0669DB] text-white shadow-[0_8px_18px_-8px_rgba(8,123,255,0.5)]'
-            }`}
-          >
-            {justAdded ? (
-              <>
-                <Check className="w-3.5 h-3.5 shrink-0 animate-icon-pop text-[#00CFFF]" />
-                <span>Added</span>
-              </>
-            ) : (
-              <>
-                <ShoppingCart className="w-3.5 h-3.5 shrink-0" />
-                <span>{isOutOfStock ? 'Out of Stock' : 'Add to Cart'}</span>
-              </>
-            )}
-          </button>
+          {isOutOfStock ? (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                playTapSound();
+                if (onRequestRestockAlert) {
+                  onRequestRestockAlert(product);
+                } else {
+                  onOpenDetail(product);
+                }
+              }}
+              className={`w-full sm:flex-1 h-9 px-3 rounded-xl text-[11px] font-bold tracking-[0.04em] uppercase inline-flex items-center justify-center gap-1.5 whitespace-nowrap active:scale-[0.96] transition-all duration-200 border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF] ${
+                isRestockWatched
+                  ? 'bg-emerald-50 border-emerald-300 text-emerald-800 hover:bg-emerald-100'
+                  : 'bg-[#071A3D] border-[#071A3D] hover:bg-[#087BFF] hover:border-[#087BFF] text-white shadow-[0_8px_18px_-10px_rgba(7,26,61,0.45)]'
+              }`}
+            >
+              {isRestockWatched ? (
+                <>
+                  <BellRing className="w-3.5 h-3.5 shrink-0 text-emerald-600 animate-bell-ring" />
+                  <span>Alert Set</span>
+                </>
+              ) : (
+                <>
+                  <Bell className="w-3.5 h-3.5 shrink-0 text-[#00CFFF]" />
+                  <span>Notify Me</span>
+                </>
+              )}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleAdd}
+              className={`cta-sheen w-full sm:flex-1 h-9 px-3 rounded-xl text-[11px] font-bold tracking-[0.04em] uppercase inline-flex items-center justify-center gap-1.5 whitespace-nowrap active:scale-[0.96] transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF] ${
+                justAdded
+                  ? 'animate-spring-pop bg-[#071A3D] text-white'
+                  : 'bg-[#087BFF] hover:bg-[#0669DB] text-white shadow-[0_8px_18px_-8px_rgba(8,123,255,0.5)]'
+              }`}
+            >
+              {justAdded ? (
+                <>
+                  <Check className="w-3.5 h-3.5 shrink-0 animate-icon-pop text-[#00CFFF]" />
+                  <span>Added</span>
+                </>
+              ) : (
+                <>
+                  <ShoppingCart className="w-3.5 h-3.5 shrink-0" />
+                  <span>Add to Cart</span>
+                </>
+              )}
+            </button>
+          )}
         </div>
       </div>
     </article>

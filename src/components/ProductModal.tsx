@@ -21,12 +21,14 @@ import {
 } from 'lucide-react';
 import {
   playErrorSound,
+  playModalOpenSound,
+  playRestockBellSound,
   playStepTickSound,
   playSuccessSound,
   playTapSound,
 } from '../lib/sound';
 import { resolveProductVideo } from '../lib/video';
-import { LocalPriceWatch, Product } from '../types/store';
+import { LocalPriceWatch, LocalRestockWatch, Product } from '../types/store';
 import { HardwareArtwork } from './HardwareArtwork';
 
 interface ProductModalProps {
@@ -36,6 +38,7 @@ interface ProductModalProps {
   isWishlisted: boolean;
   defaultEmail?: string | null;
   watchedAlert?: LocalPriceWatch | null;
+  watchedRestock?: LocalRestockWatch | null;
   zIndexClass?: string;
   onClose: () => void;
   onToggleWishlist: (productId: string) => void;
@@ -43,6 +46,7 @@ interface ProductModalProps {
   onBuyNow?: (product: Product, quantity: number, variant?: string) => void;
   onSelectProduct?: (product: Product) => void;
   onSubscribePriceDrop?: (product: Product, email: string) => Promise<void>;
+  onSubscribeRestock?: (product: Product, email: string) => Promise<void>;
 }
 
 const EMAIL_PATTERN = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/;
@@ -77,6 +81,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   isWishlisted,
   defaultEmail,
   watchedAlert,
+  watchedRestock,
   zIndexClass = 'z-50',
   onClose,
   onToggleWishlist,
@@ -84,6 +89,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   onBuyNow,
   onSelectProduct,
   onSubscribePriceDrop,
+  onSubscribeRestock,
 }) => {
   const [qty, setQty] = useState(1);
   const [selectedVariant, setSelectedVariant] = useState<string | undefined>(undefined);
@@ -93,6 +99,11 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   const [alertBusy, setAlertBusy] = useState(false);
   const [alertError, setAlertError] = useState('');
   const [alertSuccess, setAlertSuccess] = useState('');
+  const [restockOpen, setRestockOpen] = useState(false);
+  const [restockEmail, setRestockEmail] = useState('');
+  const [restockBusy, setRestockBusy] = useState(false);
+  const [restockError, setRestockError] = useState('');
+  const [restockSuccess, setRestockSuccess] = useState('');
   const [heartBurstKey, setHeartBurstKey] = useState(0);
 
   const resolvedVideo = useMemo(
@@ -102,20 +113,25 @@ export const ProductModal: React.FC<ProductModalProps> = ({
 
   useEffect(() => {
     if (product) {
+      playModalOpenSound();
       setQty(1);
       setSelectedVariant(product.variants?.[0]);
       setMediaTab('image');
       setNotifyOpen(false);
       setAlertError('');
       setAlertSuccess('');
+      setRestockOpen(product.stock <= 0);
+      setRestockError('');
+      setRestockSuccess('');
     }
   }, [product?.id]);
 
   useEffect(() => {
     if (product) {
       setAlertEmail(watchedAlert?.email || defaultEmail || '');
+      setRestockEmail(watchedRestock?.email || defaultEmail || '');
     }
-  }, [product?.id, defaultEmail, watchedAlert?.email]);
+  }, [product?.id, defaultEmail, watchedAlert?.email, watchedRestock?.email]);
 
   const relatedAndPaired = useMemo(() => {
     if (!product || allProducts.length === 0) return { related: [] as Product[], paired: [] as Product[] };
@@ -167,6 +183,35 @@ export const ProductModal: React.FC<ProductModalProps> = ({
       setAlertError('Could not save price alert right now. Please try again.');
     } finally {
       setAlertBusy(false);
+    }
+  };
+
+  const handleRestockSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!onSubscribeRestock || restockBusy) return;
+    const trimmed = restockEmail.trim();
+    if (!EMAIL_PATTERN.test(trimmed)) {
+      playErrorSound();
+      setRestockError('Please enter a valid email address.');
+      return;
+    }
+
+    setRestockBusy(true);
+    setRestockError('');
+    setRestockSuccess('');
+    try {
+      await onSubscribeRestock(product, trimmed);
+      playRestockBellSound();
+      setRestockSuccess(
+        `Restock alert active for ${trimmed}. You'll receive a dashboard & email notification when ${product.name} is back in stock.`
+      );
+      setRestockOpen(false);
+    } catch (err) {
+      console.error('Restock alert subscription error:', err);
+      playErrorSound();
+      setRestockError('Could not save restock alert right now. Please try again.');
+    } finally {
+      setRestockBusy(false);
     }
   };
 
@@ -579,8 +624,103 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                   </button>
                 )}
 
+                {/* Back-in-Stock Alert (Shown when Out of Stock) */}
+                {isOutOfStock && onSubscribeRestock && (
+                  <div className="pt-1">
+                    {restockSuccess ? (
+                      <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 flex items-start gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                        <span>{restockSuccess}</span>
+                      </div>
+                    ) : watchedRestock && !restockOpen ? (
+                      <div className="p-3 rounded-xl bg-emerald-50/80 border border-emerald-200 text-xs text-[#071A3B] flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <BellRing className="w-4 h-4 text-emerald-600 shrink-0 animate-bell-ring" />
+                          <span className="truncate font-medium">
+                            Restock alert active for {watchedRestock.email}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            playTapSound();
+                            setRestockOpen(true);
+                          }}
+                          className="text-[11px] font-semibold text-emerald-700 hover:underline whitespace-nowrap shrink-0"
+                        >
+                          Update email
+                        </button>
+                      </div>
+                    ) : !restockOpen ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          playTapSound();
+                          setRestockOpen(true);
+                        }}
+                        className="w-full h-10 rounded-xl border border-[#071A3D] bg-[#071A3D] hover:bg-[#087BFF] hover:border-[#087BFF] text-white text-xs font-semibold inline-flex items-center justify-center gap-2 transition-colors"
+                      >
+                        <Bell className="w-3.5 h-3.5 text-[#00CFFF]" />
+                        <span>Notify Me When Back in Stock</span>
+                      </button>
+                    ) : (
+                      <form
+                        onSubmit={handleRestockSubmit}
+                        className="p-3.5 rounded-xl bg-[#071A3D]/[0.04] border border-[#087BFF]/35 space-y-2.5"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <label
+                            htmlFor="restock-alert-email"
+                            className="text-xs font-semibold text-[#071A3B] flex items-center gap-1.5 min-w-0"
+                          >
+                            <Bell className="w-3.5 h-3.5 text-[#087BFF] shrink-0" />
+                            <span className="truncate">
+                              Notify me by dashboard &amp; email when restocked
+                            </span>
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setRestockOpen(false);
+                              setRestockError('');
+                            }}
+                            aria-label="Cancel restock alert"
+                            className="text-slate-400 hover:text-slate-700 p-0.5 shrink-0"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+
+                        <div className="flex flex-col sm:flex-row gap-2">
+                          <input
+                            id="restock-alert-email"
+                            type="email"
+                            required
+                            maxLength={120}
+                            value={restockEmail}
+                            onChange={(e) => setRestockEmail(e.target.value)}
+                            placeholder="you@example.com"
+                            className="flex-1 h-10 sm:h-9 px-3 rounded-lg bg-white border border-slate-200 text-base sm:text-xs text-[#101828] focus:outline-none focus:ring-2 focus:ring-[#0866F5]"
+                          />
+                          <button
+                            type="submit"
+                            disabled={restockBusy}
+                            className="h-10 sm:h-9 px-4 rounded-lg bg-[#071A3D] hover:bg-[#087BFF] disabled:opacity-60 text-white text-xs font-semibold whitespace-nowrap shrink-0 transition-colors"
+                          >
+                            {restockBusy ? 'Saving...' : 'Notify Back in Stock'}
+                          </button>
+                        </div>
+
+                        {restockError && (
+                          <p className="text-[11px] text-red-600 font-medium">{restockError}</p>
+                        )}
+                      </form>
+                    )}
+                  </div>
+                )}
+
                 {/* Notify me when price drops */}
-                {onSubscribePriceDrop && (
+                {!isOutOfStock && onSubscribePriceDrop && (
                   <div className="pt-1">
                     {alertSuccess ? (
                       <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 flex items-start gap-2">
