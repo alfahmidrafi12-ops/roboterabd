@@ -3,6 +3,7 @@ import { Image as ImageIcon, RotateCcw, Upload } from 'lucide-react';
 
 interface ImageSourceFieldProps {
   label: string;
+  sizeSpec?: string;
   value?: string;
   placeholder?: string;
   helperText?: string;
@@ -60,6 +61,7 @@ async function compressImageFile(
 
 export const ImageSourceField: React.FC<ImageSourceFieldProps> = ({
   label,
+  sizeSpec,
   value = '',
   placeholder = 'https://... or upload image from device',
   helperText,
@@ -92,8 +94,15 @@ export const ImageSourceField: React.FC<ImageSourceFieldProps> = ({
 
   return (
     <div className="space-y-1.5">
-      <div className="flex items-center justify-between gap-2">
-        <label className="block text-xs font-semibold text-slate-700">{label}</label>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <label className="block text-xs font-semibold text-slate-700">{label}</label>
+          {sizeSpec && (
+            <p className="font-mono text-[11px] font-medium text-[#0057E7] mt-0.5">
+              Size &amp; Ratio: {sizeSpec}
+            </p>
+          )}
+        </div>
         {hasValue && (
           <button
             type="button"
@@ -101,7 +110,7 @@ export const ImageSourceField: React.FC<ImageSourceFieldProps> = ({
               setError('');
               onChange(defaultValue !== undefined ? defaultValue : undefined);
             }}
-            className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500 hover:text-red-600"
+            className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500 hover:text-red-600 shrink-0"
           >
             <RotateCcw className="w-3 h-3" />
             <span>{defaultValue !== undefined ? 'Reset Default' : 'Use Vector Artwork'}</span>

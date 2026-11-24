@@ -489,6 +489,7 @@ export default function App() {
 
     handleRouteSync();
     window.addEventListener('hashchange', handleRouteSync);
+    window.addEventListener('popstate', handleRouteSync);
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'a') {
@@ -500,6 +501,7 @@ export default function App() {
 
     return () => {
       window.removeEventListener('hashchange', handleRouteSync);
+      window.removeEventListener('popstate', handleRouteSync);
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, []);

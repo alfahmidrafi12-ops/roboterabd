@@ -68,6 +68,13 @@ export const WhatsAppButton: React.FC = () => {
   const [customMessage, setCustomMessage] = useState('');
   const [copiedNumber, setCopiedNumber] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const copyTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (copyTimerRef.current) window.clearTimeout(copyTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -95,7 +102,8 @@ export const WhatsAppButton: React.FC = () => {
     playTapSound();
     navigator.clipboard?.writeText(WHATSAPP_DISPLAY).catch(() => {});
     setCopiedNumber(true);
-    window.setTimeout(() => setCopiedNumber(false), 1800);
+    if (copyTimerRef.current) window.clearTimeout(copyTimerRef.current);
+    copyTimerRef.current = window.setTimeout(() => setCopiedNumber(false), 1800);
   };
 
   const handleSendCustom = (e: React.FormEvent) => {
@@ -124,31 +132,30 @@ export const WhatsAppButton: React.FC = () => {
       {open && (
         <div
           role="dialog"
-          aria-label="Robotera BD WhatsApp Concierge"
-          className="animate-pop-in w-[min(calc(100vw-1.5rem),22.5rem)] rounded-2xl bg-[#071A3D] text-white border border-emerald-400/35 shadow-[0_26px_60px_-12px_rgba(3,12,28,0.72)] overflow-hidden"
+          aria-label="Robotera BD WhatsApp Support"
+          className="animate-pop-in w-[min(calc(100vw-1.5rem),22.5rem)] rounded-2xl bg-white text-[#0F172A] border border-emerald-200/90 shadow-[0_24px_56px_-12px_rgba(7,94,84,0.34)] overflow-hidden"
         >
-          {/* Concierge Header */}
-          <div className="relative overflow-hidden px-4 py-3.5 bg-gradient-to-r from-[#064E3B] via-[#0F766E] to-[#071A3D] border-b border-white/12 flex items-center justify-between gap-3">
-            <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-lab-grid-dark opacity-45" />
-            <div className="relative z-10 flex items-center gap-2.5 min-w-0">
-              <span className="w-10 h-10 rounded-xl bg-emerald-400/20 border border-emerald-300/45 flex items-center justify-center text-emerald-200 shrink-0">
+          {/* Authentic WhatsApp Green Header */}
+          <div className="px-4 py-3.5 bg-gradient-to-r from-[#075E54] via-[#0F766E] to-[#128C7E] text-white flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <span className="w-10 h-10 rounded-xl bg-white/15 border border-white/25 flex items-center justify-center text-white shrink-0">
                 <WhatsAppGlyph className="w-5 h-5" />
               </span>
               <div className="min-w-0">
                 <p className="font-display text-sm font-bold text-white leading-tight truncate">
-                  Robotera BD WhatsApp Desk
+                  Robotera BD Support
                 </p>
-                <div className="flex items-center gap-2 mt-0.5 text-[11px] text-emerald-100/90 font-mono tabular-nums">
+                <div className="flex items-center gap-2 mt-0.5 text-[11px] text-emerald-50 font-mono tabular-nums">
                   <span className="truncate">{WHATSAPP_DISPLAY}</span>
                   <button
                     type="button"
                     onClick={handleCopyPhone}
                     aria-label="Copy WhatsApp support number"
-                    className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-white/10 hover:bg-white/20 text-[10px] font-sans font-semibold text-white transition-colors shrink-0"
+                    className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-white/15 hover:bg-white/25 text-[10px] font-sans font-semibold text-white transition-colors shrink-0"
                   >
                     {copiedNumber ? (
                       <>
-                        <Check className="w-2.5 h-2.5 text-emerald-300" />
+                        <Check className="w-2.5 h-2.5 text-[#86EFAC]" />
                         <span>Copied</span>
                       </>
                     ) : (
@@ -165,24 +172,24 @@ export const WhatsAppButton: React.FC = () => {
               type="button"
               onClick={() => setOpen(false)}
               aria-label="Close WhatsApp support menu"
-              className="relative z-10 p-1.5 rounded-xl text-slate-200 hover:text-white bg-white/10 hover:bg-white/20 transition-colors shrink-0"
+              className="p-1.5 rounded-xl text-white/85 hover:text-white bg-white/10 hover:bg-white/20 transition-colors shrink-0"
             >
               <X className="w-4 h-4" />
             </button>
           </div>
 
           {/* Support Hours Strip */}
-          <div className="px-4 py-2 bg-[#05132E] border-b border-white/10 flex items-center justify-between text-[11px] text-slate-300">
-            <span className="inline-flex items-center gap-1.5">
-              <Clock className="w-3 h-3 text-emerald-300 shrink-0" />
-              <span>Dhaka Lab Hours: 10 AM – 10 PM</span>
+          <div className="px-4 py-2 bg-[#F0FDF4] border-b border-emerald-100 flex items-center justify-between text-[11px] text-[#166534]">
+            <span className="inline-flex items-center gap-1.5 font-medium">
+              <Clock className="w-3 h-3 text-[#15803D] shrink-0" />
+              <span>Support Hours: 10 AM – 10 PM</span>
             </span>
-            <span className="font-mono text-emerald-300 font-semibold">Fast Reply</span>
+            <span className="font-mono text-[#075E54] font-semibold">Quick Reply</span>
           </div>
 
           {/* Quick Inquiry Options + Custom Message Input */}
-          <div className="p-3.5 space-y-2.5 bg-[#071A3D]">
-            <p className="px-1 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-300">
+          <div className="p-3.5 space-y-2.5 bg-white">
+            <p className="px-1 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-[#475569]">
               Select a support topic
             </p>
             <div className="space-y-1.5">
@@ -202,20 +209,20 @@ export const WhatsAppButton: React.FC = () => {
                       setOpen(false);
                     }}
                     style={{ '--stagger-delay': `${idx * 35}ms` } as React.CSSProperties}
-                    className="animate-form-stagger group flex items-center gap-3 p-2.5 rounded-xl bg-white/[0.05] hover:bg-emerald-500/15 border border-white/10 hover:border-emerald-400/45 transition-all duration-200 hover:translate-x-0.5"
+                    className="animate-form-stagger group flex items-center gap-3 p-2.5 rounded-xl bg-[#F8FAFC] hover:bg-[#F0FDF4] border border-slate-200/80 hover:border-[#25D366]/65 transition-all duration-200 hover:translate-x-0.5"
                   >
-                    <span className="w-8 h-8 rounded-lg bg-[#0B234F] border border-white/15 group-hover:border-emerald-300/50 group-hover:scale-105 flex items-center justify-center text-emerald-300 shrink-0 transition-all duration-200">
+                    <span className="w-8 h-8 rounded-lg bg-white border border-emerald-200/80 group-hover:bg-[#128C7E] group-hover:border-[#128C7E] group-hover:text-white flex items-center justify-center text-[#075E54] shrink-0 transition-colors duration-200">
                       <Icon className="w-4 h-4" />
                     </span>
                     <span className="flex-1 min-w-0">
-                      <span className="block text-xs font-semibold text-white group-hover:text-emerald-200 truncate">
+                      <span className="block text-xs font-semibold text-[#0F172A] group-hover:text-[#075E54] truncate">
                         {topic.title}
                       </span>
-                      <span className="block text-[11px] text-slate-300 leading-snug line-clamp-1">
+                      <span className="block text-[11px] text-[#475569] leading-snug line-clamp-1">
                         {topic.subtitle}
                       </span>
                     </span>
-                    <ArrowUpRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-emerald-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all shrink-0" />
+                    <ArrowUpRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-[#128C7E] group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all shrink-0" />
                   </a>
                 );
               })}
@@ -230,12 +237,12 @@ export const WhatsAppButton: React.FC = () => {
                 onChange={(e) => setCustomMessage(e.target.value)}
                 placeholder="Type your question or Order ID..."
                 aria-label="Write a message for Robotera BD WhatsApp Support"
-                className="flex-1 h-10 px-3 rounded-xl bg-white/[0.08] border border-white/15 text-xs text-white placeholder:text-slate-400 focus:bg-white/[0.12] focus:border-emerald-400 focus:outline-none transition-colors"
+                className="flex-1 h-10 px-3 rounded-xl bg-[#F8FAFC] border border-slate-200 text-xs text-[#0F172A] placeholder:text-slate-400 focus:bg-white focus:border-[#128C7E] focus:outline-none transition-colors"
               />
               <button
                 type="submit"
                 aria-label="Send message on WhatsApp"
-                className="h-10 px-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-[#041A12] font-bold text-xs inline-flex items-center justify-center gap-1 transition-all shrink-0"
+                className="h-10 px-3.5 rounded-xl bg-[#128C7E] hover:bg-[#075E54] active:scale-95 text-white font-semibold text-xs inline-flex items-center justify-center gap-1.5 transition-all shrink-0"
               >
                 <Send className="w-3.5 h-3.5" />
                 <span>Send</span>
@@ -250,17 +257,17 @@ export const WhatsAppButton: React.FC = () => {
                 playTapSound();
                 setOpen(false);
               }}
-              className="cta-sheen w-full h-10 rounded-xl bg-gradient-to-r from-[#15803D] to-[#16A34A] hover:from-[#16A34A] hover:to-[#22C55E] border border-emerald-300/40 text-white text-xs font-bold inline-flex items-center justify-center gap-2 transition-all shadow-lg"
+              className="cta-sheen w-full h-10 rounded-xl bg-gradient-to-r from-[#075E54] via-[#128C7E] to-[#15803D] hover:brightness-110 text-white text-xs font-bold inline-flex items-center justify-center gap-2 transition-all shadow-md"
             >
               <WhatsAppGlyph className="w-4 h-4 shrink-0" />
-              <span className="whitespace-nowrap">Start Direct WhatsApp Chat</span>
+              <span className="whitespace-nowrap">Start WhatsApp Chat</span>
               <ArrowUpRight className="w-3.5 h-3.5 shrink-0" />
             </a>
           </div>
         </div>
       )}
 
-      {/* Sleek Floating Trigger with Animated Halo Ring */}
+      {/* Sleek Authentic WhatsApp Green Floating Trigger */}
       <button
         type="button"
         onClick={() => {
@@ -269,7 +276,7 @@ export const WhatsAppButton: React.FC = () => {
         }}
         aria-expanded={open}
         aria-label="Open Robotera BD WhatsApp Support (+880 1624-987366)"
-        className={`group cta-sheen inline-flex items-center gap-2.5 h-11 sm:h-12 pl-2.5 pr-3.5 sm:pl-3 sm:pr-4 rounded-2xl bg-gradient-to-r from-[#064E3B] via-[#0F766E] to-[#15803D] hover:brightness-110 hover:-translate-y-0.5 active:scale-[0.97] border border-emerald-300/50 text-white shadow-[0_16px_32px_-8px_rgba(15,118,110,0.62)] transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 ${
+        className={`group cta-sheen inline-flex items-center gap-2.5 h-11 sm:h-12 pl-2.5 pr-3.5 sm:pl-3 sm:pr-4 rounded-2xl bg-gradient-to-r from-[#075E54] via-[#128C7E] to-[#15803D] hover:brightness-110 hover:-translate-y-0.5 active:scale-[0.97] border border-[#25D366]/60 text-white shadow-[0_14px_28px_-8px_rgba(7,94,84,0.55)] transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#25D366] focus-visible:ring-offset-2 ${
           !open ? 'md:animate-whatsapp-bob' : ''
         }`}
       >
@@ -277,19 +284,14 @@ export const WhatsAppButton: React.FC = () => {
           {!open && (
             <span
               aria-hidden="true"
-              className="pointer-events-none absolute inset-0 rounded-xl border border-emerald-200/80 animate-whatsapp-halo"
+              className="pointer-events-none absolute inset-0 rounded-xl border border-[#86EFAC]/85 animate-whatsapp-halo"
             />
           )}
           <WhatsAppGlyph className="w-4 h-4 text-white transition-transform duration-200 group-hover:scale-110 group-hover:-rotate-6" />
         </span>
 
-        <span className="hidden sm:flex flex-col items-start text-left leading-none">
-          <span className="text-[12.5px] font-bold tracking-wide whitespace-nowrap">
-            WhatsApp Support
-          </span>
-          <span className="text-[10px] text-emerald-100/85 font-mono tabular-nums mt-0.5 whitespace-nowrap">
-            Dhaka Help Desk
-          </span>
+        <span className="hidden sm:inline text-[13px] font-bold tracking-tight whitespace-nowrap">
+          WhatsApp Support
         </span>
 
         <span className="sm:hidden text-xs font-bold whitespace-nowrap">

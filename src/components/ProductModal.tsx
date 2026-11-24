@@ -133,6 +133,12 @@ export const ProductModal: React.FC<ProductModalProps> = ({
     }
   }, [product?.id, defaultEmail, watchedAlert?.email, watchedRestock?.email]);
 
+  useEffect(() => {
+    if (product && product.stock > 0 && qty > product.stock) {
+      setQty(product.stock);
+    }
+  }, [product?.stock, qty]);
+
   const relatedAndPaired = useMemo(() => {
     if (!product || allProducts.length === 0) return { related: [] as Product[], paired: [] as Product[] };
     const others = allProducts.filter((p) => p.id !== product.id && p.stock > 0);

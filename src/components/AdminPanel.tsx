@@ -3129,6 +3129,50 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     </div>
                   </div>
 
+                  {/* Quick-Reference Size & Ratio Cheat Sheet */}
+                  <div className="bg-white border border-blue-200/80 rounded-xl p-4 space-y-2.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <h4 className="font-display text-xs font-bold uppercase tracking-wider text-[#06142E]">
+                        Admin Image Size &amp; Aspect Ratio Guide
+                      </h4>
+                      <span className="font-mono text-[11px] font-medium text-[#0057E7]">
+                        Auto-optimized on upload (PNG / WebP / JPG)
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 text-[11px]">
+                      <div className="rounded-lg bg-[#F6F8FB] border border-slate-200/80 px-3 py-2">
+                        <p className="font-semibold text-[#06142E]">Main Hero Showcase</p>
+                        <p className="font-mono text-[#0057E7] font-semibold">1280 × 800 px · Ratio 16:10</p>
+                        <p className="text-slate-500">Cover fit (crops excess edges)</p>
+                      </div>
+                      <div className="rounded-lg bg-[#F6F8FB] border border-slate-200/80 px-3 py-2">
+                        <p className="font-semibold text-[#06142E]">Promo Left Banner</p>
+                        <p className="font-mono text-[#0057E7] font-semibold">1200 × 600 px · Ratio 2:1</p>
+                        <p className="text-slate-500">Wide landscape · Cover on desktop</p>
+                      </div>
+                      <div className="rounded-lg bg-[#F6F8FB] border border-slate-200/80 px-3 py-2">
+                        <p className="font-semibold text-[#06142E]">Promo Right Cards (Top / Bottom)</p>
+                        <p className="font-mono text-[#0057E7] font-semibold">800 × 800 px · Ratio 1:1 (or 6:5)</p>
+                        <p className="text-slate-500">Square side panel · Cover fit</p>
+                      </div>
+                      <div className="rounded-lg bg-[#F6F8FB] border border-slate-200/80 px-3 py-2">
+                        <p className="font-semibold text-[#06142E]">Discount Full Banner</p>
+                        <p className="font-mono text-[#0057E7] font-semibold">1280 × 360 px · Ratio ~16:5</p>
+                        <p className="text-slate-500">Contain fit (zero crop, max height 360 px)</p>
+                      </div>
+                      <div className="rounded-lg bg-[#F6F8FB] border border-slate-200/80 px-3 py-2">
+                        <p className="font-semibold text-[#06142E]">Lab Guides &amp; Scrolling Banners</p>
+                        <p className="font-mono text-[#0057E7] font-semibold">Guides 16:10 · Banners 16:9</p>
+                        <p className="text-slate-500">800 × 500 px / 1280 × 720 px · Zero crop</p>
+                      </div>
+                      <div className="rounded-lg bg-[#F6F8FB] border border-slate-200/80 px-3 py-2">
+                        <p className="font-semibold text-[#06142E]">Products &amp; Categories</p>
+                        <p className="font-mono text-[#0057E7] font-semibold">Products 1:1 · Categories 4:3</p>
+                        <p className="text-slate-500">800 × 800 px / 800 × 600 px · Zero crop</p>
+                      </div>
+                    </div>
+                  </div>
+
                   {/* Hero Section Card */}
                   <div className="bg-[#F6F8FB] border border-slate-200 rounded-xl p-5 space-y-4">
                     <h4 className="font-display text-sm font-bold text-[#06142E]">
@@ -3136,9 +3180,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     </h4>
                     <ImageSourceField
                       label="Main Hero Showcase Image"
+                      sizeSpec="1280 × 800 px (or 1600 × 1000 px) · Aspect Ratio 16:10 (Landscape)"
+                      helperText="Displayed inside a 16:10 full-bleed showcase stage (cover fit). Keep key hardware centered."
                       value={draftSiteSettings.heroImageUrl}
                       defaultValue={DEFAULT_SITE_SETTINGS.heroImageUrl}
-                      maxDimension={900}
+                      maxDimension={1280}
                       maxChars={160000}
                       onChange={(url) =>
                         setDraftSiteSettings({
@@ -3238,6 +3284,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <ImageSourceField
                         label="Promo Left Banner (Full Image)"
+                        sizeSpec="1200 × 600 px · Aspect Ratio 2:1 (Wide Landscape)"
+                        helperText="Fills the large left promo card (~780 × 370 px on desktop, cover fit). Keep text inside the safe center."
                         value={draftSiteSettings.promoLeftImageUrl}
                         maxDimension={1200}
                         maxChars={150000}
@@ -3247,6 +3295,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                       />
                       <ImageSourceField
                         label="Promo Top-Right Banner (Full Image)"
+                        sizeSpec="800 × 800 px (or 900 × 750 px) · Aspect Ratio 1:1 to 6:5"
+                        helperText="Shown in the right-side thumbnail panel (cover fit on desktop)."
                         value={draftSiteSettings.promoTopRightImageUrl}
                         maxDimension={1000}
                         maxChars={140000}
@@ -3256,6 +3306,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                       />
                       <ImageSourceField
                         label="Promo Bottom-Right Banner (Full Image)"
+                        sizeSpec="800 × 800 px (or 900 × 750 px) · Aspect Ratio 1:1 to 6:5"
+                        helperText="Shown in the bottom-right thumbnail panel (cover fit on desktop)."
                         value={draftSiteSettings.promoBottomRightImageUrl}
                         maxDimension={1000}
                         maxChars={140000}
@@ -3265,6 +3317,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                       />
                       <ImageSourceField
                         label="Discount Full Banner Image"
+                        sizeSpec="1280 × 360 px · Aspect Ratio ~16:5 (Wide Strip)"
+                        helperText="Renders full width with zero cropping (max height 360 px, contain fit)."
                         value={draftSiteSettings.discountBannerImageUrl}
                         maxDimension={1280}
                         maxChars={150000}
@@ -3285,8 +3339,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                         <ImageSourceField
                           key={post.id}
                           label={post.title}
+                          sizeSpec="800 × 500 px · Aspect Ratio 16:10 (Landscape)"
+                          helperText="Displayed uncropped inside a 16:10 card frame (contain fit)."
                           value={draftSiteSettings.blogImages?.[post.id]}
-                          maxDimension={640}
+                          maxDimension={800}
                           maxChars={90000}
                           onChange={(url) =>
                             setDraftSiteSettings({
@@ -4274,7 +4330,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
               <div className="sm:col-span-2">
                 <ImageSourceField
-                  label="Custom Product Image (Shows full photo without cropping)"
+                  label="Custom Product Image"
+                  sizeSpec="800 × 800 px (1:1 Square) or 800 × 600 px (4:3)"
+                  helperText="Shows full hardware photo without cropping (contain fit). Transparent PNG/WebP or clean studio background works best."
                   value={editingProduct.imageUrl}
                   maxDimension={1000}
                   maxChars={180000}
@@ -4614,7 +4672,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
               <div className="sm:col-span-2">
                 <ImageSourceField
-                  label="Custom Banner Image (Recommended: 1280 × 720 px / 16:9 — zero crop)"
+                  label="Custom Banner Image"
+                  sizeSpec="1280 × 720 px · Aspect Ratio 16:9 (Widescreen)"
+                  helperText="Displays inside a 16:9 campaign viewport with zero cropping (contain fit)."
                   value={editingBanner.imageUrl}
                   maxDimension={1280}
                   maxChars={180000}
@@ -4762,9 +4822,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               <div className="sm:col-span-2">
                 <ImageSourceField
                   label="Custom Category Image (Upload or URL)"
-                  helperText="Leave Fallback Icon as None to display your uploaded image directly on this category card."
+                  sizeSpec="800 × 600 px · Aspect Ratio 4:3 (or 600 × 600 px 1:1)"
+                  helperText="Displayed uncropped inside a 4:3 category card (contain fit). Set Fallback Icon above to None to show only this image."
                   value={editingCategory.imageUrl}
-                  maxDimension={560}
+                  maxDimension={800}
                   maxChars={140000}
                   onChange={(url) =>
                     setEditingCategory({ ...editingCategory, imageUrl: url })

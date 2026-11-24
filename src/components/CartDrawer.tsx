@@ -158,6 +158,21 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   const [detectingLocation, setDetectingLocation] = useState(false);
   const [locationNote, setLocationNote] = useState('');
 
+  const wasOpenRef = useRef(isOpen);
+  const prefilledNameUidRef = useRef<string | null>(null);
+  const prefilledPhoneUidRef = useRef<string | null>(null);
+  const copiedIdTimerRef = useRef<number | null>(null);
+  const copiedGiftTimerRef = useRef<number | null>(null);
+  const giftRevealTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (copiedIdTimerRef.current) window.clearTimeout(copiedIdTimerRef.current);
+      if (copiedGiftTimerRef.current) window.clearTimeout(copiedGiftTimerRef.current);
+      if (giftRevealTimerRef.current) window.clearTimeout(giftRevealTimerRef.current);
+    };
+  }, []);
+
   useEffect(() => {
     if (cartPulseKey <= prevPulseKeyRef.current) {
       prevPulseKeyRef.current = cartPulseKey;
@@ -184,31 +199,38 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     };
   }, [cartPulseKey, isOpen]);
 
-  // Reset user-specific state on account switch/sign-out and prefill verified user details
+  // Reset user-specific state on account switch/sign-out and prefill verified details once per UID
   useEffect(() => {
     const currentUid = user?.uid ?? null;
     if (prevUserUidRef.current !== currentUid) {
       prevUserUidRef.current = currentUid;
+      prefilledNameUidRef.current = null;
+      prefilledPhoneUidRef.current = null;
       setSelectedGiftCardCode(null);
       setRedeemedRewardPoints(0);
       setReceipt(null);
       setIssuedGiftCard(null);
       setCheckoutError('');
       setCouponError('');
-      if (step === 'receipt') {
-        setStep('cart');
-      }
+      setStep((prevStep) => (prevStep === 'receipt' ? 'cart' : prevStep));
       setCustomerName(user?.displayName || '');
       setPhone(user?.phoneNumber ? formatPhoneForCheckoutInput(user.phoneNumber) : '');
-    } else {
-      if (user?.displayName && !customerName) {
-        setCustomerName(user.displayName);
-      }
-      if (user?.phoneNumber && !phone) {
-        setPhone(formatPhoneForCheckoutInput(user.phoneNumber));
-      }
+      if (currentUid && user?.displayName) prefilledNameUidRef.current = currentUid;
+      if (currentUid && user?.phoneNumber) prefilledPhoneUidRef.current = currentUid;
+      return;
     }
-  }, [user?.uid, user?.displayName, user?.phoneNumber, customerName, phone, step]);
+
+    if (currentUid && user?.displayName && prefilledNameUidRef.current !== currentUid) {
+      prefilledNameUidRef.current = currentUid;
+      setCustomerName((prev) => prev || user.displayName || '');
+    }
+    if (currentUid && user?.phoneNumber && prefilledPhoneUidRef.current !== currentUid) {
+      prefilledPhoneUidRef.current = currentUid;
+      setPhone((prev) =>
+        prev || (user.phoneNumber ? formatPhoneForCheckoutInput(user.phoneNumber) : '')
+      );
+    }
+  }, [user?.uid, user?.displayName, user?.phoneNumber]);
 
   useEffect(() => {
     if (items.length === 0 && step === 'checkout') {
@@ -216,8 +238,14 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     }
   }, [items.length, step]);
 
+  // Only route to checkout / clear stale receipt on drawer open transitions so "Back to Cart" stays usable
   useEffect(() => {
-    if (isOpen) {
+    const justOpened = isOpen && !wasOpenRef.current;
+    wasOpenRef.current = isOpen;
+
+    if (!isOpen) return;
+
+    if (justOpened) {
       setCouponError('');
       setCheckoutError('');
       setCopiedId(false);
@@ -225,7 +253,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
         setStep(startInCheckout ? 'checkout' : 'cart');
         setReceipt(null);
         setIssuedGiftCard(null);
-      } else if (startInCheckout && items.length > 0 && step === 'cart') {
+      } else if (startInCheckout && items.length > 0) {
         setStep('checkout');
       }
     }
@@ -246,8 +274,6 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
       active = false;
     };
   }, [isOpen, appliedCoupon, user?.uid, user?.email, onApplyCoupon]);
-
-  if (!isOpen) return null;
 
   const subtotal = items.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
 
@@ -318,6 +344,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
       setRedeemedRewardPoints(maxRedeemableRewardPoints);
     }
   }, [user, redeemedRewardPoints, maxRedeemableRewardPoints]);
+
+  if (!isOpen) return null;
 
   const appliedRewardPoints =
     user &&
@@ -558,7 +586,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
       playSuccessSound();
       if (rewardCard) {
-        window.setTimeout(() => playGiftCardRevealSound(), 240);
+        if (giftRevealTimerRef.current) window.clearTimeout(giftRevealTimerRef.current);
+        giftRevealTimerRef.current = window.setTimeout(() => playGiftCardRevealSound(), 240);
       }
       setReceipt(newReceipt);
       setIssuedGiftCard(rewardCard);
@@ -605,14 +634,16 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     playTapSound();
     navigator.clipboard?.writeText(id).catch(() => {});
     setCopiedId(true);
-    window.setTimeout(() => setCopiedId(false), 1800);
+    if (copiedIdTimerRef.current) window.clearTimeout(copiedIdTimerRef.current);
+    copiedIdTimerRef.current = window.setTimeout(() => setCopiedId(false), 1800);
   };
 
   const handleCopyGiftCode = (code: string) => {
     playVoucherCopySound();
     navigator.clipboard?.writeText(code).catch(() => {});
     setCopiedGiftCode(true);
-    window.setTimeout(() => setCopiedGiftCode(false), 1800);
+    if (copiedGiftTimerRef.current) window.clearTimeout(copiedGiftTimerRef.current);
+    copiedGiftTimerRef.current = window.setTimeout(() => setCopiedGiftCode(false), 1800);
   };
 
   const emptyRecommendations = recommendedProducts.filter((p) => p.stock > 0).slice(0, 3);
@@ -1623,9 +1654,15 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                           { force: true, requestGps: true }
                         );
                         if (res.area && res.area !== 'Unknown Area') {
-                          setAddress((prev) =>
-                            prev.trim() ? `${prev.trim()} (${res.area})` : res.area || ''
-                          );
+                          const detectedArea = res.area;
+                          setAddress((prev) => {
+                            const trimmed = prev.trim();
+                            if (!trimmed) return detectedArea;
+                            if (trimmed.toLowerCase().includes(detectedArea.toLowerCase())) {
+                              return trimmed;
+                            }
+                            return `${trimmed} (${detectedArea})`;
+                          });
                           const lower = res.area.toLowerCase();
                           if (lower.includes('dhaka') && !lower.includes('savar') && !lower.includes('gazipur')) {
                             setDistrict('Dhaka Metro');
