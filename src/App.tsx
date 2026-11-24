@@ -35,17 +35,21 @@ import {
 import {
   createPriceAlert,
   createRestockAlert,
+  ensureCustomerRewardBalance,
   subscribeAuth,
   subscribeBanners,
   subscribeCategories,
+  subscribeCustomerRewardBalance,
   subscribeProducts,
   subscribePromoCodes,
   subscribeSiteSettings,
+  subscribeUserGiftCards,
   subscribeUserOrders,
+  syncUserProfile,
   testConnection,
 } from './lib/firebase';
 import {
-  loadGiftCards,
+  clearLegacyGlobalGiftCards,
   markGiftCardRedeemed,
   saveGiftCard,
 } from './lib/giftCard';
@@ -68,6 +72,7 @@ import {
   CartItem,
   CategoryId,
   CategoryItem,
+  CustomerRewardBalance,
   GiftCardReward,
   LocalPriceWatch,
   LocalRestockWatch,
@@ -192,7 +197,8 @@ export default function App() {
     product: Product;
     viaEmail?: string;
   } | null>(null);
-  const [giftCards, setGiftCards] = useState<GiftCardReward[]>(() => loadGiftCards());
+  const [giftCards, setGiftCards] = useState<GiftCardReward[]>([]);
+  const [rewardBalance, setRewardBalance] = useState<CustomerRewardBalance | null>(null);
 
   const [cartItems, setCartItems] = useState<CartItem[]>(() => {
     try {
@@ -271,18 +277,39 @@ export default function App() {
     };
   }, []);
 
-  // Track signed-in user's order history for 1st-order & single-use promo eligibility
+  // Track signed-in user's orders, UID-scoped gift cards, reward balance, and profile sync
   useEffect(() => {
+    clearLegacyGlobalGiftCards();
     if (!authUser?.uid) {
       setUserOrders([]);
+      setGiftCards([]);
+      setRewardBalance(null);
       return;
     }
+
+    syncUserProfile(authUser);
+    ensureCustomerRewardBalance(authUser.uid);
+
     const unsubUserOrders = subscribeUserOrders(
       authUser.uid,
       (ordersList) => setUserOrders(ordersList),
       (err) => console.error('User order eligibility check error:', err)
     );
-    return () => unsubUserOrders();
+    const unsubUserGiftCards = subscribeUserGiftCards(
+      authUser.uid,
+      (cards) => setGiftCards(cards),
+      (err) => console.error('User gift cards sync error:', err)
+    );
+    const unsubRewardBalance = subscribeCustomerRewardBalance(
+      authUser.uid,
+      (balance) => setRewardBalance(balance),
+      (err) => console.error('Reward wallet sync error:', err)
+    );
+    return () => {
+      unsubUserOrders();
+      unsubUserGiftCards();
+      unsubRewardBalance();
+    };
   }, [authUser?.uid]);
 
   // Capture visitor IP, operator location, and exact user GPS location for admin analytics
@@ -293,6 +320,7 @@ export default function App() {
         ? {
             uid: authUser.uid,
             email: authUser.email,
+            phoneNumber: authUser.phoneNumber,
             displayName: authUser.displayName,
           }
         : null,
@@ -312,6 +340,7 @@ export default function App() {
         ? {
             uid: authUser.uid,
             email: authUser.email,
+            phoneNumber: authUser.phoneNumber,
             displayName: authUser.displayName,
           }
         : null,
@@ -879,6 +908,12 @@ export default function App() {
       sorted.sort(
         (a, b) => Number(Boolean(b.isJustArrived)) - Number(Boolean(a.isJustArrived))
       );
+    } else {
+      sorted.sort(
+        (a, b) =>
+          (typeof a.displayOrder === 'number' ? a.displayOrder : Number.MAX_SAFE_INTEGER) -
+          (typeof b.displayOrder === 'number' ? b.displayOrder : Number.MAX_SAFE_INTEGER)
+      );
     }
     return sorted;
   }, [
@@ -1176,6 +1211,7 @@ export default function App() {
         activeCategory={activeCategory}
         isSignedIn={Boolean(authUser)}
         userEmail={authUser?.email}
+        userPhone={authUser?.phoneNumber}
         onClose={() => setSidebarOpen(false)}
         onSelectCategory={handleSelectCategory}
         onOpenAuth={() => setAuthModalOpen(true)}
@@ -1221,6 +1257,7 @@ export default function App() {
         promoCodes={promoCodes}
         userOrders={userOrders}
         availableGiftCards={giftCards}
+        rewardBalance={rewardBalance}
         appliedCoupon={appliedCoupon}
         startInCheckout={startInCheckout}
         user={authUser}
@@ -1243,12 +1280,28 @@ export default function App() {
             // Ignore storage errors
           }
         }}
-        onGiftCardIssued={(newCard, redeemedCode) => {
-          saveGiftCard(newCard);
-          if (redeemedCode) {
-            markGiftCardRedeemed(redeemedCode, newCard.orderId);
+        onGiftCardIssued={(newCard, redeemedCode, orderId) => {
+          if (!authUser?.uid) return;
+          if (newCard) {
+            saveGiftCard(newCard, authUser.uid);
           }
-          setGiftCards(loadGiftCards());
+          const resolvedOrderId = orderId || newCard?.orderId;
+          if (redeemedCode && resolvedOrderId) {
+            markGiftCardRedeemed(redeemedCode, resolvedOrderId, authUser.uid);
+          }
+          setGiftCards((prev) => {
+            let next = prev.map((c) =>
+              redeemedCode &&
+              resolvedOrderId &&
+              c.code.toUpperCase() === redeemedCode.toUpperCase()
+                ? { ...c, redeemed: true, redeemedOrderId: resolvedOrderId }
+                : c
+            );
+            if (newCard && !next.some((c) => c.code === newCard.code)) {
+              next = [newCard, ...next];
+            }
+            return next;
+          });
         }}
         onTrackOrder={(orderId) => {
           openTrackingPage(orderId);

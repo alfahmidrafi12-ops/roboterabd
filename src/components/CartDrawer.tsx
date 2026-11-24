@@ -3,11 +3,12 @@ import { User } from 'firebase/auth';
 import {
   ArrowLeft,
   ArrowRight,
+  Award,
   Check,
   CheckCircle2,
   ClipboardCheck,
+  Coins,
   Copy,
-  Download,
   Gift,
   LocateFixed,
   Lock,
@@ -20,21 +21,28 @@ import {
   Radio,
   ShieldCheck,
   ShoppingBag,
-  Sparkles,
   Trash2,
   Truck,
   X,
 } from 'lucide-react';
 import { trackVisitorVisit } from '../lib/visitorTracker';
 import {
+  calculateOrderRewardPoints,
+  calculateRewardValueBdt,
   checkUserPromoRedemption,
   createOrderInFirestore,
+  formatPhoneForCheckoutInput,
+  MIN_ORDER_FOR_REWARD_BDT,
+  MIN_REWARD_REDEEM_POINTS,
   normalizePromoCodeString,
+  REWARD_BDT_PER_100_POINTS,
 } from '../lib/firebase';
 import {
+  calculateGiftCardDiscount,
   downloadGiftCardPng,
   generateGiftCardReward,
   markGiftCardRedeemed,
+  MIN_GIFT_CARD_SPEND,
   saveGiftCard,
 } from '../lib/giftCard';
 import {
@@ -46,12 +54,14 @@ import {
 } from '../lib/sound';
 import {
   CartItem,
+  CustomerRewardBalance,
   GiftCardReward,
   OrderReceipt,
   Product,
   PromoCode,
   StoredOrder,
 } from '../types/store';
+import { DigitalGiftCard } from './DigitalGiftCard';
 import { HardwareArtwork } from './HardwareArtwork';
 
 interface CartDrawerProps {
@@ -62,6 +72,7 @@ interface CartDrawerProps {
   promoCodes?: PromoCode[];
   userOrders?: StoredOrder[];
   availableGiftCards?: GiftCardReward[];
+  rewardBalance?: CustomerRewardBalance | null;
   appliedCoupon: string | null;
   startInCheckout?: boolean;
   user: User | null;
@@ -74,7 +85,11 @@ interface CartDrawerProps {
   onApplyCoupon: (code: string | null) => void;
   onClearCart: () => void;
   onOrderCreated?: (orderId: string) => void;
-  onGiftCardIssued?: (card: GiftCardReward, redeemedCode?: string) => void;
+  onGiftCardIssued?: (
+    card: GiftCardReward | null,
+    redeemedCode?: string,
+    orderId?: string
+  ) => void;
   onTrackOrder?: (orderId: string) => void;
 }
 
@@ -97,6 +112,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   promoCodes = [],
   userOrders = [],
   availableGiftCards = [],
+  rewardBalance = null,
   appliedCoupon,
   startInCheckout = false,
   user,
@@ -117,12 +133,16 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   const [couponError, setCouponError] = useState('');
   const [checkingCoupon, setCheckingCoupon] = useState(false);
   const [selectedGiftCardCode, setSelectedGiftCardCode] = useState<string | null>(null);
+  const [redeemedRewardPoints, setRedeemedRewardPoints] = useState(0);
   const [cartPulsing, setCartPulsing] = useState(false);
   const prevPulseKeyRef = useRef(cartPulseKey);
+  const prevUserUidRef = useRef<string | null>(user?.uid ?? null);
 
   // Checkout Form State
   const [customerName, setCustomerName] = useState(user?.displayName || '');
-  const [phone, setPhone] = useState('');
+  const [phone, setPhone] = useState(
+    user?.phoneNumber ? formatPhoneForCheckoutInput(user.phoneNumber) : ''
+  );
   const [district, setDistrict] = useState('Dhaka Metro');
   const [address, setAddress] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('Cash on Delivery');
@@ -164,18 +184,48 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     };
   }, [cartPulseKey, isOpen]);
 
+  // Reset user-specific state on account switch/sign-out and prefill verified user details
   useEffect(() => {
-    if (user?.displayName && !customerName) {
-      setCustomerName(user.displayName);
+    const currentUid = user?.uid ?? null;
+    if (prevUserUidRef.current !== currentUid) {
+      prevUserUidRef.current = currentUid;
+      setSelectedGiftCardCode(null);
+      setRedeemedRewardPoints(0);
+      setReceipt(null);
+      setIssuedGiftCard(null);
+      setCheckoutError('');
+      setCouponError('');
+      if (step === 'receipt') {
+        setStep('cart');
+      }
+      setCustomerName(user?.displayName || '');
+      setPhone(user?.phoneNumber ? formatPhoneForCheckoutInput(user.phoneNumber) : '');
+    } else {
+      if (user?.displayName && !customerName) {
+        setCustomerName(user.displayName);
+      }
+      if (user?.phoneNumber && !phone) {
+        setPhone(formatPhoneForCheckoutInput(user.phoneNumber));
+      }
     }
-  }, [user?.displayName]);
+  }, [user?.uid, user?.displayName, user?.phoneNumber, customerName, phone, step]);
+
+  useEffect(() => {
+    if (items.length === 0 && step === 'checkout') {
+      setStep('cart');
+    }
+  }, [items.length, step]);
 
   useEffect(() => {
     if (isOpen) {
       setCouponError('');
       setCheckoutError('');
       setCopiedId(false);
-      if (startInCheckout && items.length > 0 && step === 'cart') {
+      if (items.length > 0 && step === 'receipt') {
+        setStep(startInCheckout ? 'checkout' : 'cart');
+        setReceipt(null);
+        setIssuedGiftCard(null);
+      } else if (startInCheckout && items.length > 0 && step === 'cart') {
         setStep('checkout');
       }
     }
@@ -224,7 +274,9 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   const effectivePromo = isPromoEligible ? matchedPromo : null;
   const effectiveCoupon = effectivePromo?.code ?? null;
 
-  const unredeemedGiftCards = availableGiftCards.filter((c) => !c.redeemed);
+  const unredeemedGiftCards = user
+    ? availableGiftCards.filter((c) => !c.redeemed && c.userId === user.uid)
+    : [];
   const activeGiftCard =
     !effectivePromo && selectedGiftCardCode
       ? unredeemedGiftCards.find(
@@ -232,23 +284,68 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
         ) ?? null
       : null;
 
-  let discount = 0;
+  let promoOrGiftDiscount = 0;
   if (effectivePromo) {
     if (effectivePromo.discountType === 'percent') {
       const rawDiscount = Math.round((subtotal * effectivePromo.discountValue) / 100);
-      discount =
+      promoOrGiftDiscount =
         effectivePromo.maxDiscountAmount && effectivePromo.maxDiscountAmount > 0
           ? Math.min(rawDiscount, effectivePromo.maxDiscountAmount)
           : rawDiscount;
     } else {
-      discount = Math.round(effectivePromo.discountValue);
+      promoOrGiftDiscount = Math.round(effectivePromo.discountValue);
     }
-    discount = Math.min(subtotal, Math.max(0, discount));
+    promoOrGiftDiscount = Math.min(subtotal, Math.max(0, promoOrGiftDiscount));
   } else if (activeGiftCard) {
-    discount = Math.min(subtotal, Math.max(0, Math.round(activeGiftCard.value)));
+    promoOrGiftDiscount = Math.min(subtotal, Math.max(0, Math.round(activeGiftCard.value)));
   }
 
+  const subtotalAfterPromoOrGift = Math.max(0, subtotal - promoOrGiftDiscount);
+  const availableRewardPoints = user
+    ? Math.max(0, Math.floor(rewardBalance?.availablePoints ?? 0))
+    : 0;
+  const maxByBalance = Math.floor(availableRewardPoints / 100) * 100;
+  const maxBySubtotal =
+    Math.floor(subtotalAfterPromoOrGift / REWARD_BDT_PER_100_POINTS) * 100;
+  const maxRedeemableRewardPoints = Math.max(0, Math.min(maxByBalance, maxBySubtotal));
+
+  useEffect(() => {
+    if (!user) {
+      if (redeemedRewardPoints !== 0) setRedeemedRewardPoints(0);
+      return;
+    }
+    if (redeemedRewardPoints > maxRedeemableRewardPoints) {
+      setRedeemedRewardPoints(maxRedeemableRewardPoints);
+    }
+  }, [user, redeemedRewardPoints, maxRedeemableRewardPoints]);
+
+  const appliedRewardPoints =
+    user &&
+    redeemedRewardPoints >= MIN_REWARD_REDEEM_POINTS &&
+    redeemedRewardPoints % 100 === 0
+      ? Math.min(redeemedRewardPoints, maxRedeemableRewardPoints)
+      : 0;
+  const rewardDiscount =
+    appliedRewardPoints > 0
+      ? Math.round((appliedRewardPoints / 100) * REWARD_BDT_PER_100_POINTS)
+      : 0;
+
+  const discount = Math.min(subtotal, promoOrGiftDiscount + rewardDiscount);
   const discountedSubtotal = Math.max(0, subtotal - discount);
+  const giftCardPreview = calculateGiftCardDiscount(discountedSubtotal);
+  const earnedPointsPreview = calculateOrderRewardPoints({
+    items: items.map((item) => ({
+      productId: item.product.id,
+      sku: item.product.sku,
+      name: item.product.name,
+      price: item.product.price,
+      quantity: item.quantity,
+      variant: item.variant,
+    })),
+    subtotal,
+    discount,
+  });
+  const remainingForReward = Math.max(0, MIN_ORDER_FOR_REWARD_BDT - discountedSubtotal);
   const freeShippingThreshold = 3000;
   const freeShipping = discountedSubtotal >= freeShippingThreshold || discountedSubtotal === 0;
   const shippingProgress = Math.min(
@@ -382,36 +479,16 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
     try {
       const giftNote = activeGiftCard
-        ? `Gift Card Redeemed: ${activeGiftCard.code} (-৳${discount})`
+        ? `Gift Card Redeemed: ${activeGiftCard.code} (-৳${promoOrGiftDiscount})`
         : '';
-      const combinedNotes = [orderNotes.trim(), giftNote].filter(Boolean).join(' · ').slice(0, 300);
-
-      const minAnimPromise = new Promise<void>((resolve) => window.setTimeout(resolve, 750));
-      const writePromise = createOrderInFirestore({
-        orderId: orderNumber,
-        customerName: trimmedName,
-        phone: trimmedPhone,
-        address: trimmedAddress,
-        district,
-        paymentMethod,
-        status: 'Pending',
-        items: items.map((item) => ({
-          productId: item.product.id,
-          sku: item.product.sku,
-          name: item.product.name,
-          price: item.product.price,
-          quantity: item.quantity,
-          variant: item.variant,
-        })),
-        subtotal,
-        discount,
-        deliveryFee,
-        total,
-        couponCode: effectiveCoupon ?? undefined,
-        notes: combinedNotes || undefined,
-      });
-
-      await Promise.all([writePromise, minAnimPromise]);
+      const rewardNote =
+        appliedRewardPoints > 0
+          ? `Reward Redeemed: -${appliedRewardPoints} pts (-৳${rewardDiscount})`
+          : '';
+      const combinedNotes = [orderNotes.trim(), giftNote, rewardNote]
+        .filter(Boolean)
+        .join(' · ')
+        .slice(0, 300);
 
       const newReceipt: OrderReceipt = {
         orderId: orderNumber,
@@ -424,6 +501,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
         subtotal,
         discount,
         couponCode: effectiveCoupon ?? activeGiftCard?.code ?? undefined,
+        rewardPointsRedeemed: appliedRewardPoints > 0 ? appliedRewardPoints : undefined,
+        rewardDiscount: rewardDiscount > 0 ? rewardDiscount : undefined,
         deliveryFee,
         total,
         createdAt: new Date().toLocaleString('en-BD', {
@@ -432,19 +511,60 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
         }),
       };
 
-      const rewardCard = generateGiftCardReward(newReceipt);
-      saveGiftCard(rewardCard);
-      if (activeGiftCard) {
-        markGiftCardRedeemed(activeGiftCard.code, orderNumber);
+      const rewardCard = generateGiftCardReward(newReceipt, user.uid);
+
+      const minAnimPromise = new Promise<void>((resolve) => window.setTimeout(resolve, 750));
+      const writePromise = createOrderInFirestore(
+        {
+          orderId: orderNumber,
+          customerName: trimmedName,
+          phone: trimmedPhone,
+          address: trimmedAddress,
+          district,
+          paymentMethod,
+          status: 'Pending',
+          items: items.map((item) => ({
+            productId: item.product.id,
+            sku: item.product.sku,
+            name: item.product.name,
+            price: item.product.price,
+            quantity: item.quantity,
+            variant: item.variant,
+          })),
+          subtotal,
+          discount,
+          deliveryFee,
+          total,
+          couponCode: effectiveCoupon ?? undefined,
+          rewardPointsRedeemed: appliedRewardPoints > 0 ? appliedRewardPoints : undefined,
+          rewardDiscount: rewardDiscount > 0 ? rewardDiscount : undefined,
+          notes: combinedNotes || undefined,
+        },
+        {
+          earnedGiftCard: rewardCard,
+          redeemedGiftCardCode: activeGiftCard?.code,
+        }
+      );
+
+      await Promise.all([writePromise, minAnimPromise]);
+
+      if (rewardCard) {
+        saveGiftCard(rewardCard, user.uid);
       }
-      onGiftCardIssued?.(rewardCard, activeGiftCard?.code);
+      if (activeGiftCard) {
+        markGiftCardRedeemed(activeGiftCard.code, orderNumber, user.uid);
+      }
+      onGiftCardIssued?.(rewardCard, activeGiftCard?.code, orderNumber);
 
       playSuccessSound();
-      window.setTimeout(() => playGiftCardRevealSound(), 240);
+      if (rewardCard) {
+        window.setTimeout(() => playGiftCardRevealSound(), 240);
+      }
       setReceipt(newReceipt);
       setIssuedGiftCard(rewardCard);
       setCopiedGiftCode(false);
       setSelectedGiftCardCode(null);
+      setRedeemedRewardPoints(0);
       setStep('receipt');
       setOrderNotes('');
       if (effectiveCoupon) {
@@ -699,74 +819,24 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
               </div>
             </div>
 
-            {/* Post-Order Holographic Digital Gift Card */}
-            {issuedGiftCard && (
-              <div className="animate-gift-card-reveal relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#040B1A] via-[#071E47] to-[#0B326B] text-white p-5 border border-[#00CFFF]/45 shadow-[0_18px_40px_-14px_rgba(8,123,255,0.45)]">
-                <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-lab-grid-dark opacity-70" />
-                <div
-                  aria-hidden="true"
-                  className="animate-holo-sweep pointer-events-none absolute inset-y-0 w-1/2 bg-gradient-to-r from-transparent via-[#00CFFF]/20 to-transparent skew-x-[-18deg]"
-                />
-                <div className="relative z-10 space-y-3.5">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="inline-flex items-center gap-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[#2DD4BF]">
-                        <Sparkles className="w-3.5 h-3.5 text-[#00CFFF] shrink-0" />
-                        <span>{issuedGiftCard.tierLabel} Unlocked</span>
-                      </p>
-                      <h4 className="font-display text-base font-bold text-white mt-0.5 flex items-center gap-1.5">
-                        <Gift className="w-4 h-4 text-[#00CFFF] shrink-0" />
-                        <span>Robotera BD Digital Gift Card</span>
-                      </h4>
-                    </div>
-                    <div className="px-2.5 py-1 rounded-xl bg-[#00CFFF]/15 border border-[#00CFFF]/45 text-right shrink-0">
-                      <p className="font-mono text-[9px] uppercase tracking-wider text-sky-200">
-                        Credit
-                      </p>
-                      <p className="font-mono text-base font-extrabold text-white tabular-nums leading-tight">
-                        ৳{issuedGiftCard.value}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="rounded-xl bg-white/[0.08] border border-white/20 px-3.5 py-2.5 flex items-center justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="font-mono text-[9.5px] uppercase tracking-wider text-slate-300">
-                        Gift Card Serial Code
-                      </p>
-                      <p className="font-mono text-sm sm:text-base font-extrabold tracking-wider text-white truncate">
-                        {issuedGiftCard.code}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => handleCopyGiftCode(issuedGiftCard.code)}
-                      className="h-8 px-2.5 rounded-lg bg-[#087BFF] hover:bg-[#0669DB] text-white text-[11px] font-semibold inline-flex items-center gap-1 shrink-0 transition-colors"
-                    >
-                      {copiedGiftCode ? (
-                        <Check className="w-3 h-3 text-[#2DD4BF] animate-icon-pop" />
-                      ) : (
-                        <Copy className="w-3 h-3" />
-                      )}
-                      <span>{copiedGiftCode ? 'Copied' : 'Copy'}</span>
-                    </button>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-2 text-[11px] text-slate-300">
-                    <span className="truncate">Issued for {issuedGiftCard.recipientName}</span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        playTapSound();
-                        downloadGiftCardPng(issuedGiftCard);
-                      }}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white text-[#071A3B] hover:bg-sky-50 font-bold text-[11px] shrink-0 transition-colors"
-                    >
-                      <Download className="w-3.5 h-3.5 text-[#087BFF]" />
-                      <span>Download Card PNG</span>
-                    </button>
-                  </div>
+            {/* Post-Order Holographic Digital Gift Card (Orders >= ৳500 · ৳3 per ৳100) */}
+            {issuedGiftCard ? (
+              <DigitalGiftCard
+                card={issuedGiftCard}
+                copied={copiedGiftCode}
+                onCopy={handleCopyGiftCode}
+                onDownload={downloadGiftCardPng}
+                variant="receipt"
+              />
+            ) : (
+              <div className="rounded-xl border border-slate-200 bg-[#F8FAFC] px-4 py-3 flex items-center gap-3 text-xs text-[#475569]">
+                <div className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-[#0866F5] shrink-0">
+                  <Gift className="w-4 h-4" />
                 </div>
+                <p className="leading-snug">
+                  Digital Gift Cards (<strong className="text-[#071A3B]">৳3 discount per ৳100</strong>) unlock on orders of{' '}
+                  <strong className="font-mono text-[#071A3B]">৳{MIN_GIFT_CARD_SPEND}+</strong> eligible hardware spend.
+                </p>
               </div>
             )}
 
@@ -822,12 +892,24 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   </span>
                 </div>
                 {receipt.discount > 0 && (
-                  <div className="flex justify-between text-emerald-700 font-medium">
-                    <span>Discount ({receipt.couponCode || 'Promo'})</span>
-                    <span className="font-mono tabular-nums">
-                      -৳{receipt.discount.toLocaleString('en-IN')}
-                    </span>
-                  </div>
+                  <>
+                    {receipt.discount - (receipt.rewardDiscount ?? 0) > 0 && (
+                      <div className="flex justify-between text-emerald-700 font-medium">
+                        <span>Discount ({receipt.couponCode || 'Promo'})</span>
+                        <span className="font-mono tabular-nums">
+                          -৳{(receipt.discount - (receipt.rewardDiscount ?? 0)).toLocaleString('en-IN')}
+                        </span>
+                      </div>
+                    )}
+                    {(receipt.rewardDiscount ?? 0) > 0 && (
+                      <div className="flex justify-between text-[#0866F5] font-medium">
+                        <span>Reward Points (-{receipt.rewardPointsRedeemed ?? 0} pts)</span>
+                        <span className="font-mono tabular-nums">
+                          -৳{(receipt.rewardDiscount ?? 0).toLocaleString('en-IN')}
+                        </span>
+                      </div>
+                    )}
+                  </>
                 )}
                 <div className="flex justify-between text-[#64748B]">
                   <span>Delivery ({receipt.district})</span>
@@ -957,7 +1039,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
         ) : step === 'cart' ? (
           <>
             <div className="flex-1 overflow-y-auto p-5 space-y-4">
-              {/* Free Delivery Progress Bar */}
+              {/* Free Delivery + Gift Card Eligibility Progress */}
               <div className="rounded-xl bg-[#F5F8FC] border border-slate-200 px-4 py-3 text-xs text-[#101828] space-y-2">
                 {freeShipping ? (
                   <p className="font-semibold text-emerald-700 inline-flex items-center gap-1.5">
@@ -982,6 +1064,32 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   >
                     <div className="animate-bar-shimmer absolute inset-y-0 w-16 bg-gradient-to-r from-transparent via-white/45 to-transparent" />
                   </div>
+                </div>
+
+                <div className="pt-1.5 border-t border-slate-200/80 flex items-center justify-between gap-2 text-[11px]">
+                  <span className="inline-flex items-center gap-1.5 text-[#334155] min-w-0">
+                    <Gift className="w-3.5 h-3.5 text-[#0866F5] shrink-0" />
+                    {giftCardPreview.eligible ? (
+                      <span className="truncate">
+                        Earns a{' '}
+                        <strong className="font-mono text-[#0F766E] tabular-nums">
+                          ৳{giftCardPreview.value} Gift Card
+                        </strong>{' '}
+                        (৳3/৳100)
+                      </span>
+                    ) : (
+                      <span className="truncate">
+                        Spend{' '}
+                        <strong className="font-mono text-[#071A3B] tabular-nums">
+                          ৳{giftCardPreview.remainingToUnlock.toLocaleString('en-IN')}
+                        </strong>{' '}
+                        more (min ৳{MIN_GIFT_CARD_SPEND}) for Gift Card
+                      </span>
+                    )}
+                  </span>
+                  <span className="font-mono text-[10px] font-bold text-[#0866F5] shrink-0 tabular-nums">
+                    ৳3 / ৳100
+                  </span>
                 </div>
               </div>
 
@@ -1111,7 +1219,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                           <Gift className="w-3.5 h-3.5 text-[#00CFFF] shrink-0" />
                           <span className="truncate">
                             Gift Card <strong className="font-mono">{activeGiftCard.code}</strong> (-৳
-                            {discount.toLocaleString('en-IN')}) applied
+                            {promoOrGiftDiscount.toLocaleString('en-IN')}) applied
                           </span>
                         </span>
                         <button
@@ -1154,6 +1262,90 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                     )}
                   </div>
                 )}
+
+                {/* Use Your Robotera Reward Points (100 pts = ৳8) */}
+                {user && (
+                  <div className="mt-2.5 rounded-xl border border-slate-200 bg-white p-3 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-[#071A3B]">
+                        <Coins className="w-3.5 h-3.5 text-[#0866F5]" />
+                        <span>Use Your Robotera Reward Points</span>
+                      </span>
+                      <span className="font-mono text-[11px] font-bold text-[#0866F5] tabular-nums">
+                        {availableRewardPoints.toLocaleString('en-IN')} pts (৳
+                        {calculateRewardValueBdt(availableRewardPoints).toFixed(2)})
+                      </span>
+                    </div>
+
+                    {maxRedeemableRewardPoints >= MIN_REWARD_REDEEM_POINTS ? (
+                      <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-100">
+                        <div className="inline-flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            disabled={appliedRewardPoints <= 0}
+                            onClick={() => {
+                              playTapSound();
+                              setRedeemedRewardPoints((prev) => Math.max(0, prev - 100));
+                            }}
+                            aria-label="Decrease redeemed points by 100"
+                            className="w-7 h-7 rounded-lg border border-slate-200 bg-[#F5F8FC] hover:bg-slate-200 text-[#071A3B] font-mono text-xs font-bold disabled:opacity-35 transition-colors"
+                          >
+                            -100
+                          </button>
+                          <span className="px-2 font-mono text-xs font-bold text-[#071A3B] tabular-nums">
+                            {appliedRewardPoints.toLocaleString('en-IN')} pts
+                          </span>
+                          <button
+                            type="button"
+                            disabled={appliedRewardPoints + 100 > maxRedeemableRewardPoints}
+                            onClick={() => {
+                              playTapSound();
+                              setRedeemedRewardPoints((prev) =>
+                                Math.min(maxRedeemableRewardPoints, prev + 100)
+                              );
+                            }}
+                            aria-label="Increase redeemed points by 100"
+                            className="w-7 h-7 rounded-lg border border-slate-200 bg-[#F5F8FC] hover:bg-slate-200 text-[#071A3B] font-mono text-xs font-bold disabled:opacity-35 transition-colors"
+                          >
+                            +100
+                          </button>
+                          <button
+                            type="button"
+                            disabled={appliedRewardPoints === maxRedeemableRewardPoints}
+                            onClick={() => {
+                              playSuccessSound();
+                              setRedeemedRewardPoints(maxRedeemableRewardPoints);
+                            }}
+                            className="px-2 h-7 rounded-lg bg-[#071A3B] hover:bg-[#0866F5] text-white text-[10.5px] font-semibold disabled:opacity-35 transition-colors"
+                          >
+                            Max
+                          </button>
+                          {appliedRewardPoints > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                playTapSound();
+                                setRedeemedRewardPoints(0);
+                              }}
+                              className="text-[11px] font-semibold text-[#64748B] hover:text-red-600 px-1"
+                            >
+                              Clear
+                            </button>
+                          )}
+                        </div>
+                        <span className="font-mono text-xs font-bold text-emerald-700 tabular-nums">
+                          {rewardDiscount > 0 ? `-৳${rewardDiscount}` : '100 pts = ৳8'}
+                        </span>
+                      </div>
+                    ) : (
+                      <p className="text-[10.5px] text-[#64748B] leading-snug">
+                        {availableRewardPoints < MIN_REWARD_REDEEM_POINTS
+                          ? `Minimum ${MIN_REWARD_REDEEM_POINTS} pts required to redeem (100 pts = ৳${REWARD_BDT_PER_100_POINTS} off).`
+                          : 'Remaining product subtotal is under ৳8 for reward redemption.'}
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1166,7 +1358,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                     ৳{subtotal.toLocaleString('en-IN')}
                   </span>
                 </div>
-                {discount > 0 && effectivePromo && (
+                {promoOrGiftDiscount > 0 && effectivePromo && (
                   <div className="flex justify-between text-emerald-700 font-medium">
                     <span>
                       Promo {effectivePromo.code} (
@@ -1176,18 +1368,37 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                       )
                     </span>
                     <span className="font-mono tabular-nums">
-                      -৳{discount.toLocaleString('en-IN')}
+                      -৳{promoOrGiftDiscount.toLocaleString('en-IN')}
                     </span>
                   </div>
                 )}
-                {discount > 0 && activeGiftCard && (
+                {promoOrGiftDiscount > 0 && activeGiftCard && (
                   <div className="flex justify-between text-[#0866F5] font-semibold">
                     <span>Gift Card ({activeGiftCard.code})</span>
                     <span className="font-mono tabular-nums">
-                      -৳{discount.toLocaleString('en-IN')}
+                      -৳{promoOrGiftDiscount.toLocaleString('en-IN')}
                     </span>
                   </div>
                 )}
+                {rewardDiscount > 0 && (
+                  <div className="flex justify-between text-[#0866F5] font-semibold">
+                    <span>Reward Points (-{appliedRewardPoints} pts)</span>
+                    <span className="font-mono tabular-nums">
+                      -৳{rewardDiscount.toLocaleString('en-IN')}
+                    </span>
+                  </div>
+                )}
+                <div className="flex justify-between text-[11px] text-[#475569]">
+                  <span className="inline-flex items-center gap-1">
+                    <Award className="w-3.5 h-3.5 text-[#0866F5]" />
+                    <span>Reward Points (100 pts / ৳1,000)</span>
+                  </span>
+                  <span className="font-mono tabular-nums font-semibold text-[#0F766E]">
+                    {earnedPointsPreview > 0
+                      ? `+${earnedPointsPreview} pts (৳${calculateRewardValueBdt(earnedPointsPreview).toFixed(0)})`
+                      : `Need ৳${remainingForReward.toLocaleString('en-IN')} more`}
+                  </span>
+                </div>
                 <div className="flex justify-between text-[#64748B]">
                   <span>Shipping Estimate ({estimatedDeliveryWindow})</span>
                   <span className="font-mono tabular-nums text-[#101828]">
@@ -1402,7 +1613,12 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                       try {
                         const res = await trackVisitorVisit(
                           user
-                            ? { uid: user.uid, email: user.email, displayName: user.displayName }
+                            ? {
+                                uid: user.uid,
+                                email: user.email,
+                                phoneNumber: user.phoneNumber,
+                                displayName: user.displayName,
+                              }
                             : null,
                           { force: true, requestGps: true }
                         );
@@ -1538,9 +1754,31 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 </p>
               )}
               <div className="space-y-1 text-xs">
+                {rewardDiscount > 0 && (
+                  <div className="flex justify-between text-[#0866F5] font-semibold">
+                    <span>Reward Redeemed (-{appliedRewardPoints} pts)</span>
+                    <span className="font-mono tabular-nums">-৳{rewardDiscount}</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-[#64748B]">
                   <span>Delivery ({isInsideDhaka ? 'Inside Dhaka' : 'Outside Dhaka'} · {estimatedDeliveryWindow})</span>
                   <span className="font-mono tabular-nums text-[#101828]">{freeShipping ? 'Free' : `৳${deliveryFee}`}</span>
+                </div>
+                <div className="flex justify-between text-[11px] text-[#475569]">
+                  <span>Order Reward Points (min ৳{MIN_ORDER_FOR_REWARD_BDT.toLocaleString('en-IN')})</span>
+                  <span className="font-mono tabular-nums font-semibold text-[#0866F5]">
+                    {earnedPointsPreview > 0
+                      ? `+${earnedPointsPreview} pts (৳${calculateRewardValueBdt(earnedPointsPreview).toFixed(0)})`
+                      : `Need ৳${remainingForReward.toLocaleString('en-IN')} more`}
+                  </span>
+                </div>
+                <div className="flex justify-between text-[11px] text-[#475569]">
+                  <span>Post-Order Gift Card (৳3 / ৳100 · min ৳{MIN_GIFT_CARD_SPEND})</span>
+                  <span className="font-mono tabular-nums font-semibold text-[#0F766E]">
+                    {giftCardPreview.eligible
+                      ? `Unlocks ৳${giftCardPreview.value}`
+                      : `Need ৳${giftCardPreview.remainingToUnlock} more`}
+                  </span>
                 </div>
                 <div className="flex justify-between text-sm font-bold text-[#071A3B] pt-1">
                   <span>Total Payable</span>

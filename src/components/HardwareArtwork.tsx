@@ -419,5 +419,17 @@ export const HardwareArtwork: React.FC<HardwareArtworkProps> = ({
           <text x="120" y="116" textAnchor="middle" fill="#94A3B8" fontSize="7" fontFamily="monospace">8CH · 24MHz LOGIC</text>
         </svg>
       );
+
+    case 'none':
+    default:
+      return (
+        <svg viewBox="0 0 240 180" className={className} fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <rect x="44" y="34" width="152" height="112" rx="10" fill="#F1F5F9" stroke="#CBD5E1" strokeWidth="2" strokeDasharray="5 4" />
+          <rect x="86" y="60" width="68" height="50" rx="6" fill="#FFFFFF" stroke="#94A3B8" strokeWidth="1.6" />
+          <circle cx="105" cy="77" r="5" fill="#CBD5E1" />
+          <path d="M92 103L109 87L122 98L133 88L148 103H92Z" fill="#CBD5E1" />
+          <text x="120" y="130" textAnchor="middle" fill="#64748B" fontSize="8" fontWeight="600" fontFamily="monospace">UPLOADED IMAGE</text>
+        </svg>
+      );
   }
 };

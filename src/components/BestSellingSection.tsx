@@ -792,7 +792,7 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
                 </button>
               </div>
             ) : viewMode === 'list' ? (
-              <div className="space-y-4">
+              <div key={`list-${discoveryTab}`} className="animate-tab-enter space-y-4">
                 {paginatedProducts.map((product, idx) => (
                   <div
                     key={product.id}
@@ -818,7 +818,10 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
                 ))}
               </div>
             ) : (
-              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3.5 sm:gap-5">
+              <div
+                key={`grid-${discoveryTab}`}
+                className="animate-tab-enter grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3.5 sm:gap-5"
+              >
                 {paginatedProducts.map((product, idx) => (
                   <Reveal key={product.id} delayMs={Math.min(idx * 20, 160)} className="h-full">
                     <ProductCard

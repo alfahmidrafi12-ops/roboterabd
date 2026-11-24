@@ -5,6 +5,7 @@ export type AvailabilityFilter = 'all' | 'in-stock' | 'low-stock' | 'out-of-stoc
 export type CategoryId = string;
 
 export type ArtworkKind =
+  | 'none'
   | 'esp32'
   | 'arduino'
   | 'raspberry-pi'
@@ -56,6 +57,7 @@ export interface Product {
   rating: number;
   reviews: number;
   stock: number;
+  displayOrder?: number;
   tag?: string;
   isBestSeller?: boolean;
   isJustArrived?: boolean;
@@ -129,6 +131,8 @@ export interface StoredOrder {
   deliveryFee: number;
   total: number;
   couponCode?: string;
+  rewardPointsRedeemed?: number;
+  rewardDiscount?: number;
   notes?: string;
   createdAt: unknown;
   updatedAt: unknown;
@@ -195,6 +199,8 @@ export interface OrderReceipt {
   subtotal: number;
   discount: number;
   couponCode?: string;
+  rewardPointsRedeemed?: number;
+  rewardDiscount?: number;
   deliveryFee: number;
   total: number;
   createdAt: string;
@@ -240,6 +246,7 @@ export interface LocalRestockWatch {
 
 export interface GiftCardReward {
   code: string;
+  userId?: string;
   value: number;
   orderId: string;
   recipientName: string;
@@ -248,6 +255,19 @@ export interface GiftCardReward {
   redeemed: boolean;
   redeemedOrderId?: string;
   redeemedAt?: string;
+  createdAt?: unknown;
+}
+
+export interface UserProfile {
+  uid: string;
+  displayName?: string;
+  email?: string;
+  phoneNumber?: string;
+  providerId?: string;
+  emailVerified?: boolean;
+  createdAt?: unknown;
+  updatedAt?: unknown;
+  lastLoginAt?: unknown;
 }
 
 export type VisitorPlatform = 'Web' | 'PWA App';
@@ -284,6 +304,51 @@ export interface VisitorLog {
   referrer?: string;
   userId?: string;
   userEmail?: string;
+  userPhone?: string;
   userName?: string;
   createdAt: unknown;
+}
+
+export type RewardTransactionType =
+  | 'earned'
+  | 'redeemed'
+  | 'welcome_bonus'
+  | 'first_order_bonus'
+  | 'referral_bonus'
+  | 'campaign_bonus'
+  | 'birthday_bonus'
+  | 'manual_add'
+  | 'manual_deduct'
+  | 'expired'
+  | 'reversed';
+
+export type RewardTransactionStatus =
+  | 'Pending'
+  | 'Earned'
+  | 'Redeemed'
+  | 'Expired'
+  | 'Reversed';
+
+export interface CustomerRewardBalance {
+  userId: string;
+  availablePoints: number;
+  pendingPoints: number;
+  lifetimeEarned: number;
+  lifetimeRedeemed: number;
+  conversionPointsPerBdt?: number;
+  tierName?: string;
+  updatedAt: unknown;
+  createdAt?: unknown;
+}
+
+export interface RewardTransaction {
+  id: string;
+  userId: string;
+  orderId?: string;
+  transactionType: RewardTransactionType;
+  points: number;
+  status: RewardTransactionStatus;
+  description: string;
+  createdAt: unknown;
+  expiresAt?: unknown;
 }

@@ -10,6 +10,7 @@ interface SidebarMenuProps {
   activeCategory: CategoryId;
   isSignedIn?: boolean;
   userEmail?: string | null;
+  userPhone?: string | null;
   onClose: () => void;
   onSelectCategory: (categoryId: CategoryId) => void;
   onOpenAuth: () => void;
@@ -23,6 +24,7 @@ export const SidebarMenu: React.FC<SidebarMenuProps> = ({
   activeCategory,
   isSignedIn,
   userEmail,
+  userPhone,
   onClose,
   onSelectCategory,
   onOpenAuth,
@@ -126,7 +128,7 @@ export const SidebarMenu: React.FC<SidebarMenuProps> = ({
           >
             <UserIcon className="w-4 h-4 text-[#0866F5] shrink-0" />
             <span className="truncate">
-              {isSignedIn ? userEmail || 'My Account' : 'Sign In / Create Account'}
+              {isSignedIn ? userEmail || userPhone || 'My Account' : 'Sign In / Create Account'}
             </span>
           </button>
 

@@ -1,13 +1,18 @@
 import { getApp, getApps, initializeApp } from 'firebase/app';
 import {
+  ConfirmationResult,
   GoogleAuthProvider,
+  RecaptchaVerifier,
   User,
+  browserLocalPersistence,
   createUserWithEmailAndPassword,
   getAuth,
   onAuthStateChanged,
   sendEmailVerification,
   sendPasswordResetEmail,
+  setPersistence,
   signInWithEmailAndPassword,
+  signInWithPhoneNumber,
   signInWithPopup,
   signOut,
   updateProfile,
@@ -41,11 +46,14 @@ import {
 import {
   BannerItem,
   CategoryItem,
+  CustomerRewardBalance,
+  GiftCardReward,
   OrderTrackingInfo,
   PriceAlert,
   Product,
   PromoCode,
   RestockAlert,
+  RewardTransaction,
   SiteImagesConfig,
   StoredOrder,
   VisitorLog,
@@ -55,6 +63,9 @@ const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 export const auth = getAuth(app);
 auth.useDeviceLanguage();
+setPersistence(auth, browserLocalPersistence).catch((err) => {
+  console.warn('Auth local persistence setup fallback:', err);
+});
 const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
 
@@ -127,13 +138,102 @@ export function isVerifiedAdminUser(user: User | null): boolean {
   return Boolean(user.emailVerified && user.email?.toLowerCase() === ADMIN_EMAIL);
 }
 
+export function normalizeBdPhoneToE164(rawPhone: string): string {
+  const cleaned = rawPhone.replace(/[\s\-()]/g, '').trim();
+  const extraZeroBd = cleaned.match(/^\+?8800(1\d{9})$/);
+  if (extraZeroBd) {
+    return `+880${extraZeroBd[1]}`;
+  }
+  if (/^\+[1-9]\d{7,14}$/.test(cleaned)) {
+    return cleaned;
+  }
+  if (/^01\d{9}$/.test(cleaned)) {
+    return `+88${cleaned}`;
+  }
+  if (/^8801\d{9}$/.test(cleaned)) {
+    return `+${cleaned}`;
+  }
+  if (/^1\d{9}$/.test(cleaned)) {
+    return `+880${cleaned}`;
+  }
+  throw new Error(
+    'Enter a valid Bangladesh mobile number (e.g. 017XXXXXXXX or +88017XXXXXXXX).'
+  );
+}
+
+export function formatPhoneForCheckoutInput(phone?: string | null): string {
+  if (!phone) return '';
+  const cleaned = phone.replace(/[\s\-()]/g, '').trim();
+  if (/^\+8801\d{9}$/.test(cleaned)) {
+    return cleaned.slice(3);
+  }
+  if (/^8801\d{9}$/.test(cleaned)) {
+    return cleaned.slice(2);
+  }
+  return cleaned;
+}
+
+export async function syncUserProfile(
+  user: User,
+  displayNameOverride?: string
+): Promise<void> {
+  const safeUid = user.uid.replace(/[^a-zA-Z0-9_-]/g, '-').slice(0, 128);
+  if (!safeUid || auth.currentUser?.uid !== user.uid) return;
+  const path = `users/${safeUid}`;
+  try {
+    const ref = doc(db, 'users', safeUid);
+    const snap = await getDoc(ref);
+    const resolvedName = truncateStr(
+      displayNameOverride?.trim() || user.displayName || undefined,
+      120
+    );
+    const resolvedEmail = truncateStr(user.email || undefined, 120);
+    const resolvedPhone = truncateStr(user.phoneNumber || undefined, 32);
+    const providerId = truncateStr(user.providerData?.[0]?.providerId || 'firebase', 40);
+
+    if (snap.exists()) {
+      await updateDoc(
+        ref,
+        stripUndefined({
+          displayName: resolvedName,
+          email: resolvedEmail,
+          phoneNumber: resolvedPhone,
+          providerId,
+          emailVerified: Boolean(user.emailVerified || user.phoneNumber),
+          lastLoginAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        })
+      );
+    } else {
+      await setDoc(
+        ref,
+        stripUndefined({
+          uid: safeUid,
+          displayName: resolvedName,
+          email: resolvedEmail,
+          phoneNumber: resolvedPhone,
+          providerId,
+          emailVerified: Boolean(user.emailVerified || user.phoneNumber),
+          createdAt: serverTimestamp(),
+          lastLoginAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        })
+      );
+    }
+  } catch (error) {
+    console.warn(`User profile sync warning (${path}):`, error);
+  }
+}
+
 export async function signInAdminWithGoogle(): Promise<User> {
   const result = await signInWithPopup(auth, googleProvider);
+  await syncUserProfile(result.user);
   return result.user;
 }
 
 export async function signInWithEmail(email: string, password: string): Promise<User> {
   const result = await signInWithEmailAndPassword(auth, email.trim(), password);
+  await syncUserProfile(result.user);
   return result.user;
 }
 
@@ -146,12 +246,70 @@ export async function signUpWithEmail(
   if (fullName.trim()) {
     await updateProfile(result.user, { displayName: fullName.trim() });
   }
+  await syncUserProfile(result.user, fullName.trim() || undefined);
   try {
     await sendEmailVerification(result.user);
   } catch (err) {
     console.warn('Email verification could not be sent immediately:', err);
   }
   return result.user;
+}
+
+export function createPhoneRecaptchaVerifier(
+  containerId: string,
+  onExpired?: () => void
+): RecaptchaVerifier {
+  const host = document.getElementById(containerId);
+  if (!host) {
+    throw new Error('reCAPTCHA container is not ready. Please close and reopen Sign In.');
+  }
+  host.innerHTML = '';
+  const slot = document.createElement('div');
+  slot.id = `${containerId}-slot-${Date.now()}`;
+  host.appendChild(slot);
+
+  return new RecaptchaVerifier(auth, slot, {
+    size: 'invisible',
+    'expired-callback': () => {
+      onExpired?.();
+    },
+  });
+}
+
+export async function sendPhoneOtpCode(
+  rawPhone: string,
+  verifier: RecaptchaVerifier
+): Promise<{ confirmationResult: ConfirmationResult; formattedPhone: string }> {
+  const e164Phone = normalizeBdPhoneToE164(rawPhone);
+  await verifier.render();
+  const confirmationResult = await signInWithPhoneNumber(auth, e164Phone, verifier);
+  return { confirmationResult, formattedPhone: e164Phone };
+}
+
+export async function confirmPhoneOtpCode(
+  confirmationResult: ConfirmationResult,
+  otpCode: string,
+  fullName?: string
+): Promise<User> {
+  const cleanCode = otpCode.replace(/\D/g, '').trim();
+  if (cleanCode.length < 6) {
+    throw new Error('Enter the 6-digit OTP verification code sent to your mobile.');
+  }
+  const result = await confirmationResult.confirm(cleanCode);
+  const trimmedName = fullName?.trim();
+  if (trimmedName && !result.user.displayName) {
+    await updateProfile(result.user, { displayName: trimmedName });
+  }
+  await syncUserProfile(result.user, trimmedName || undefined);
+  return result.user;
+}
+
+export async function updateUserDisplayName(fullName: string): Promise<void> {
+  if (!auth.currentUser) return;
+  const trimmed = fullName.trim();
+  if (!trimmed) return;
+  await updateProfile(auth.currentUser, { displayName: trimmed });
+  await syncUserProfile(auth.currentUser, trimmed);
 }
 
 export async function resendVerificationEmail(): Promise<void> {
@@ -195,6 +353,12 @@ export function subscribeProducts(
         return;
       }
       const list = snapshot.docs.map((d) => d.data() as Product);
+      list.sort((a, b) => {
+        const ao = typeof a.displayOrder === 'number' ? a.displayOrder : Number.MAX_SAFE_INTEGER;
+        const bo = typeof b.displayOrder === 'number' ? b.displayOrder : Number.MAX_SAFE_INTEGER;
+        if (ao !== bo) return ao - bo;
+        return 0;
+      });
       onData(list);
     },
     (error) => {
@@ -626,6 +790,14 @@ export async function saveProduct(product: Product): Promise<void> {
   const safeId = product.id.replace(/[^a-zA-Z0-9_-]/g, '-').slice(0, 64) || `rbd-${Date.now()}`;
   const path = `products/${safeId}`;
   try {
+    const parsedDisplayOrder =
+      product.displayOrder !== undefined &&
+      product.displayOrder !== null &&
+      String(product.displayOrder).trim() !== '' &&
+      Number.isFinite(Number(product.displayOrder))
+        ? clampNum(Math.round(Number(product.displayOrder)), 0, 100000)
+        : undefined;
+
     const payload = stripUndefined({
       ...product,
       id: safeId,
@@ -641,6 +813,7 @@ export async function saveProduct(product: Product): Promise<void> {
       rating: clampNum(Number(product.rating) || 4.8, 0, 5),
       reviews: clampNum(Math.round(Number(product.reviews) || 0), 0, 1000000),
       stock: clampNum(Math.round(Number(product.stock) || 0), 0, 100000),
+      displayOrder: parsedDisplayOrder,
       tag: truncateStr(product.tag, 40) || undefined,
       imageUrl: product.imageUrl?.trim() ? product.imageUrl.trim().slice(0, 300000) : undefined,
       videoUrl:
@@ -715,8 +888,14 @@ export async function removeBanner(bannerId: string): Promise<void> {
   }
 }
 
+export interface CreateOrderExtras {
+  earnedGiftCard?: GiftCardReward | null;
+  redeemedGiftCardCode?: string;
+}
+
 export async function createOrderInFirestore(
-  order: Omit<StoredOrder, 'createdAt' | 'updatedAt'>
+  order: Omit<StoredOrder, 'createdAt' | 'updatedAt'>,
+  extras?: CreateOrderExtras
 ): Promise<void> {
   const safeOrderId = order.orderId.replace(/[^a-zA-Z0-9_-]/g, '-').slice(0, 40);
   const path = `orders/${safeOrderId}`;
@@ -733,6 +912,9 @@ export async function createOrderInFirestore(
     const safeDistrict = truncateStr(order.district, 80) || 'Dhaka Metro';
     const safePayment = truncateStr(order.paymentMethod, 60) || 'Cash on Delivery';
     const safeNotes = truncateStr(order.notes, 300);
+    const safeSubtotal = clampNum(order.subtotal, 0, 50000000);
+    const safeDiscount = clampNum(order.discount, 0, 50000000);
+    const safeDelivery = clampNum(order.deliveryFee, 0, 50000);
     const safeTotal = clampNum(order.total, 0, 50000000);
 
     const currentUid = auth.currentUser?.uid;
@@ -742,6 +924,50 @@ export async function createOrderInFirestore(
     const normalizedCoupon = order.couponCode
       ? normalizePromoCodeString(order.couponCode)
       : '';
+
+    const rawRedeemPts = Math.max(0, Math.round(Number(order.rewardPointsRedeemed) || 0));
+    const rewardPtsToRedeem =
+      rawRedeemPts >= MIN_REWARD_REDEEM_POINTS && rawRedeemPts % 100 === 0
+        ? rawRedeemPts
+        : 0;
+    const rewardDiscountValue =
+      rewardPtsToRedeem > 0 ? Math.round((rewardPtsToRedeem / 100) * REWARD_BDT_PER_100_POINTS) : 0;
+
+    if (rewardPtsToRedeem > 0) {
+      if (rewardDiscountValue > safeSubtotal) {
+        throw new Error('Reward discount cannot exceed product subtotal.');
+      }
+      const balRef = doc(db, 'customer_reward_balances', currentUid);
+      const balSnap = await getDoc(balRef);
+      if (!balSnap.exists()) {
+        throw new Error('No reward balance wallet found for your account.');
+      }
+      const balData = balSnap.data() as CustomerRewardBalance;
+      const currentAvail = Math.max(0, Number(balData.availablePoints) || 0);
+      const currentRedeemed = Math.max(0, Number(balData.lifetimeRedeemed) || 0);
+      if (currentAvail < rewardPtsToRedeem) {
+        throw new Error(
+          `Insufficient reward points. Available: ${currentAvail}, requested: ${rewardPtsToRedeem}.`
+        );
+      }
+      batch.update(balRef, {
+        availablePoints: currentAvail - rewardPtsToRedeem,
+        lifetimeRedeemed: currentRedeemed + rewardPtsToRedeem,
+        updatedAt: serverTimestamp(),
+      });
+
+      const redeemTxId = `redeem_${safeOrderId}`;
+      batch.set(doc(db, 'reward_transactions', redeemTxId), {
+        id: redeemTxId,
+        userId: truncateStr(currentUid, 128),
+        orderId: safeOrderId,
+        transactionType: 'redeemed',
+        points: rewardPtsToRedeem,
+        status: 'Redeemed',
+        description: `Redeemed ${rewardPtsToRedeem} Reward Points for ৳${rewardDiscountValue} discount on Order #${safeOrderId}`,
+        createdAt: serverTimestamp(),
+      });
+    }
 
     const orderPayload = stripUndefined({
       orderId: safeOrderId,
@@ -753,11 +979,13 @@ export async function createOrderInFirestore(
       paymentMethod: safePayment,
       status: 'Pending',
       items: safeItems,
-      subtotal: clampNum(order.subtotal, 0, 50000000),
-      discount: clampNum(order.discount, 0, 50000000),
-      deliveryFee: clampNum(order.deliveryFee, 0, 50000),
+      subtotal: safeSubtotal,
+      discount: safeDiscount,
+      deliveryFee: safeDelivery,
       total: safeTotal,
       couponCode: normalizedCoupon || undefined,
+      rewardPointsRedeemed: rewardPtsToRedeem > 0 ? rewardPtsToRedeem : undefined,
+      rewardDiscount: rewardDiscountValue > 0 ? rewardDiscountValue : undefined,
       notes: safeNotes || undefined,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
@@ -813,10 +1041,85 @@ export async function createOrderInFirestore(
       }
     }
 
+    if (extras?.redeemedGiftCardCode) {
+      const cleanGiftCode = extras.redeemedGiftCardCode
+        .trim()
+        .toUpperCase()
+        .replace(/[^A-Z0-9_-]/g, '')
+        .slice(0, 32);
+      if (cleanGiftCode) {
+        const giftRef = doc(db, 'gift_cards', cleanGiftCode);
+        const giftSnap = await getDoc(giftRef);
+        if (giftSnap.exists()) {
+          const giftData = giftSnap.data() as GiftCardReward;
+          if (giftData.userId === currentUid && !giftData.redeemed) {
+            batch.update(giftRef, {
+              redeemed: true,
+              redeemedOrderId: safeOrderId,
+              redeemedAt: new Date().toLocaleString('en-BD', {
+                dateStyle: 'medium',
+                timeStyle: 'short',
+              }),
+            });
+          }
+        }
+      }
+    }
+
+    if (extras?.earnedGiftCard && safeSubtotal - safeDiscount >= 500) {
+      const cardCode = extras.earnedGiftCard.code
+        .trim()
+        .toUpperCase()
+        .replace(/[^A-Z0-9_-]/g, '')
+        .slice(0, 32);
+      if (cardCode.length >= 4 && extras.earnedGiftCard.value > 0) {
+        batch.set(doc(db, 'gift_cards', cardCode), {
+          code: cardCode,
+          userId: truncateStr(currentUid, 128),
+          value: clampNum(Math.round(extras.earnedGiftCard.value), 1, 150000),
+          orderId: safeOrderId,
+          recipientName: truncateStr(extras.earnedGiftCard.recipientName, 120) || 'Customer',
+          issuedAt: truncateStr(extras.earnedGiftCard.issuedAt, 60) || 'Today',
+          tierLabel: truncateStr(extras.earnedGiftCard.tierLabel, 80) || 'Hardware Gift Credit',
+          redeemed: false,
+          createdAt: serverTimestamp(),
+        });
+      }
+    }
+
     await batch.commit();
   } catch (error) {
     handleFirestoreError(error, OperationType.CREATE, path);
   }
+}
+
+export const MIN_ORDER_FOR_REWARD_BDT = 1000;
+export const REWARD_POINTS_PER_1000_BDT = 100;
+export const REWARD_BDT_PER_100_POINTS = 8;
+export const MIN_REWARD_REDEEM_POINTS = 100;
+export const CONVERSION_POINTS_PER_BDT = 12.5; // 100 pts = ৳8
+
+export function calculateRewardValueBdt(points: number): number {
+  const safePts = Math.max(0, Number(points) || 0);
+  return Number(((safePts * REWARD_BDT_PER_100_POINTS) / 100).toFixed(2));
+}
+
+export function getRewardTierName(lifetimeEarned: number): string {
+  if (lifetimeEarned >= 10000) return 'Autonomous Pioneer';
+  if (lifetimeEarned >= 5000) return 'Robotics Pro';
+  if (lifetimeEarned >= 1000) return 'Lab Builder';
+  return 'Circuit Starter';
+}
+
+export function calculateOrderRewardPoints(
+  order: Pick<StoredOrder, 'items' | 'subtotal' | 'discount'>
+): number {
+  const subtotal = Math.max(0, Number(order.subtotal) || 0);
+  if (subtotal <= 0 || !Array.isArray(order.items) || order.items.length === 0) return 0;
+  const eligibleSubtotal = Math.max(0, subtotal - Math.max(0, Number(order.discount) || 0));
+  if (eligibleSubtotal < MIN_ORDER_FOR_REWARD_BDT) return 0;
+
+  return Math.max(0, Math.floor((eligibleSubtotal * REWARD_POINTS_PER_1000_BDT) / 1000));
 }
 
 export async function updateOrderInFirestore(order: StoredOrder): Promise<void> {
@@ -864,6 +1167,148 @@ export async function updateOrderInFirestore(order: StoredOrder): Promise<void> 
           updatedAt: serverTimestamp(),
         })
       );
+    }
+
+    // Sync customer reward points & ledger transaction atomically on Admin status updates
+    if (order.userId && /^[a-zA-Z0-9_-]{1,128}$/.test(order.userId)) {
+      const safeUid = order.userId;
+      const safeEarnTxId = `earn_${order.orderId}`.replace(/[^a-zA-Z0-9_-]/g, '-').slice(0, 120);
+      const safeRestoreTxId = `restore_${order.orderId}`
+        .replace(/[^a-zA-Z0-9_-]/g, '-')
+        .slice(0, 120);
+      const balRef = doc(db, 'customer_reward_balances', safeUid);
+      const earnTxRef = doc(db, 'reward_transactions', safeEarnTxId);
+      const restoreTxRef = doc(db, 'reward_transactions', safeRestoreTxId);
+
+      const [balSnap, earnTxSnap, restoreTxSnap] = await Promise.all([
+        getDoc(balRef),
+        getDoc(earnTxRef),
+        getDoc(restoreTxRef),
+      ]);
+      const existingBal = balSnap.exists()
+        ? (balSnap.data() as CustomerRewardBalance)
+        : null;
+      const existingEarnTx = earnTxSnap.exists()
+        ? (earnTxSnap.data() as RewardTransaction)
+        : null;
+      const existingRestoreTx = restoreTxSnap.exists()
+        ? (restoreTxSnap.data() as RewardTransaction)
+        : null;
+
+      const computedPts = calculateOrderRewardPoints(order);
+      let nextAvail = Math.max(0, existingBal?.availablePoints ?? 0);
+      let nextPending = Math.max(0, existingBal?.pendingPoints ?? 0);
+      let nextEarned = Math.max(0, existingBal?.lifetimeEarned ?? 0);
+      let nextRedeemed = Math.max(0, existingBal?.lifetimeRedeemed ?? 0);
+      let shouldUpdateBalance = false;
+
+      if ((order.status === 'Confirmed' || order.status === 'Shipped') && computedPts > 0) {
+        if (!existingEarnTx) {
+          nextPending += computedPts;
+          shouldUpdateBalance = true;
+          batch.set(earnTxRef, {
+            id: safeEarnTxId,
+            userId: safeUid,
+            orderId: order.orderId,
+            transactionType: 'earned',
+            points: computedPts,
+            status: 'Pending',
+            description: `Pending reward points for Order #${order.orderId} (${order.status})`,
+            createdAt: serverTimestamp(),
+          });
+        }
+      } else if (order.status === 'Delivered') {
+        if (!existingEarnTx && computedPts > 0) {
+          nextAvail += computedPts;
+          nextEarned += computedPts;
+          shouldUpdateBalance = true;
+          batch.set(earnTxRef, {
+            id: safeEarnTxId,
+            userId: safeUid,
+            orderId: order.orderId,
+            transactionType: 'earned',
+            points: computedPts,
+            status: 'Earned',
+            description: `Earned ${computedPts} Reward Points from delivered Order #${order.orderId}`,
+            createdAt: serverTimestamp(),
+          });
+        } else if (existingEarnTx && existingEarnTx.status === 'Pending') {
+          const creditPts = Math.max(0, existingEarnTx.points);
+          nextPending = Math.max(0, nextPending - creditPts);
+          nextAvail += creditPts;
+          nextEarned += creditPts;
+          shouldUpdateBalance = true;
+          batch.update(earnTxRef, {
+            status: 'Earned',
+            description: `Credited ${creditPts} Reward Points after delivery of Order #${order.orderId}`,
+          });
+        }
+      } else if (order.status === 'Cancelled') {
+        if (existingEarnTx) {
+          const txPts = Math.max(0, existingEarnTx.points);
+          if (existingEarnTx.status === 'Pending') {
+            nextPending = Math.max(0, nextPending - txPts);
+            shouldUpdateBalance = true;
+            batch.update(earnTxRef, {
+              transactionType: 'reversed',
+              status: 'Reversed',
+              description: `Pending reward points cancelled for Order #${order.orderId}`,
+            });
+          } else if (existingEarnTx.status === 'Earned') {
+            nextAvail = Math.max(0, nextAvail - txPts);
+            nextEarned = Math.max(0, nextEarned - txPts);
+            shouldUpdateBalance = true;
+            batch.update(earnTxRef, {
+              transactionType: 'reversed',
+              status: 'Reversed',
+              description: `Reversed ${txPts} Reward Points due to cancellation of Order #${order.orderId}`,
+            });
+          }
+        }
+
+        const redeemedToRestore = Math.max(0, Math.round(Number(order.rewardPointsRedeemed) || 0));
+        if (redeemedToRestore > 0 && !existingRestoreTx) {
+          nextAvail += redeemedToRestore;
+          nextRedeemed = Math.max(0, nextRedeemed - redeemedToRestore);
+          shouldUpdateBalance = true;
+          batch.set(restoreTxRef, {
+            id: safeRestoreTxId,
+            userId: safeUid,
+            orderId: order.orderId,
+            transactionType: 'reversed',
+            points: redeemedToRestore,
+            status: 'Reversed',
+            description: `Restored ${redeemedToRestore} redeemed Reward Points after cancellation of Order #${order.orderId}`,
+            createdAt: serverTimestamp(),
+          });
+        }
+      }
+
+      if (shouldUpdateBalance) {
+        if (balSnap.exists()) {
+          batch.update(balRef, {
+            availablePoints: nextAvail,
+            pendingPoints: nextPending,
+            lifetimeEarned: nextEarned,
+            lifetimeRedeemed: nextRedeemed,
+            conversionPointsPerBdt: CONVERSION_POINTS_PER_BDT,
+            tierName: getRewardTierName(nextEarned),
+            updatedAt: serverTimestamp(),
+          });
+        } else {
+          batch.set(balRef, {
+            userId: safeUid,
+            availablePoints: nextAvail,
+            pendingPoints: nextPending,
+            lifetimeEarned: nextEarned,
+            lifetimeRedeemed: nextRedeemed,
+            conversionPointsPerBdt: CONVERSION_POINTS_PER_BDT,
+            tierName: getRewardTierName(nextEarned),
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          });
+        }
+      }
     }
 
     await batch.commit();
@@ -1191,6 +1636,7 @@ export async function recordVisitorLog(
       referrer: truncateStr(entry.referrer, 240) || undefined,
       userId: currentUid ? truncateStr(currentUid, 128) : undefined,
       userEmail: currentUid && entry.userEmail ? truncateStr(entry.userEmail, 120) : undefined,
+      userPhone: currentUid && entry.userPhone ? truncateStr(entry.userPhone, 40) : undefined,
       userName: currentUid && entry.userName ? truncateStr(entry.userName, 120) : undefined,
       createdAt: serverTimestamp(),
     });
@@ -1246,4 +1692,96 @@ export async function clearVisitorLogs(logIds: string[]): Promise<void> {
   } catch (error) {
     handleFirestoreError(error, OperationType.DELETE, path);
   }
+}
+
+export function subscribeUserGiftCards(
+  userId: string,
+  onData: (cards: GiftCardReward[]) => void,
+  onError?: (err: unknown) => void
+): () => void {
+  const safeUid = userId.replace(/[^a-zA-Z0-9_-]/g, '-').slice(0, 128);
+  const path = 'gift_cards';
+  const q = query(collection(db, path), where('userId', '==', safeUid));
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const list = snapshot.docs.map((d) => d.data() as GiftCardReward);
+      list.sort((a, b) => getTimestampMillis(b.createdAt) - getTimestampMillis(a.createdAt));
+      onData(list);
+    },
+    (error) => {
+      if (onError) onError(error);
+      else handleFirestoreError(error, OperationType.LIST, path);
+    }
+  );
+}
+
+export async function ensureCustomerRewardBalance(userId: string): Promise<void> {
+  const safeUid = userId.replace(/[^a-zA-Z0-9_-]/g, '-').slice(0, 128);
+  if (!safeUid || auth.currentUser?.uid !== safeUid) return;
+  const path = `customer_reward_balances/${safeUid}`;
+  try {
+    const ref = doc(db, 'customer_reward_balances', safeUid);
+    const snap = await getDoc(ref);
+    if (!snap.exists()) {
+      await setDoc(ref, {
+        userId: safeUid,
+        availablePoints: 0,
+        pendingPoints: 0,
+        lifetimeEarned: 0,
+        lifetimeRedeemed: 0,
+        conversionPointsPerBdt: CONVERSION_POINTS_PER_BDT,
+        tierName: 'Circuit Starter',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+    }
+  } catch (error) {
+    console.warn('Reward wallet bootstrap skipped:', error);
+  }
+}
+
+export function subscribeCustomerRewardBalance(
+  userId: string,
+  onData: (balance: CustomerRewardBalance | null) => void,
+  onError?: (err: unknown) => void
+): () => void {
+  const safeUid = userId.replace(/[^a-zA-Z0-9_-]/g, '-').slice(0, 128);
+  const path = `customer_reward_balances/${safeUid}`;
+  return onSnapshot(
+    doc(db, 'customer_reward_balances', safeUid),
+    (snapshot) => {
+      if (!snapshot.exists()) {
+        onData(null);
+        return;
+      }
+      onData(snapshot.data() as CustomerRewardBalance);
+    },
+    (error) => {
+      if (onError) onError(error);
+      else handleFirestoreError(error, OperationType.GET, path);
+    }
+  );
+}
+
+export function subscribeCustomerRewardTransactions(
+  userId: string,
+  onData: (txs: RewardTransaction[]) => void,
+  onError?: (err: unknown) => void
+): () => void {
+  const safeUid = userId.replace(/[^a-zA-Z0-9_-]/g, '-').slice(0, 128);
+  const path = 'reward_transactions';
+  const q = query(collection(db, path), where('userId', '==', safeUid));
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const list = snapshot.docs.map((d) => d.data() as RewardTransaction);
+      list.sort((a, b) => getTimestampMillis(b.createdAt) - getTimestampMillis(a.createdAt));
+      onData(list);
+    },
+    (error) => {
+      if (onError) onError(error);
+      else handleFirestoreError(error, OperationType.LIST, path);
+    }
+  );
 }

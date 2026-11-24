@@ -338,13 +338,17 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               return (
                 <div
                   key={item.title}
-                  className={`flex items-center gap-3 py-0.5 ${
+                  style={{ animationDelay: `${idx * 65}ms` }}
+                  className={`animate-trust-enter group/trust flex items-center gap-3 py-0.5 ${
                     idx === 0 ? 'sm:pr-5' : 'sm:px-5'
                   } ${item.spanFullMobile ? 'col-span-2 sm:col-span-1' : ''}`}
                 >
-                  <Icon className="w-4 h-4 text-[#F5F8FF]/90 shrink-0" strokeWidth={1.75} />
+                  <Icon
+                    className="w-4 h-4 text-[#F5F8FF]/90 group-hover/trust:text-[#00C8FF] group-hover/trust:scale-110 transition-all duration-200 shrink-0"
+                    strokeWidth={1.75}
+                  />
                   <div className="min-w-0">
-                    <p className="font-hero text-[12px] font-semibold text-[#F5F8FF] truncate">
+                    <p className="font-hero text-[12px] font-semibold text-[#F5F8FF] group-hover/trust:text-white transition-colors truncate">
                       {item.title}
                     </p>
                     <p className="text-[11px] text-[#A8B6CC] truncate">{item.desc}</p>

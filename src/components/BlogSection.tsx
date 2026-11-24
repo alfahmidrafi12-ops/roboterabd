@@ -81,7 +81,10 @@ export const BlogSection: React.FC<BlogSectionProps> = ({ blogImages }) => {
           </div>
         </Reveal>
 
-        <div className={`grid grid-cols-1 ${visiblePosts.length === 1 ? 'md:grid-cols-1 max-w-xl' : visiblePosts.length === 2 ? 'md:grid-cols-2' : 'md:grid-cols-3'} gap-6`}>
+        <div
+          key={selectedTopic}
+          className={`animate-tab-enter grid grid-cols-1 ${visiblePosts.length === 1 ? 'md:grid-cols-1 max-w-xl' : visiblePosts.length === 2 ? 'md:grid-cols-2' : 'md:grid-cols-3'} gap-6`}
+        >
           {visiblePosts.map((post) => {
             const origIndex = Math.max(0, BLOG_POSTS.findIndex((b) => b.id === post.id));
             const customImg = blogImages?.[post.id]?.trim();
@@ -94,7 +97,7 @@ export const BlogSection: React.FC<BlogSectionProps> = ({ blogImages }) => {
                   onClick={() => setActivePost(post)}
                   className="group bg-white rounded-2xl border border-slate-200/85 overflow-hidden shadow-[0_8px_24px_-12px_rgba(7,26,61,0.08)] hover:border-[#087BFF]/65 hover:shadow-[0_20px_40px_-16px_rgba(8,123,255,0.16)] hover:-translate-y-1 transition-all duration-300 cursor-pointer flex flex-col h-full"
                 >
-                  <div className="bg-[#F3F7FC] aspect-[16/10] border-b border-slate-200/80 overflow-hidden">
+                  <div className="card-shine bg-[#F3F7FC] aspect-[16/10] border-b border-slate-200/80 overflow-hidden">
                     {customImg ? (
                       <div className="w-full h-full p-3 flex items-center justify-center">
                         <HardwareArtwork

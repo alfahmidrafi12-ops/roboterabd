@@ -31,6 +31,7 @@
         "rating": { "type": "number" },
         "reviews": { "type": "number" },
         "stock": { "type": "number" },
+        "displayOrder": { "type": "number" },
         "tag": { "type": "string", "maxLength": 40 },
         "isBestSeller": { "type": "boolean" },
         "isJustArrived": { "type": "boolean" },
@@ -107,6 +108,8 @@
         "deliveryFee": { "type": "number" },
         "total": { "type": "number" },
         "couponCode": { "type": "string", "maxLength": 40 },
+        "rewardPointsRedeemed": { "type": "number" },
+        "rewardDiscount": { "type": "number" },
         "notes": { "type": "string", "maxLength": 300 },
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" }
@@ -244,10 +247,99 @@
         "referrer": { "type": "string", "maxLength": 240 },
         "userId": { "type": "string", "minLength": 1, "maxLength": 128 },
         "userEmail": { "type": "string", "maxLength": 120 },
+        "userPhone": { "type": "string", "maxLength": 40 },
         "userName": { "type": "string", "maxLength": 120 },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "sessionId", "ip", "area", "country", "locationAccuracy", "platform", "deviceType", "pagePath", "createdAt"]
+    },
+    "CustomerRewardBalance": {
+      "title": "CustomerRewardBalance",
+      "description": "Per-customer loyalty and reward points balance tracked by Robotera BD.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "availablePoints": { "type": "number" },
+        "pendingPoints": { "type": "number" },
+        "lifetimeEarned": { "type": "number" },
+        "lifetimeRedeemed": { "type": "number" },
+        "conversionPointsPerBdt": { "type": "number" },
+        "tierName": { "type": "string", "maxLength": 60 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "availablePoints", "pendingPoints", "lifetimeEarned", "lifetimeRedeemed", "updatedAt"]
+    },
+    "RewardTransaction": {
+      "title": "RewardTransaction",
+      "description": "Ledger entry recording earned, pending, redeemed, expired, or reversed reward points for a customer.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "orderId": { "type": "string", "minLength": 1, "maxLength": 40, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "transactionType": {
+          "type": "string",
+          "enum": [
+            "earned",
+            "redeemed",
+            "welcome_bonus",
+            "first_order_bonus",
+            "referral_bonus",
+            "campaign_bonus",
+            "birthday_bonus",
+            "manual_add",
+            "manual_deduct",
+            "expired",
+            "reversed"
+          ]
+        },
+        "points": { "type": "number" },
+        "status": {
+          "type": "string",
+          "enum": ["Pending", "Earned", "Redeemed", "Expired", "Reversed"]
+        },
+        "description": { "type": "string", "minLength": 1, "maxLength": 240 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "expiresAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "transactionType", "points", "status", "description", "createdAt"]
+    },
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Persisted Robotera BD customer profile metadata synced across email, Google, and phone OTP sessions.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "displayName": { "type": "string", "maxLength": 120 },
+        "email": { "type": "string", "maxLength": 120 },
+        "phoneNumber": { "type": "string", "maxLength": 32 },
+        "providerId": { "type": "string", "maxLength": 40 },
+        "emailVerified": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "lastLoginAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "updatedAt"]
+    },
+    "GiftCard": {
+      "title": "GiftCard",
+      "description": "User-scoped 3% digital hardware gift card earned on eligible orders >= ৳500.",
+      "type": "object",
+      "properties": {
+        "code": { "type": "string", "minLength": 4, "maxLength": 32, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "value": { "type": "number" },
+        "orderId": { "type": "string", "minLength": 1, "maxLength": 40, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "recipientName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "issuedAt": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "tierLabel": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "redeemed": { "type": "boolean" },
+        "redeemedOrderId": { "type": "string", "maxLength": 40 },
+        "redeemedAt": { "type": "string", "maxLength": 80 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["code", "userId", "value", "orderId", "recipientName", "issuedAt", "tierLabel", "redeemed", "createdAt"]
     }
   },
   "firestore": {
@@ -298,6 +390,22 @@
     "/visitor_logs/{logId}": {
       "schema": { "$ref": "#/entities/VisitorLog" },
       "description": "Immutable visitor IP, location, area (elaka), and device telemetry; creatable by any visitor, readable and deletable strictly by admins."
+    },
+    "/customer_reward_balances/{userId}": {
+      "schema": { "$ref": "#/entities/CustomerRewardBalance" },
+      "description": "Customer reward points wallet; readable by the owning customer or admins, point mutations strictly restricted to admins."
+    },
+    "/reward_transactions/{transactionId}": {
+      "schema": { "$ref": "#/entities/RewardTransaction" },
+      "description": "Customer reward point ledger entries; readable by the owning customer or admins, writable for checkout redemptions by owner and full admin control."
+    },
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Synced user account profile documents isolated per UID and readable by owner or admins."
+    },
+    "/gift_cards/{code}": {
+      "schema": { "$ref": "#/entities/GiftCard" },
+      "description": "Per-user isolated digital gift cards earned from orders; readable/creatable/redeemable strictly by owning user or admins."
     }
   }
 }

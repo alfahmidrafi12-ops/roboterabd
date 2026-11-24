@@ -27,6 +27,7 @@ interface GeoIpResult {
 interface SignedInVisitorUser {
   uid?: string | null;
   email?: string | null;
+  phoneNumber?: string | null;
   displayName?: string | null;
 }
 
@@ -990,6 +991,7 @@ export async function trackVisitorVisit(
           referrer,
           userId: currentUid || undefined,
           userEmail: user?.email || undefined,
+          userPhone: user?.phoneNumber || undefined,
           userName: user?.displayName || undefined,
         });
 

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowRight, ChevronDown } from 'lucide-react';
+import { ArrowRight, ChevronDown, Image as ImageIcon } from 'lucide-react';
 import { CATEGORY_STUDIO_MEDIA, isWatermarkedUrl } from '../data/brandMedia';
 import { playTapSound } from '../lib/sound';
 import { CategoryId, CategoryItem, Product } from '../types/store';
@@ -34,17 +34,18 @@ const CATEGORY_SUBTITLES: Record<string, string> = {
   soldering: 'Soldering irons, multimeters & testers',
 };
 
-function resolveCategoryPhoto(category: CategoryItem): string {
-  const studioMatch =
-    CATEGORY_STUDIO_MEDIA[category.id] || CATEGORY_STUDIO_MEDIA[category.artwork];
-  if (studioMatch) {
-    return studioMatch;
-  }
+function resolveCategoryPhoto(category: CategoryItem): string | null {
   const custom = category.imageUrl?.trim();
   if (custom && !isWatermarkedUrl(custom)) {
     return custom;
   }
-  return CATEGORY_STUDIO_MEDIA.microcontrollers;
+  if (CATEGORY_STUDIO_MEDIA[category.id]) {
+    return CATEGORY_STUDIO_MEDIA[category.id];
+  }
+  if (category.artwork && category.artwork !== 'none' && CATEGORY_STUDIO_MEDIA[category.artwork]) {
+    return CATEGORY_STUDIO_MEDIA[category.artwork];
+  }
+  return null;
 }
 
 function resolveCategorySubtitle(category: CategoryItem): string {
@@ -128,10 +129,8 @@ export const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
             {visibleCategories.map((category, idx) => {
               const isSelected = activeCategory === category.id;
               const isFeaturedDept = idx < 2;
-              const fallbackStudio = CATEGORY_STUDIO_MEDIA.microcontrollers;
-              const imgSrc = brokenIds[category.id]
-                ? fallbackStudio
-                : resolveCategoryPhoto(category);
+              const resolvedPhoto = resolveCategoryPhoto(category);
+              const imgSrc = brokenIds[category.id] ? null : resolvedPhoto;
               const subtitle = resolveCategorySubtitle(category);
 
               const productCountText =
@@ -168,19 +167,30 @@ export const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
                   }`}
                 >
                   {/* Uniform Studio Image Frame */}
-                  <div className="relative w-full aspect-[4/3] bg-[#F7FAFE] overflow-hidden border-b border-slate-100/90 shrink-0">
-                    <img
-                      src={imgSrc}
-                      alt={category.name}
-                      referrerPolicy="no-referrer"
-                      loading={idx < 4 ? 'eager' : 'lazy'}
-                      onError={() => {
-                        if (!brokenIds[category.id]) {
-                          setBrokenIds((prev) => ({ ...prev, [category.id]: true }));
-                        }
-                      }}
-                      className="w-full h-full object-contain object-center block transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-[1.04]"
-                    />
+                  <div className="card-shine relative w-full aspect-[4/3] bg-[#F7FAFE] overflow-hidden border-b border-slate-100/90 shrink-0 flex items-center justify-center">
+                    {imgSrc ? (
+                      <img
+                        src={imgSrc}
+                        alt={category.name}
+                        referrerPolicy="no-referrer"
+                        loading={idx < 4 ? 'eager' : 'lazy'}
+                        onError={() => {
+                          if (!brokenIds[category.id]) {
+                            setBrokenIds((prev) => ({ ...prev, [category.id]: true }));
+                          }
+                        }}
+                        className="w-full h-full object-contain object-center block transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-[1.04]"
+                      />
+                    ) : (
+                      <div className="flex flex-col items-center justify-center gap-1.5 text-slate-400 px-3 text-center">
+                        <div className="w-11 h-11 rounded-xl bg-white border border-slate-200/90 flex items-center justify-center">
+                          <ImageIcon className="w-5 h-5 text-slate-400" strokeWidth={1.6} />
+                        </div>
+                        <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                          {category.name}
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Balanced Card Body */}

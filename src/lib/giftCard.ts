@@ -1,18 +1,59 @@
 import { GiftCardReward, OrderReceipt } from '../types/store';
 
-export const STORAGE_GIFT_CARDS_KEY = 'robotera_bd_gift_cards_v1';
+export const LEGACY_GIFT_CARDS_KEY = 'robotera_bd_gift_cards_v1';
+export const STORAGE_GIFT_CARDS_PREFIX = 'robotera_bd_gift_cards_v2_';
+export const MIN_GIFT_CARD_SPEND = 500;
+export const GIFT_CARD_RATE_PER_100 = 3;
 
-function computeRewardAmount(subtotal: number): { value: number; tierLabel: string } {
-  if (subtotal >= 10000) {
-    return { value: 350, tierLabel: 'Pro Lab Tier Reward' };
+export interface GiftCardCalculation {
+  eligible: boolean;
+  eligibleSpend: number;
+  value: number;
+  remainingToUnlock: number;
+  tierLabel: string;
+}
+
+export function clearLegacyGlobalGiftCards(): void {
+  try {
+    localStorage.removeItem(LEGACY_GIFT_CARDS_KEY);
+  } catch {
+    // Ignore storage errors
   }
-  if (subtotal >= 5000) {
-    return { value: 200, tierLabel: 'Maker Gold Reward' };
+}
+
+function getScopedStorageKey(userId?: string | null): string | null {
+  const cleanUid = userId?.trim();
+  if (!cleanUid) return null;
+  return `${STORAGE_GIFT_CARDS_PREFIX}${cleanUid}`;
+}
+
+export function calculateGiftCardDiscount(eligibleSpend: number): GiftCardCalculation {
+  const safeSpend = Math.max(0, Math.round(Number.isFinite(eligibleSpend) ? eligibleSpend : 0));
+  if (safeSpend < MIN_GIFT_CARD_SPEND) {
+    return {
+      eligible: false,
+      eligibleSpend: safeSpend,
+      value: 0,
+      remainingToUnlock: MIN_GIFT_CARD_SPEND - safeSpend,
+      tierLabel: 'Minimum ৳500 Order Required',
+    };
   }
-  if (subtotal >= 2000) {
-    return { value: 120, tierLabel: 'Builder Silver Reward' };
-  }
-  return { value: 75, tierLabel: 'Welcome Hardware Credit' };
+
+  const value = Math.floor((safeSpend * GIFT_CARD_RATE_PER_100) / 100);
+  const tierLabel =
+    safeSpend >= 5000
+      ? 'Pro Lab 3% Gift Credit'
+      : safeSpend >= 2000
+      ? 'Builder 3% Gift Credit'
+      : 'Maker 3% Gift Credit';
+
+  return {
+    eligible: value > 0,
+    eligibleSpend: safeSpend,
+    value,
+    remainingToUnlock: 0,
+    tierLabel,
+  };
 }
 
 function randomBlock(len = 4): string {
@@ -24,23 +65,38 @@ function randomBlock(len = 4): string {
   return out;
 }
 
-export function generateGiftCardReward(receipt: OrderReceipt): GiftCardReward {
-  const { value, tierLabel } = computeRewardAmount(receipt.subtotal);
+export function generateGiftCardReward(
+  receipt: OrderReceipt,
+  userId?: string | null
+): GiftCardReward | null {
+  const cleanUid = userId?.trim();
+  if (!cleanUid) {
+    return null;
+  }
+  const eligibleSpend = Math.max(0, receipt.subtotal - receipt.discount);
+  const calc = calculateGiftCardDiscount(eligibleSpend);
+  if (!calc.eligible || calc.value <= 0) {
+    return null;
+  }
   const code = `RBDG-${randomBlock(4)}-${randomBlock(4)}`;
   return {
     code,
-    value,
+    userId: cleanUid,
+    value: calc.value,
     orderId: receipt.orderId,
     recipientName: receipt.customerName,
     issuedAt: receipt.createdAt || new Date().toLocaleDateString('en-BD'),
-    tierLabel,
+    tierLabel: calc.tierLabel,
     redeemed: false,
   };
 }
 
-export function loadGiftCards(): GiftCardReward[] {
+export function loadGiftCards(userId?: string | null): GiftCardReward[] {
+  clearLegacyGlobalGiftCards();
+  const key = getScopedStorageKey(userId);
+  if (!key) return [];
   try {
-    const raw = localStorage.getItem(STORAGE_GIFT_CARDS_KEY);
+    const raw = localStorage.getItem(key);
     if (!raw) return [];
     const parsed = JSON.parse(raw) as GiftCardReward[];
     if (!Array.isArray(parsed)) return [];
@@ -48,27 +104,41 @@ export function loadGiftCards(): GiftCardReward[] {
       (c) =>
         typeof c?.code === 'string' &&
         typeof c?.value === 'number' &&
-        c.value > 0
+        c.value > 0 &&
+        c.userId === userId
     );
   } catch {
     return [];
   }
 }
 
-export function saveGiftCard(card: GiftCardReward): GiftCardReward[] {
-  const current = loadGiftCards();
-  const next = [card, ...current.filter((c) => c.code !== card.code)].slice(0, 20);
+export function saveGiftCard(
+  card: GiftCardReward,
+  userId?: string | null
+): GiftCardReward[] {
+  const ownerUid = userId || card.userId;
+  const key = getScopedStorageKey(ownerUid);
+  if (!key || !ownerUid) return [];
+  const normalizedCard: GiftCardReward = { ...card, userId: ownerUid };
+  const current = loadGiftCards(ownerUid);
+  const next = [normalizedCard, ...current.filter((c) => c.code !== card.code)].slice(0, 30);
   try {
-    localStorage.setItem(STORAGE_GIFT_CARDS_KEY, JSON.stringify(next));
+    localStorage.setItem(key, JSON.stringify(next));
   } catch {
     // Ignore storage quota errors
   }
   return next;
 }
 
-export function markGiftCardRedeemed(code: string, orderId: string): GiftCardReward[] {
+export function markGiftCardRedeemed(
+  code: string,
+  orderId: string,
+  userId?: string | null
+): GiftCardReward[] {
+  const key = getScopedStorageKey(userId);
+  if (!key || !userId) return [];
   const cleanCode = code.trim().toUpperCase();
-  const current = loadGiftCards();
+  const current = loadGiftCards(userId);
   const next = current.map((c) =>
     c.code.toUpperCase() === cleanCode
       ? {
@@ -83,7 +153,7 @@ export function markGiftCardRedeemed(code: string, orderId: string): GiftCardRew
       : c
   );
   try {
-    localStorage.setItem(STORAGE_GIFT_CARDS_KEY, JSON.stringify(next));
+    localStorage.setItem(key, JSON.stringify(next));
   } catch {
     // Ignore storage quota errors
   }
@@ -121,31 +191,31 @@ export function downloadGiftCardPng(card: GiftCardReward): void {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
 
-  // Background navy holographic gradient
+  // Obsidian-to-Sapphire Hardware Pass Chassis
   const bg = ctx.createLinearGradient(0, 0, width, height);
-  bg.addColorStop(0, '#040B1A');
-  bg.addColorStop(0.5, '#071E47');
-  bg.addColorStop(1, '#0A2E66');
+  bg.addColorStop(0, '#030814');
+  bg.addColorStop(0.52, '#061A3E');
+  bg.addColorStop(1, '#0B306E');
   ctx.fillStyle = bg;
-  drawRoundedRect(ctx, 0, 0, width, height, 34);
+  drawRoundedRect(ctx, 0, 0, width, height, 36);
   ctx.fill();
 
-  // Holographic cyan & cobalt glows
-  const glow1 = ctx.createRadialGradient(840, 110, 20, 840, 110, 380);
-  glow1.addColorStop(0, 'rgba(0, 207, 255, 0.28)');
-  glow1.addColorStop(0.55, 'rgba(8, 123, 255, 0.14)');
+  // Prismatic Holographic Ambient Flares
+  const glow1 = ctx.createRadialGradient(840, 100, 20, 840, 100, 410);
+  glow1.addColorStop(0, 'rgba(0, 207, 255, 0.34)');
+  glow1.addColorStop(0.5, 'rgba(8, 123, 255, 0.16)');
   glow1.addColorStop(1, 'rgba(0, 0, 0, 0)');
   ctx.fillStyle = glow1;
   ctx.fillRect(0, 0, width, height);
 
-  const glow2 = ctx.createRadialGradient(180, 500, 10, 180, 500, 320);
-  glow2.addColorStop(0, 'rgba(45, 212, 191, 0.22)');
+  const glow2 = ctx.createRadialGradient(160, 500, 10, 160, 500, 340);
+  glow2.addColorStop(0, 'rgba(45, 212, 191, 0.25)');
   glow2.addColorStop(1, 'rgba(0, 0, 0, 0)');
   ctx.fillStyle = glow2;
   ctx.fillRect(0, 0, width, height);
 
-  // Blueprint grid lines
-  ctx.strokeStyle = 'rgba(148, 197, 255, 0.08)';
+  // Subtle Engineering Grid Lines
+  ctx.strokeStyle = 'rgba(148, 197, 255, 0.07)';
   ctx.lineWidth = 1;
   for (let gx = 40; gx < width; gx += 40) {
     ctx.beginPath();
@@ -160,118 +230,186 @@ export function downloadGiftCardPng(card: GiftCardReward): void {
     ctx.stroke();
   }
 
-  // Subtle circuit trace artwork on top-right
-  ctx.strokeStyle = 'rgba(0, 207, 255, 0.35)';
+  // PCB Traces & Solder Vias
+  ctx.strokeStyle = 'rgba(0, 207, 255, 0.38)';
   ctx.lineWidth = 2.2;
   ctx.beginPath();
-  ctx.moveTo(width, 96);
-  ctx.lineTo(790, 96);
-  ctx.lineTo(750, 136);
-  ctx.lineTo(620, 136);
+  ctx.moveTo(width, 152);
+  ctx.lineTo(800, 152);
+  ctx.lineTo(756, 196);
+  ctx.lineTo(618, 196);
   ctx.stroke();
 
-  ctx.strokeStyle = 'rgba(45, 212, 191, 0.32)';
+  ctx.strokeStyle = 'rgba(45, 212, 191, 0.34)';
   ctx.beginPath();
-  ctx.moveTo(width, 136);
-  ctx.lineTo(820, 136);
-  ctx.lineTo(780, 176);
-  ctx.lineTo(690, 176);
+  ctx.moveTo(width, 186);
+  ctx.lineTo(830, 186);
+  ctx.lineTo(786, 230);
+  ctx.lineTo(682, 230);
   ctx.stroke();
 
   ctx.fillStyle = '#00CFFF';
   ctx.beginPath();
-  ctx.arc(620, 136, 5, 0, Math.PI * 2);
+  ctx.arc(618, 196, 5.5, 0, Math.PI * 2);
   ctx.fill();
   ctx.fillStyle = '#2DD4BF';
   ctx.beginPath();
-  ctx.arc(690, 176, 5, 0, Math.PI * 2);
+  ctx.arc(682, 230, 5.5, 0, Math.PI * 2);
   ctx.fill();
 
-  // Inner metallic border
-  ctx.strokeStyle = 'rgba(0, 207, 255, 0.42)';
+  // Inner Metallic Prismatic Rim
+  const rimGrad = ctx.createLinearGradient(20, 20, width - 20, height - 20);
+  rimGrad.addColorStop(0, 'rgba(0, 207, 255, 0.6)');
+  rimGrad.addColorStop(0.5, 'rgba(255, 255, 255, 0.28)');
+  rimGrad.addColorStop(1, 'rgba(45, 212, 191, 0.6)');
+  ctx.strokeStyle = rimGrad;
   ctx.lineWidth = 2;
-  drawRoundedRect(ctx, 20, 20, width - 40, height - 40, 24);
+  drawRoundedRect(ctx, 20, 20, width - 40, height - 40, 26);
   ctx.stroke();
 
-  // Top Header Lockup
-  ctx.fillStyle = '#087BFF';
-  drawRoundedRect(ctx, 64, 58, 52, 52, 12);
+  // Corner Precision Crosshairs
+  ctx.strokeStyle = 'rgba(56, 189, 248, 0.55)';
+  ctx.lineWidth = 2;
+  const ticks = [
+    [40, 56, 40, 40, 56, 40],
+    [width - 40, 56, width - 40, 40, width - 56, 40],
+    [40, height - 56, 40, height - 40, 56, height - 40],
+    [width - 40, height - 56, width - 40, height - 40, width - 56, height - 40],
+  ];
+  for (const [x1, y1, x2, y2, x3, y3] of ticks) {
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.lineTo(x3, y3);
+    ctx.stroke();
+  }
+
+  // Top Brand Emblem
+  ctx.fillStyle = 'rgba(8, 123, 255, 0.28)';
+  drawRoundedRect(ctx, 64, 58, 56, 56, 14);
   ctx.fill();
+  ctx.strokeStyle = 'rgba(0, 207, 255, 0.65)';
+  ctx.lineWidth = 2;
+  drawRoundedRect(ctx, 64, 58, 56, 56, 14);
+  ctx.stroke();
+
   ctx.strokeStyle = '#FFFFFF';
-  ctx.lineWidth = 3;
-  drawRoundedRect(ctx, 78, 72, 24, 24, 5);
+  ctx.lineWidth = 2.6;
+  drawRoundedRect(ctx, 80, 74, 24, 24, 5);
   ctx.stroke();
   ctx.fillStyle = '#00CFFF';
   ctx.beginPath();
-  ctx.arc(90, 84, 4.5, 0, Math.PI * 2);
+  ctx.arc(92, 86, 4.5, 0, Math.PI * 2);
   ctx.fill();
 
   ctx.fillStyle = '#FFFFFF';
   ctx.font = '800 30px system-ui, -apple-system, sans-serif';
-  ctx.fillText('ROBOTERA BD', 134, 91);
+  ctx.fillText('ROBOTERA BD', 138, 90);
   ctx.fillStyle = '#00CFFF';
-  ctx.font = '700 15px ui-monospace, SFMono-Regular, monospace';
-  ctx.fillText('OFFICIAL DIGITAL HARDWARE GIFT CARD', 134, 114);
+  ctx.font = '700 14px ui-monospace, SFMono-Regular, monospace';
+  ctx.fillText('OFFICIAL DIGITAL HARDWARE PASS', 138, 114);
 
-  // Value Pill Top-Right
+  // Value Bezel Top-Right
   ctx.fillStyle = 'rgba(0, 207, 255, 0.16)';
-  drawRoundedRect(ctx, 730, 58, 206, 86, 16);
+  drawRoundedRect(ctx, 720, 56, 216, 92, 18);
   ctx.fill();
-  ctx.strokeStyle = 'rgba(0, 207, 255, 0.5)';
-  ctx.lineWidth = 1.5;
-  drawRoundedRect(ctx, 730, 58, 206, 86, 16);
+  ctx.strokeStyle = 'rgba(0, 207, 255, 0.58)';
+  ctx.lineWidth = 1.8;
+  drawRoundedRect(ctx, 720, 56, 216, 92, 18);
   ctx.stroke();
 
   ctx.fillStyle = '#BAE6FD';
   ctx.font = '700 13px ui-monospace, SFMono-Regular, monospace';
-  ctx.fillText('GIFT CREDIT', 754, 86);
+  ctx.fillText('৳3 / ৳100 HARDWARE PASS', 738, 84);
   ctx.fillStyle = '#FFFFFF';
-  ctx.font = '800 40px ui-monospace, SFMono-Regular, monospace';
-  ctx.fillText(`BDT ${card.value}`, 754, 128);
+  ctx.font = '800 42px ui-monospace, SFMono-Regular, monospace';
+  ctx.fillText(`BDT ${card.value}`, 738, 130);
 
-  // Center Title & Recipient
+  // Brushed-Gold EMV Silicon Chip + Contactless RF Waves
+  const chipGrad = ctx.createLinearGradient(64, 178, 152, 242);
+  chipGrad.addColorStop(0, '#FDE68A');
+  chipGrad.addColorStop(0.5, '#F59E0B');
+  chipGrad.addColorStop(1, '#B45309');
+  ctx.fillStyle = chipGrad;
+  drawRoundedRect(ctx, 64, 178, 86, 60, 12);
+  ctx.fill();
+  ctx.strokeStyle = '#FEF3C7';
+  ctx.lineWidth = 1.6;
+  drawRoundedRect(ctx, 64, 178, 86, 60, 12);
+  ctx.stroke();
+
+  ctx.strokeStyle = '#78350F';
+  ctx.lineWidth = 1.8;
+  drawRoundedRect(ctx, 88, 192, 38, 32, 6);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(64, 200);
+  ctx.lineTo(88, 200);
+  ctx.moveTo(64, 216);
+  ctx.lineTo(88, 216);
+  ctx.moveTo(126, 200);
+  ctx.lineTo(150, 200);
+  ctx.moveTo(126, 216);
+  ctx.lineTo(150, 216);
+  ctx.moveTo(107, 178);
+  ctx.lineTo(107, 192);
+  ctx.moveTo(107, 224);
+  ctx.lineTo(107, 238);
+  ctx.stroke();
+
+  // RF Contactless Arcs next to EMV Chip
+  ctx.strokeStyle = 'rgba(186, 230, 253, 0.78)';
+  ctx.lineWidth = 2.6;
+  ctx.lineCap = 'round';
+  for (let r = 10; r <= 24; r += 7) {
+    ctx.beginPath();
+    ctx.arc(170, 208, r, -0.55, 0.55);
+    ctx.stroke();
+  }
+
+  // Tier & Cardholder Block
   ctx.fillStyle = '#2DD4BF';
   ctx.font = '700 15px ui-monospace, SFMono-Regular, monospace';
-  ctx.fillText(card.tierLabel.toUpperCase(), 64, 214);
+  ctx.fillText(card.tierLabel.toUpperCase(), 218, 198);
 
   ctx.fillStyle = '#FFFFFF';
-  ctx.font = '800 42px system-ui, -apple-system, sans-serif';
-  ctx.fillText(`For ${card.recipientName.slice(0, 26)}`, 64, 266);
+  ctx.font = '800 38px system-ui, -apple-system, sans-serif';
+  ctx.fillText(card.recipientName.slice(0, 24), 218, 244);
 
   ctx.fillStyle = '#CBD5E1';
-  ctx.font = '500 20px system-ui, -apple-system, sans-serif';
+  ctx.font = '500 18px system-ui, -apple-system, sans-serif';
   ctx.fillText(
-    `Issued with Order #${card.orderId} · Redeemable at Robotera BD Cart Checkout`,
+    `Source Order #${card.orderId}  ·  Redeemable at Robotera BD Cart Checkout`,
     64,
-    308
+    298
   );
 
-  // Voucher Code Plate
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
-  drawRoundedRect(ctx, 64, 360, width - 128, 108, 18);
+  // Recessed Laser-Engraved Serial Plate
+  ctx.fillStyle = 'rgba(2, 8, 20, 0.78)';
+  drawRoundedRect(ctx, 64, 344, width - 128, 118, 20);
   ctx.fill();
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
-  ctx.lineWidth = 1.5;
-  drawRoundedRect(ctx, 64, 360, width - 128, 108, 18);
+  ctx.strokeStyle = 'rgba(0, 207, 255, 0.35)';
+  ctx.lineWidth = 1.6;
+  drawRoundedRect(ctx, 64, 344, width - 128, 118, 20);
   ctx.stroke();
 
   ctx.fillStyle = '#94A3B8';
   ctx.font = '700 14px ui-monospace, SFMono-Regular, monospace';
-  ctx.fillText('GIFT CARD SERIAL CODE', 96, 396);
+  ctx.fillText('LASER-VERIFIED SERIAL KEY', 96, 384);
 
   ctx.fillStyle = '#FFFFFF';
-  ctx.font = '800 42px ui-monospace, SFMono-Regular, monospace';
-  ctx.fillText(card.code, 96, 444);
+  ctx.font = '800 44px ui-monospace, SFMono-Regular, monospace';
+  ctx.fillText(card.code, 96, 438);
 
-  ctx.fillStyle = '#2DD4BF';
+  ctx.fillStyle = card.redeemed ? '#94A3B8' : '#2DD4BF';
   ctx.font = '700 18px ui-monospace, SFMono-Regular, monospace';
-  ctx.fillText(card.redeemed ? 'REDEEMED' : 'ACTIVE · VALID ONCE', 688, 434);
+  ctx.fillText(card.redeemed ? 'REDEEMED' : 'ACTIVE · VALID ONCE', 688, 424);
 
-  // Footer
+  // Footer Bar
   ctx.fillStyle = '#94A3B8';
-  ctx.font = '500 16px system-ui, -apple-system, sans-serif';
-  ctx.fillText(`Issued: ${card.issuedAt}`, 64, 526);
-  ctx.fillText('roboterabd · Dhaka Robotics & Embedded Supply', 538, 526);
+  ctx.font = '500 16px ui-monospace, SFMono-Regular, monospace';
+  ctx.fillText(`Issued: ${card.issuedAt}`, 64, 522);
+  ctx.fillText('roboterabd · Dhaka Robotics & Embedded Supply', 494, 522);
 
   canvas.toBlob((blob) => {
     if (!blob) return;

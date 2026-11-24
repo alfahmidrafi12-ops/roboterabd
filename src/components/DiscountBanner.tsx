@@ -70,7 +70,7 @@ export const DiscountBanner: React.FC<DiscountBannerProps> = ({
     if (checking) return;
     setFormError('');
 
-    if (!user || !user.email) {
+    if (!user || (!user.email && !user.phoneNumber)) {
       playTapSound();
       onOpenAuth();
       return;
@@ -79,27 +79,28 @@ export const DiscountBanner: React.FC<DiscountBannerProps> = ({
     if (isOfferBlocked) {
       playErrorSound();
       setFormError(
-        `Promo code ${featuredPromo.code} is limited to 1 use per account & Gmail address.`
+        `Promo code ${featuredPromo.code} is limited to 1 use per verified account.`
       );
       return;
     }
 
     const trimmedName = name.trim();
-    const enteredEmail = email.trim().toLowerCase();
-    const signedInEmail = user.email.trim().toLowerCase();
-
     if (!trimmedName) {
       playErrorSound();
       setFormError('Please enter your full name or university club.');
       return;
     }
 
-    if (!enteredEmail || enteredEmail !== signedInEmail) {
-      playErrorSound();
-      setFormError(
-        'Please enter the exact email address tied to your signed-in account to claim the welcome offer.'
-      );
-      return;
+    if (user.email) {
+      const enteredEmail = email.trim().toLowerCase();
+      const signedInEmail = user.email.trim().toLowerCase();
+      if (!enteredEmail || enteredEmail !== signedInEmail) {
+        playErrorSound();
+        setFormError(
+          'Please enter the exact email address tied to your signed-in account to claim the welcome offer.'
+        );
+        return;
+      }
     }
 
     setChecking(true);
@@ -138,11 +139,11 @@ export const DiscountBanner: React.FC<DiscountBannerProps> = ({
             <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-lab-grid-dark opacity-50" />
             <div
               aria-hidden="true"
-              className="pointer-events-none absolute -top-24 -right-20 w-80 h-80 rounded-full bg-[radial-gradient(circle,rgba(0,207,255,0.20)_0%,rgba(8,123,255,0.12)_42%,transparent_72%)]"
+              className="animate-float-drift pointer-events-none absolute -top-24 -right-20 w-80 h-80 rounded-full bg-[radial-gradient(circle,rgba(0,207,255,0.20)_0%,rgba(8,123,255,0.12)_42%,transparent_72%)]"
             />
             <div
               aria-hidden="true"
-              className="pointer-events-none absolute -bottom-24 -left-16 w-72 h-72 rounded-full bg-[radial-gradient(circle,rgba(8,123,255,0.22)_0%,transparent_68%)]"
+              className="animate-ambient-pulse pointer-events-none absolute -bottom-24 -left-16 w-72 h-72 rounded-full bg-[radial-gradient(circle,rgba(8,123,255,0.22)_0%,transparent_68%)]"
             />
 
             {bannerImageUrl && bannerImageUrl.trim().length > 0 && (
@@ -267,21 +268,34 @@ export const DiscountBanner: React.FC<DiscountBannerProps> = ({
                         />
                       </div>
                       <div>
-                        <label htmlFor="discount-email" className="block text-xs font-medium text-slate-200 mb-1.5">
-                          Verify Signed-In Email
-                        </label>
-                        <input
-                          id="discount-email"
-                          type="email"
-                          required
-                          value={email}
-                          onChange={(e) => {
-                            setEmail(e.target.value);
-                            if (formError) setFormError('');
-                          }}
-                          placeholder="Enter your account email"
-                          className="w-full h-10 px-3.5 rounded-xl bg-white text-[#071A3D] text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#00CFFF]"
-                        />
+                        {user.email ? (
+                          <>
+                            <label htmlFor="discount-email" className="block text-xs font-medium text-slate-200 mb-1.5">
+                              Verify Signed-In Email
+                            </label>
+                            <input
+                              id="discount-email"
+                              type="email"
+                              required
+                              value={email}
+                              onChange={(e) => {
+                                setEmail(e.target.value);
+                                if (formError) setFormError('');
+                              }}
+                              placeholder="Enter your account email"
+                              className="w-full h-10 px-3.5 rounded-xl bg-white text-[#071A3D] text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#00CFFF]"
+                            />
+                          </>
+                        ) : (
+                          <>
+                            <span className="block text-xs font-medium text-slate-200 mb-1.5">
+                              Verified Mobile Account
+                            </span>
+                            <div className="w-full h-10 px-3.5 rounded-xl bg-white/10 border border-white/25 text-white text-sm font-mono flex items-center">
+                              {user.phoneNumber}
+                            </div>
+                          </>
+                        )}
                       </div>
                     </div>
                     {formError && (

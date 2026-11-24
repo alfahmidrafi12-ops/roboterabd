@@ -184,7 +184,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     return (
       <article className="group bg-white rounded-2xl border border-slate-200/90 hover:border-[#087BFF]/75 shadow-[0_4px_16px_-8px_rgba(7,26,61,0.08)] hover:shadow-[0_16px_32px_-12px_rgba(8,123,255,0.16)] transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] flex flex-col sm:flex-row overflow-hidden">
         {/* Clean Light Product Image Stage */}
-        <div className="relative bg-[#F7FAFE] border-b sm:border-b-0 sm:border-r border-slate-100 w-full sm:w-56 h-48 sm:h-auto shrink-0 overflow-hidden">
+        <div className="card-shine relative bg-[#F7FAFE] border-b sm:border-b-0 sm:border-r border-slate-100 w-full sm:w-56 h-48 sm:h-auto shrink-0 overflow-hidden">
           <button
             type="button"
             onClick={() => onOpenDetail(product)}
@@ -421,7 +421,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   return (
     <article className="group bg-white rounded-2xl border border-slate-200/90 hover:border-[#087BFF]/75 shadow-[0_4px_16px_-8px_rgba(7,26,61,0.08)] hover:shadow-[0_18px_36px_-14px_rgba(8,123,255,0.16)] hover:-translate-y-1 transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] flex flex-col overflow-hidden h-full">
       {/* Consistent Clean Studio Product Image Area */}
-      <div className="relative bg-[#F7FAFE] border-b border-slate-100 h-[168px] sm:h-[200px] overflow-hidden shrink-0">
+      <div className="card-shine relative bg-[#F7FAFE] border-b border-slate-100 h-[168px] sm:h-[200px] overflow-hidden shrink-0">
         <button
           type="button"
           onClick={() => {

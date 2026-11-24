@@ -66,7 +66,7 @@ service cloud.firestore {
         ])
         && data.keys().hasOnly([
           'id', 'sku', 'name', 'category', 'categoryLabel', 'price', 'originalPrice',
-          'rating', 'reviews', 'stock', 'tag', 'isBestSeller', 'isJustArrived',
+          'rating', 'reviews', 'stock', 'displayOrder', 'tag', 'isBestSeller', 'isJustArrived',
           'artwork', 'imageUrl', 'videoUrl', 'shortDesc', 'specs', 'variants', 'updatedAt'
         ])
         && isValidId(data.id)
@@ -79,6 +79,7 @@ service cloud.firestore {
         && data.rating is number && data.rating >= 0 && data.rating <= 5
         && data.reviews is number && data.reviews >= 0 && data.reviews <= 1000000
         && data.stock is number && data.stock >= 0 && data.stock <= 100000
+        && (!('displayOrder' in data) || (data.displayOrder is number && data.displayOrder >= 0 && data.displayOrder <= 100000))
         && (!('tag' in data) || (data.tag is string && data.tag.size() <= 40))
         && (!('isBestSeller' in data) || data.isBestSeller is bool)
         && (!('isJustArrived' in data) || data.isJustArrived is bool)
@@ -166,7 +167,8 @@ service cloud.firestore {
         && data.keys().hasOnly([
           'orderId', 'userId', 'customerName', 'phone', 'address', 'district',
           'paymentMethod', 'status', 'items', 'subtotal', 'discount',
-          'deliveryFee', 'total', 'couponCode', 'notes', 'createdAt', 'updatedAt'
+          'deliveryFee', 'total', 'couponCode', 'rewardPointsRedeemed',
+          'rewardDiscount', 'notes', 'createdAt', 'updatedAt'
         ])
         && isValidId(data.orderId)
         && (!('userId' in data) || (data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128))
@@ -183,6 +185,8 @@ service cloud.firestore {
         && data.deliveryFee is number && data.deliveryFee >= 0 && data.deliveryFee <= 50000
         && data.total is number && data.total >= 0 && data.total <= 50000000
         && (!('couponCode' in data) || (data.couponCode is string && data.couponCode.size() <= 40))
+        && (!('rewardPointsRedeemed' in data) || (data.rewardPointsRedeemed is int && data.rewardPointsRedeemed >= 0 && data.rewardPointsRedeemed <= 10000000))
+        && (!('rewardDiscount' in data) || (data.rewardDiscount is number && data.rewardDiscount >= 0 && data.rewardDiscount <= 50000000))
         && (!('notes' in data) || (data.notes is string && data.notes.size() <= 300))
         && data.createdAt is timestamp
         && data.updatedAt == request.time;
@@ -331,7 +335,7 @@ service cloud.firestore {
           'latitude', 'longitude', 'gpsAccuracyMeters',
           'locationAccuracy', 'timezone', 'localTime', 'platform', 'deviceType',
           'browser', 'os', 'screenSize', 'pagePath', 'referrer',
-          'userId', 'userEmail', 'userName', 'createdAt'
+          'userId', 'userEmail', 'userPhone', 'userName', 'createdAt'
         ])
         && isValidId(data.id) && data.id.size() <= 64
         && isValidId(data.sessionId) && data.sessionId.size() <= 64
@@ -362,6 +366,7 @@ service cloud.firestore {
         && (!('referrer' in data) || (data.referrer is string && data.referrer.size() <= 240))
         && (!('userId' in data) || (data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128))
         && (!('userEmail' in data) || (data.userEmail is string && data.userEmail.size() <= 120))
+        && (!('userPhone' in data) || (data.userPhone is string && data.userPhone.size() <= 40))
         && (!('userName' in data) || (data.userName is string && data.userName.size() <= 120))
         && data.createdAt == request.time;
     }
@@ -397,7 +402,7 @@ service cloud.firestore {
         && incoming().id == existing().id
         && incoming().diff(existing()).affectedKeys().hasOnly([
           'sku', 'name', 'category', 'categoryLabel', 'price', 'originalPrice',
-          'rating', 'reviews', 'stock', 'tag', 'isBestSeller', 'isJustArrived',
+          'rating', 'reviews', 'stock', 'displayOrder', 'tag', 'isBestSeller', 'isJustArrived',
           'artwork', 'imageUrl', 'videoUrl', 'shortDesc', 'specs', 'variants', 'updatedAt'
         ]);
       allow delete: if isAdmin() && isValidId(productId);
@@ -462,6 +467,23 @@ service cloud.firestore {
               request.auth.token.email == null
               || existsAfter(/databases/$(database)/documents/promo_redemptions/$(emailRedemptionDocId(incoming().couponCode, request.auth.token.email)))
             )
+          )
+        )
+        && (
+          !('rewardPointsRedeemed' in incoming())
+          || incoming().rewardPointsRedeemed == 0
+          || (
+            isSignedIn()
+            && ('userId' in incoming())
+            && incoming().userId == request.auth.uid
+            && incoming().rewardPointsRedeemed >= 100
+            && incoming().rewardPointsRedeemed % 100 == 0
+            && ('rewardDiscount' in incoming())
+            && incoming().rewardDiscount == (incoming().rewardPointsRedeemed / 100) * 8
+            && incoming().rewardDiscount <= incoming().subtotal
+            && existsAfter(/databases/$(database)/documents/reward_transactions/$('redeem_' + orderId))
+            && getAfter(/databases/$(database)/documents/customer_reward_balances/$(request.auth.uid)).data.availablePoints
+               == get(/databases/$(database)/documents/customer_reward_balances/$(request.auth.uid)).data.availablePoints - incoming().rewardPointsRedeemed
           )
         );
       allow update: if isAdmin()
@@ -642,6 +664,254 @@ service cloud.firestore {
         && incoming().createdAt == request.time;
       allow update: if false;
       allow delete: if isAdmin() && isValidId(logId);
+    }
+
+    function isValidCustomerRewardBalance(data) {
+      return data.keys().hasAll([
+          'userId', 'availablePoints', 'pendingPoints',
+          'lifetimeEarned', 'lifetimeRedeemed', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'userId', 'availablePoints', 'pendingPoints',
+          'lifetimeEarned', 'lifetimeRedeemed', 'conversionPointsPerBdt',
+          'tierName', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.userId)
+        && data.availablePoints is number && data.availablePoints >= 0 && data.availablePoints <= 10000000
+        && data.pendingPoints is number && data.pendingPoints >= 0 && data.pendingPoints <= 10000000
+        && data.lifetimeEarned is number && data.lifetimeEarned >= 0 && data.lifetimeEarned <= 50000000
+        && data.lifetimeRedeemed is number && data.lifetimeRedeemed >= 0 && data.lifetimeRedeemed <= 50000000
+        && (!('conversionPointsPerBdt' in data) || (data.conversionPointsPerBdt is number && data.conversionPointsPerBdt >= 1 && data.conversionPointsPerBdt <= 10000))
+        && (!('tierName' in data) || (data.tierName is string && data.tierName.size() >= 1 && data.tierName.size() <= 60))
+        && (!('createdAt' in data) || data.createdAt is timestamp)
+        && data.updatedAt == request.time;
+    }
+
+    function isValidRewardTransaction(data) {
+      return data.keys().hasAll([
+          'id', 'userId', 'transactionType', 'points', 'status', 'description', 'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'userId', 'orderId', 'transactionType', 'points',
+          'status', 'description', 'createdAt', 'expiresAt'
+        ])
+        && isValidId(data.id)
+        && isValidId(data.userId)
+        && (!('orderId' in data) || (isValidId(data.orderId) && data.orderId.size() <= 40))
+        && data.transactionType in [
+          'earned', 'redeemed', 'welcome_bonus', 'first_order_bonus',
+          'referral_bonus', 'campaign_bonus', 'birthday_bonus',
+          'manual_add', 'manual_deduct', 'expired', 'reversed'
+        ]
+        && data.points is number && data.points >= 0 && data.points <= 10000000
+        && data.status in ['Pending', 'Earned', 'Redeemed', 'Expired', 'Reversed']
+        && data.description is string && data.description.size() >= 1 && data.description.size() <= 240
+        && data.createdAt is timestamp
+        && (!('expiresAt' in data) || data.expiresAt is timestamp);
+    }
+
+    // Customer loyalty & reward balances (owners can read, bootstrap a zeroed wallet, and perform atomic checkout redemption; admins manage credits/reversals)
+    match /customer_reward_balances/{userId} {
+      allow get: if isValidId(userId) && (
+        (isSignedIn() && request.auth.uid == userId) || isAdmin()
+      );
+      allow list: if (isSignedIn() && existing().userId == request.auth.uid) || isAdmin();
+      allow create: if isValidId(userId)
+        && isValidCustomerRewardBalance(incoming())
+        && incoming().userId == userId
+        && (!('createdAt' in incoming()) || incoming().createdAt == request.time)
+        && (
+          isAdmin() ||
+          (
+            isSignedIn()
+            && request.auth.uid == userId
+            && incoming().availablePoints == 0
+            && incoming().pendingPoints == 0
+            && incoming().lifetimeEarned == 0
+            && incoming().lifetimeRedeemed == 0
+          )
+        );
+      allow update: if isValidId(userId)
+        && isValidCustomerRewardBalance(incoming())
+        && incoming().userId == existing().userId
+        && (
+          (!('createdAt' in existing()) && !('createdAt' in incoming())) ||
+          (('createdAt' in existing()) && ('createdAt' in incoming()) && incoming().createdAt == existing().createdAt)
+        )
+        && (
+          (
+            isAdmin()
+            && incoming().diff(existing()).affectedKeys().hasOnly([
+              'availablePoints', 'pendingPoints', 'lifetimeEarned', 'lifetimeRedeemed',
+              'conversionPointsPerBdt', 'tierName', 'updatedAt'
+            ])
+          ) || (
+            isSignedIn()
+            && request.auth.uid == userId
+            && incoming().pendingPoints == existing().pendingPoints
+            && incoming().lifetimeEarned == existing().lifetimeEarned
+            && incoming().availablePoints < existing().availablePoints
+            && incoming().availablePoints >= 0
+            && (existing().availablePoints - incoming().availablePoints) % 100 == 0
+            && incoming().lifetimeRedeemed == existing().lifetimeRedeemed + (existing().availablePoints - incoming().availablePoints)
+            && incoming().diff(existing()).affectedKeys().hasOnly([
+              'availablePoints', 'lifetimeRedeemed', 'updatedAt'
+            ])
+          )
+        );
+      allow delete: if isAdmin() && isValidId(userId);
+    }
+
+    // Customer reward point ledger entries (owners can read/list their own ledger and record atomic checkout redemption; admins manage credits/reversals)
+    match /reward_transactions/{transactionId} {
+      allow get: if isValidId(transactionId) && (
+        (isSignedIn() && existing().userId == request.auth.uid) || isAdmin()
+      );
+      allow list: if (isSignedIn() && existing().userId == request.auth.uid) || isAdmin();
+      allow create: if isValidId(transactionId)
+        && isValidRewardTransaction(incoming())
+        && incoming().id == transactionId
+        && incoming().createdAt == request.time
+        && (
+          isAdmin() ||
+          (
+            isSignedIn()
+            && incoming().userId == request.auth.uid
+            && ('orderId' in incoming())
+            && transactionId == 'redeem_' + incoming().orderId
+            && incoming().transactionType == 'redeemed'
+            && incoming().status == 'Redeemed'
+            && incoming().points >= 100
+            && incoming().points % 100 == 0
+            && existsAfter(/databases/$(database)/documents/orders/$(incoming().orderId))
+            && getAfter(/databases/$(database)/documents/orders/$(incoming().orderId)).data.userId == request.auth.uid
+            && getAfter(/databases/$(database)/documents/orders/$(incoming().orderId)).data.rewardPointsRedeemed == incoming().points
+            && getAfter(/databases/$(database)/documents/customer_reward_balances/$(request.auth.uid)).data.availablePoints
+               == get(/databases/$(database)/documents/customer_reward_balances/$(request.auth.uid)).data.availablePoints - incoming().points
+          )
+        );
+      allow update: if isAdmin()
+        && isValidId(transactionId)
+        && isValidRewardTransaction(incoming())
+        && incoming().id == existing().id
+        && incoming().userId == existing().userId
+        && incoming().createdAt == existing().createdAt
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'transactionType', 'points', 'status', 'description', 'expiresAt'
+        ]);
+      allow delete: if isAdmin() && isValidId(transactionId);
+    }
+
+    function isValidUserProfile(data) {
+      return data.keys().hasAll(['uid', 'updatedAt'])
+        && data.keys().hasOnly([
+          'uid', 'displayName', 'email', 'phoneNumber',
+          'providerId', 'emailVerified', 'createdAt', 'updatedAt', 'lastLoginAt'
+        ])
+        && isValidId(data.uid)
+        && (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 120))
+        && (!('email' in data) || (data.email is string && data.email.size() <= 120))
+        && (!('phoneNumber' in data) || (data.phoneNumber is string && data.phoneNumber.size() <= 32))
+        && (!('providerId' in data) || (data.providerId is string && data.providerId.size() <= 40))
+        && (!('emailVerified' in data) || data.emailVerified is bool)
+        && (!('createdAt' in data) || data.createdAt is timestamp)
+        && (!('lastLoginAt' in data) || data.lastLoginAt is timestamp)
+        && data.updatedAt == request.time;
+    }
+
+    // Persisted customer account profile documents (strictly owner or admin)
+    match /users/{userId} {
+      allow get: if isValidId(userId) && ((isSignedIn() && request.auth.uid == userId) || isAdmin());
+      allow list: if (isSignedIn() && existing().uid == request.auth.uid) || isAdmin();
+      allow create: if isValidId(userId)
+        && isSignedIn()
+        && request.auth.uid == userId
+        && isValidUserProfile(incoming())
+        && incoming().uid == userId
+        && (!('createdAt' in incoming()) || incoming().createdAt == request.time);
+      allow update: if isValidId(userId)
+        && isSignedIn()
+        && request.auth.uid == userId
+        && isValidUserProfile(incoming())
+        && incoming().uid == existing().uid
+        && (
+          (!('createdAt' in existing()) && !('createdAt' in incoming())) ||
+          (('createdAt' in existing()) && ('createdAt' in incoming()) && incoming().createdAt == existing().createdAt)
+        )
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'displayName', 'email', 'phoneNumber', 'providerId',
+          'emailVerified', 'updatedAt', 'lastLoginAt'
+        ]);
+      allow delete: if isAdmin() && isValidId(userId);
+    }
+
+    function isValidGiftCard(data) {
+      return data.keys().hasAll([
+          'code', 'userId', 'value', 'orderId', 'recipientName', 'issuedAt', 'tierLabel', 'redeemed', 'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'code', 'userId', 'value', 'orderId', 'recipientName',
+          'issuedAt', 'tierLabel', 'redeemed', 'redeemedOrderId', 'redeemedAt', 'createdAt'
+        ])
+        && isValidId(data.code) && data.code.size() >= 4 && data.code.size() <= 32
+        && isValidId(data.userId)
+        && data.value is number && data.value >= 1 && data.value <= 150000
+        && isValidId(data.orderId) && data.orderId.size() <= 40
+        && data.recipientName is string && data.recipientName.size() >= 1 && data.recipientName.size() <= 120
+        && data.issuedAt is string && data.issuedAt.size() >= 1 && data.issuedAt.size() <= 60
+        && data.tierLabel is string && data.tierLabel.size() >= 1 && data.tierLabel.size() <= 80
+        && data.redeemed is bool
+        && (!('redeemedOrderId' in data) || (isValidId(data.redeemedOrderId) && data.redeemedOrderId.size() <= 40))
+        && (!('redeemedAt' in data) || (data.redeemedAt is string && data.redeemedAt.size() <= 80))
+        && data.createdAt is timestamp;
+    }
+
+    // Per-user isolated digital gift cards earned from qualifying orders
+    match /gift_cards/{code} {
+      allow get: if isValidId(code) && (
+        (isSignedIn() && existing().userId == request.auth.uid) || isAdmin()
+      );
+      allow list: if (isSignedIn() && existing().userId == request.auth.uid) || isAdmin();
+      allow create: if isValidId(code)
+        && isValidGiftCard(incoming())
+        && incoming().code == code
+        && incoming().createdAt == request.time
+        && (
+          isAdmin() ||
+          (
+            isSignedIn()
+            && incoming().userId == request.auth.uid
+            && incoming().redeemed == false
+            && !('redeemedOrderId' in incoming())
+            && !('redeemedAt' in incoming())
+            && existsAfter(/databases/$(database)/documents/orders/$(incoming().orderId))
+            && getAfter(/databases/$(database)/documents/orders/$(incoming().orderId)).data.userId == request.auth.uid
+            && (getAfter(/databases/$(database)/documents/orders/$(incoming().orderId)).data.subtotal - getAfter(/databases/$(database)/documents/orders/$(incoming().orderId)).data.discount) >= 500
+          )
+        );
+      allow update: if isValidId(code)
+        && isValidGiftCard(incoming())
+        && incoming().code == existing().code
+        && incoming().userId == existing().userId
+        && incoming().value == existing().value
+        && incoming().orderId == existing().orderId
+        && incoming().createdAt == existing().createdAt
+        && (
+          isAdmin() ||
+          (
+            isSignedIn()
+            && existing().userId == request.auth.uid
+            && existing().redeemed == false
+            && incoming().redeemed == true
+            && ('redeemedOrderId' in incoming())
+            && existsAfter(/databases/$(database)/documents/orders/$(incoming().redeemedOrderId))
+            && getAfter(/databases/$(database)/documents/orders/$(incoming().redeemedOrderId)).data.userId == request.auth.uid
+            && incoming().diff(existing()).affectedKeys().hasOnly([
+              'redeemed', 'redeemedOrderId', 'redeemedAt'
+            ])
+          )
+        );
+      allow delete: if isAdmin() && isValidId(code);
     }
   }
 }

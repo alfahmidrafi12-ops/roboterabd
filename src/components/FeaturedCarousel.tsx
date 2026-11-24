@@ -122,8 +122,9 @@ export const FeaturedCarousel: React.FC<FeaturedCarouselProps> = ({
           </div>
 
           <div
+            key={activeTab}
             ref={trackRef}
-            className="flex gap-3.5 sm:gap-5 overflow-x-auto no-scrollbar scroll-smooth pb-2 pt-1"
+            className="animate-tab-enter flex gap-3.5 sm:gap-5 overflow-x-auto no-scrollbar scroll-smooth pb-2 pt-1"
           >
             {displayedList.map((product, idx) => (
               <div

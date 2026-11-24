@@ -379,10 +379,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       rating: 4.9,
       reviews: 0,
       stock: 20,
+      displayOrder: undefined,
       tag: '',
       isBestSeller: true,
       isJustArrived: true,
-      artwork: firstCat?.artwork ?? 'esp32',
+      artwork: firstCat?.artwork && firstCat.artwork !== 'none' ? firstCat.artwork : 'esp32',
       imageUrl: undefined,
       videoUrl: undefined,
       shortDesc: '',
@@ -432,6 +433,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       return;
     }
 
+    const rawOrder = editingProduct.displayOrder;
+    const parsedDisplayOrder =
+      typeof rawOrder === 'number' && Number.isFinite(rawOrder)
+        ? Math.max(0, Math.min(100000, Math.round(rawOrder)))
+        : undefined;
+
     const payload: Product = {
       ...editingProduct,
       id: sanitizedId,
@@ -442,6 +449,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           ? Number(editingProduct.originalPrice)
           : undefined,
       stock: Number(editingProduct.stock) || 0,
+      displayOrder: parsedDisplayOrder,
       rating: Number(editingProduct.rating) || 4.8,
       reviews: Number(editingProduct.reviews) || 0,
       tag: editingProduct.tag?.trim() ? editingProduct.tag.trim() : undefined,
@@ -561,7 +569,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       id: '',
       name: '',
       countLabel: '0 Items',
-      artwork: 'esp32',
+      artwork: 'none',
       imageUrl: undefined,
       order: categories.length + 1,
       active: true,
@@ -997,15 +1005,21 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     return matchesStatus && matchesQuery;
   });
 
-  const filteredProducts = products.filter((p) => {
-    const q = productSearch.trim().toLowerCase();
-    return (
-      !q ||
-      p.name.toLowerCase().includes(q) ||
-      p.sku.toLowerCase().includes(q) ||
-      p.categoryLabel.toLowerCase().includes(q)
+  const filteredProducts = products
+    .filter((p) => {
+      const q = productSearch.trim().toLowerCase();
+      return (
+        !q ||
+        p.name.toLowerCase().includes(q) ||
+        p.sku.toLowerCase().includes(q) ||
+        p.categoryLabel.toLowerCase().includes(q)
+      );
+    })
+    .sort(
+      (a, b) =>
+        (typeof a.displayOrder === 'number' ? a.displayOrder : Number.MAX_SAFE_INTEGER) -
+        (typeof b.displayOrder === 'number' ? b.displayOrder : Number.MAX_SAFE_INTEGER)
     );
-  });
 
   const totalRevenue = orders
     .filter((o) => o.status !== 'Cancelled')
@@ -1141,6 +1155,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           ? {
               uid: user.uid,
               email: user.email,
+              phoneNumber: user.phoneNumber,
               displayName: user.displayName,
             }
           : null,
@@ -1195,6 +1210,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       log.deviceType,
       log.platform,
       log.userEmail,
+      log.userPhone,
       log.userName,
       log.pagePath,
     ]
@@ -1246,6 +1262,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       'Page Path',
       'Referrer',
       'User Email',
+      'User Phone',
       'User Name',
     ];
     const rows = filteredVisitorLogs.map((v) =>
@@ -1276,6 +1293,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         v.pagePath,
         v.referrer || '',
         v.userEmail || '',
+        v.userPhone || '',
         v.userName || '',
       ]
         .map(csvEscape)
@@ -2066,9 +2084,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                                     <p className="text-[11px] text-slate-500">
                                       {[log.os, log.browser].filter(Boolean).join(' · ') || 'Browser'}
                                     </p>
-                                    {log.userEmail && (
-                                      <p className="text-[11px] text-[#0057E7] truncate max-w-[170px]">
-                                        {log.userEmail}
+                                    {(log.userEmail || log.userPhone) && (
+                                      <p className="text-[11px] text-[#0057E7] truncate max-w-[190px]">
+                                        {[log.userEmail, log.userPhone].filter(Boolean).join(' · ')}
                                       </p>
                                     )}
                                   </td>
@@ -2186,6 +2204,23 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                               <p className="text-xs text-slate-500">
                                 {order.address}, {order.district}
                               </p>
+                              {(order.couponCode || (order.rewardPointsRedeemed ?? 0) > 0) && (
+                                <div className="flex flex-wrap items-center gap-1.5 pt-0.5 text-[11px] font-mono">
+                                  {order.couponCode && (
+                                    <span className="px-2 py-0.5 rounded bg-emerald-50 border border-emerald-200 text-emerald-700 font-semibold">
+                                      Promo: {order.couponCode}
+                                    </span>
+                                  )}
+                                  {(order.rewardPointsRedeemed ?? 0) > 0 && (
+                                    <span className="px-2 py-0.5 rounded bg-blue-50 border border-blue-200 text-[#0057E7] font-semibold">
+                                      Reward: -{order.rewardPointsRedeemed} pts (-৳
+                                      {order.rewardDiscount ??
+                                        Math.round(((order.rewardPointsRedeemed ?? 0) / 100) * 8)}
+                                      )
+                                    </span>
+                                  )}
+                                </div>
+                              )}
                               {order.notes && (
                                 <p className="text-xs text-blue-700">Note: {order.notes}</p>
                               )}
@@ -2297,6 +2332,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     <table className="w-full text-left border-collapse text-xs">
                       <thead>
                         <tr className="bg-[#F6F8FB] border-b border-slate-200 text-slate-500 font-semibold">
+                          <th className="py-3 px-3">Show #</th>
                           <th className="py-3 px-4">Product</th>
                           <th className="py-3 px-3">SKU</th>
                           <th className="py-3 px-3">Category</th>
@@ -2308,6 +2344,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                       <tbody className="divide-y divide-slate-100">
                         {filteredProducts.map((product) => (
                           <tr key={product.id} className="hover:bg-slate-50/70">
+                            <td className="py-3 px-3 font-mono whitespace-nowrap">
+                              {typeof product.displayOrder === 'number' ? (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded bg-[#EDF4FF] text-[#0057E7] border border-blue-200 font-bold tabular-nums">
+                                  #{product.displayOrder}
+                                </span>
+                              ) : (
+                                <span className="text-[11px] text-slate-400">Auto</span>
+                              )}
+                            </td>
                             <td className="py-3 px-4">
                               <div className="flex items-center gap-3">
                                 <div className="w-10 h-10 rounded-lg bg-[#F6F8FB] border border-slate-200 p-1 shrink-0 overflow-hidden">
@@ -3867,9 +3912,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                                     <span className="font-mono text-slate-500">{log.screenSize}</span>
                                   )}
                                   <span className="font-mono text-slate-500">Path: {log.pagePath}</span>
-                                  {log.userEmail && (
+                                  {(log.userEmail || log.userPhone) && (
                                     <span className="text-[#0057E7] font-medium">
-                                      User: {log.userName ? `${log.userName} (${log.userEmail})` : log.userEmail}
+                                      User:{' '}
+                                      {log.userName
+                                        ? `${log.userName} (${[log.userEmail, log.userPhone]
+                                            .filter(Boolean)
+                                            .join(' · ')})`
+                                        : [log.userEmail, log.userPhone].filter(Boolean).join(' · ')}
                                     </span>
                                   )}
                                 </div>
@@ -4182,6 +4232,27 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               </div>
 
               <div>
+                <label className="block font-semibold text-slate-700 mb-1">
+                  Show Number (Serial Order)
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  max={100000}
+                  value={editingProduct.displayOrder ?? ''}
+                  onChange={(e) => {
+                    const val = e.target.value.trim();
+                    setEditingProduct({
+                      ...editingProduct,
+                      displayOrder: val === '' ? undefined : Number(val),
+                    });
+                  }}
+                  placeholder="e.g. 1, 2, 3 (Optional)"
+                  className="w-full h-9 px-3 rounded-lg border border-slate-200 font-mono"
+                />
+              </div>
+
+              <div className="sm:col-span-2">
                 <label className="block font-semibold text-slate-700 mb-1">Fallback Vector Icon</label>
                 <select
                   value={editingProduct.artwork}
@@ -4666,7 +4737,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               </div>
 
               <div className="sm:col-span-2">
-                <label className="block font-semibold text-slate-700 mb-1">Fallback Vector Icon</label>
+                <label className="block font-semibold text-slate-700 mb-1">
+                  Fallback Icon (Optional — &quot;None&quot; uses uploaded image)
+                </label>
                 <select
                   value={editingCategory.artwork}
                   onChange={(e) =>
@@ -4677,6 +4750,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   }
                   className="w-full h-9 px-3 rounded-lg border border-slate-200 bg-white font-mono"
                 >
+                  <option value="none">None — Use Uploaded Image Only</option>
                   {ARTWORK_OPTIONS.map((art) => (
                     <option key={art} value={art}>
                       {art}
@@ -4688,6 +4762,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               <div className="sm:col-span-2">
                 <ImageSourceField
                   label="Custom Category Image (Upload or URL)"
+                  helperText="Leave Fallback Icon as None to display your uploaded image directly on this category card."
                   value={editingCategory.imageUrl}
                   maxDimension={560}
                   maxChars={140000}
