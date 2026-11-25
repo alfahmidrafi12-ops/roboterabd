@@ -114,14 +114,18 @@ export const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
               </p>
             </div>
 
-            <button
-              type="button"
-              onClick={() => onSelectCategory('all')}
+            <a
+              href="/shop"
+              onClick={(e) => {
+                if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+                e.preventDefault();
+                onSelectCategory('all');
+              }}
               className="group self-start sm:self-auto inline-flex items-center gap-2 text-xs sm:text-[13px] font-bold tracking-[0.05em] uppercase text-[#071A3D] hover:text-[#087BFF] transition-colors py-1.5 whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF] rounded-lg"
             >
               <span>View All Categories</span>
               <ArrowRight className="w-4 h-4 text-[#087BFF] transition-transform duration-200 group-hover:translate-x-1" />
-            </button>
+            </a>
           </div>
 
           {/* Balanced 4-Column Architectural Category Grid */}
@@ -150,10 +154,12 @@ export const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
               }
 
               return (
-                <button
+                <a
                   key={category.id}
-                  type="button"
-                  onClick={() => {
+                  href={`/category/${encodeURIComponent(category.id)}`}
+                  onClick={(e) => {
+                    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+                    e.preventDefault();
                     playTapSound();
                     onSelectCategory(isSelected ? 'all' : category.id);
                   }}
@@ -171,7 +177,7 @@ export const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
                     {imgSrc ? (
                       <img
                         src={imgSrc}
-                        alt={category.name}
+                        alt={`${category.name} components in Bangladesh — Robotera BD`}
                         referrerPolicy="no-referrer"
                         loading={idx < 4 ? 'eager' : 'lazy'}
                         onError={() => {
@@ -243,7 +249,7 @@ export const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
                       </span>
                     </div>
                   </div>
-                </button>
+                </a>
               );
             })}
           </div>

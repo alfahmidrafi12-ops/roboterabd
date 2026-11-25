@@ -224,8 +224,9 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
 
           <a
-            href="#top"
+            href="/"
             onClick={(e) => {
+              if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
               e.preventDefault();
               onGoHome();
             }}
@@ -272,9 +273,11 @@ export const Header: React.FC<HeaderProps> = ({
                   <span className="text-[11px] font-mono font-semibold uppercase tracking-wider text-[#64748B]">
                     Hardware Departments
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => {
+                  <a
+                    href="/shop"
+                    onClick={(e) => {
+                      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+                      e.preventDefault();
                       setCategoriesOpen(false);
                       onSelectCategory?.('all');
                     }}
@@ -282,15 +285,17 @@ export const Header: React.FC<HeaderProps> = ({
                   >
                     <span>View All Hardware</span>
                     <ArrowRight className="w-3 h-3" />
-                  </button>
+                  </a>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2">
                   {visibleCategories.map((cat) => (
-                    <button
+                    <a
                       key={cat.id}
-                      type="button"
-                      onClick={() => {
+                      href={`/category/${encodeURIComponent(cat.id)}`}
+                      onClick={(e) => {
+                        if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+                        e.preventDefault();
                         setCategoriesOpen(false);
                         if (onSelectCategory) {
                           onSelectCategory(cat.id);
@@ -317,7 +322,7 @@ export const Header: React.FC<HeaderProps> = ({
                           {cat.countLabel}
                         </p>
                       </div>
-                    </button>
+                    </a>
                   ))}
                 </div>
               </div>
@@ -325,16 +330,20 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
 
           {[
-            { label: 'Shop Hardware', action: () => onNavigateSection('best-selling'), active: false },
-            { label: 'New Arrivals', action: () => onNavigateSection('just-arrived'), active: false },
-            { label: 'Robotics Kits', action: () => onNavigateSection('bundles'), active: false },
-            { label: 'Guides', action: () => onNavigateSection('lab-guides'), active: false },
-            { label: 'Track Order', action: onOpenTracking, active: activePage === 'track' },
+            { label: 'Shop Hardware', href: '/shop', action: () => onNavigateSection('best-selling'), active: false },
+            { label: 'New Arrivals', href: '/just-arrived', action: () => onNavigateSection('just-arrived'), active: false },
+            { label: 'Robotics Kits', href: '/bundles', action: () => onNavigateSection('bundles'), active: false },
+            { label: 'Guides', href: '/guides', action: () => onNavigateSection('lab-guides'), active: false },
+            { label: 'Track Order', href: '/track-order', action: onOpenTracking, active: activePage === 'track' },
           ].map((navItem) => (
-            <button
+            <a
               key={navItem.label}
-              type="button"
-              onClick={navItem.action}
+              href={navItem.href}
+              onClick={(e) => {
+                if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+                e.preventDefault();
+                navItem.action();
+              }}
               className={`relative py-1.5 whitespace-nowrap shrink-0 transition-colors after:content-[''] after:absolute after:left-0 after:bottom-0 after:h-[2px] after:w-full after:rounded-full after:bg-[#087BFF] after:origin-left after:transition-transform after:duration-200 ${
                 navItem.active
                   ? 'text-[#087BFF] font-semibold after:scale-x-100'
@@ -342,7 +351,7 @@ export const Header: React.FC<HeaderProps> = ({
               }`}
             >
               {navItem.label}
-            </button>
+            </a>
           ))}
         </nav>
 

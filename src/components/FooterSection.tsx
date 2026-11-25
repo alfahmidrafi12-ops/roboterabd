@@ -63,14 +63,18 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
           </div>
           <div className="flex flex-wrap gap-2">
             {QUICK_SEARCH_TAGS.map((term) => (
-              <button
+              <a
                 key={term}
-                type="button"
-                onClick={() => onQuickSearch(term)}
+                href={`/shop?q=${encodeURIComponent(term)}`}
+                onClick={(e) => {
+                  if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+                  e.preventDefault();
+                  onQuickSearch(term);
+                }}
                 className="px-3.5 py-2 rounded-xl bg-[#F3F7FC] hover:bg-[#087BFF] text-[#071A3D] hover:text-white text-xs sm:text-sm font-medium border border-slate-200/90 hover:border-[#087BFF] transition-colors whitespace-nowrap"
               >
                 {term}
-              </button>
+              </a>
             ))}
           </div>
         </Reveal>
@@ -170,16 +174,20 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
             <ul className="space-y-2.5 text-sm text-slate-300/90">
               {categories
                 .filter((c) => c.active !== false)
-                .slice(0, 6)
+                .slice(0, 8)
                 .map((cat) => (
                   <li key={cat.id}>
-                    <button
-                      type="button"
-                      onClick={() => onSelectCategory(cat.id)}
-                      className="hover:text-[#00CFFF] transition-colors text-left"
+                    <a
+                      href={`/category/${encodeURIComponent(cat.id)}`}
+                      onClick={(e) => {
+                        if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+                        e.preventDefault();
+                        onSelectCategory(cat.id);
+                      }}
+                      className="hover:text-[#00CFFF] transition-colors text-left inline-block"
                     >
                       {cat.name}
-                    </button>
+                    </a>
                   </li>
                 ))}
             </ul>
@@ -189,29 +197,69 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
             <h3 className="font-hero text-sm font-bold text-white mb-4">Customer Support</h3>
             <ul className="space-y-2.5 text-sm text-slate-300/90">
               <li>
-                <button type="button" onClick={() => onNavigateSection('best-selling')} className="hover:text-[#00CFFF] transition-colors">
+                <a
+                  href="/shop"
+                  onClick={(e) => {
+                    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+                    e.preventDefault();
+                    onNavigateSection('best-selling');
+                  }}
+                  className="hover:text-[#00CFFF] transition-colors inline-block"
+                >
                   Shop Hardware
-                </button>
+                </a>
               </li>
               <li>
-                <button type="button" onClick={() => onNavigateSection('just-arrived')} className="hover:text-[#00CFFF] transition-colors">
+                <a
+                  href="/just-arrived"
+                  onClick={(e) => {
+                    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+                    e.preventDefault();
+                    onNavigateSection('just-arrived');
+                  }}
+                  className="hover:text-[#00CFFF] transition-colors inline-block"
+                >
                   New Arrivals
-                </button>
+                </a>
               </li>
               <li>
-                <button type="button" onClick={() => onNavigateSection('bundles')} className="hover:text-[#00CFFF] transition-colors">
+                <a
+                  href="/bundles"
+                  onClick={(e) => {
+                    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+                    e.preventDefault();
+                    onNavigateSection('bundles');
+                  }}
+                  className="hover:text-[#00CFFF] transition-colors inline-block"
+                >
                   Robotics Kits
-                </button>
+                </a>
               </li>
               <li>
-                <button type="button" onClick={onOpenTracking} className="hover:text-[#00CFFF] transition-colors">
+                <a
+                  href="/track-order"
+                  onClick={(e) => {
+                    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+                    e.preventDefault();
+                    onOpenTracking();
+                  }}
+                  className="hover:text-[#00CFFF] transition-colors inline-block"
+                >
                   Track Order
-                </button>
+                </a>
               </li>
               <li>
-                <button type="button" onClick={() => onNavigateSection('lab-guides')} className="hover:text-[#00CFFF] transition-colors">
+                <a
+                  href="/guides"
+                  onClick={(e) => {
+                    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+                    e.preventDefault();
+                    onNavigateSection('lab-guides');
+                  }}
+                  className="hover:text-[#00CFFF] transition-colors inline-block"
+                >
                   Engineering Guides
-                </button>
+                </a>
               </li>
             </ul>
           </div>

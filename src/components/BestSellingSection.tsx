@@ -18,6 +18,7 @@ import {
   Product,
   SortOption,
 } from '../types/store';
+import { getCategorySeoInfo } from '../lib/seo';
 import { playTapSound } from '../lib/sound';
 import { HighlightMatch } from './HighlightMatch';
 import { ProductCard } from './ProductCard';
@@ -76,8 +77,8 @@ const BRAND_PLATFORMS = [
   'Yahboom',
 ];
 
-const INITIAL_PAGE_SIZE = 12;
-const PAGE_INCREMENT = 8;
+const INITIAL_PAGE_SIZE = 24;
+const PAGE_INCREMENT = 12;
 
 type DiscoveryTab = 'all' | 'best-sellers' | 'new-arrivals' | 'makers';
 
@@ -188,6 +189,10 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
   const remainingProductsCount = Math.max(0, displayedProducts.length - paginatedProducts.length);
 
   const activeCategoryName = activeCategory === 'all' ? null : categoryLabels[activeCategory];
+  const activeCategoryIntro =
+    activeCategory !== 'all'
+      ? getCategorySeoInfo(activeCategory, activeCategoryName || undefined)
+      : null;
 
   const hasAnyFilter = Boolean(
     searchQuery.trim() ||
@@ -271,9 +276,13 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
         {renderSectionToggle('Categories', 'categories')}
         {openSections.categories && (
           <div className="mt-2.5 space-y-1">
-            <button
-              type="button"
-              onClick={() => onSelectCategory('all')}
+            <a
+              href="/shop"
+              onClick={(e) => {
+                if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+                e.preventDefault();
+                onSelectCategory('all');
+              }}
               className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-medium transition-colors ${
                 activeCategory === 'all'
                   ? 'bg-[#F3F7FC] text-[#087BFF] font-bold'
@@ -295,16 +304,20 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
               <span className="font-mono text-[11px] tabular-nums text-[#64748B] ml-2">
                 {sourcePool.length}
               </span>
-            </button>
+            </a>
 
             {activeCategories.map((cat) => {
               const selected = activeCategory === cat.id;
               const catCount = liveCategoryCounts[cat.id] ?? 0;
               return (
-                <button
+                <a
                   key={cat.id}
-                  type="button"
-                  onClick={() => onSelectCategory(selected ? 'all' : cat.id)}
+                  href={`/category/${encodeURIComponent(cat.id)}`}
+                  onClick={(e) => {
+                    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+                    e.preventDefault();
+                    onSelectCategory(selected ? 'all' : cat.id);
+                  }}
                   className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-medium transition-colors text-left ${
                     selected
                       ? 'bg-[#F3F7FC] text-[#087BFF] font-bold'
@@ -328,7 +341,7 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
                   <span className="font-mono text-[11px] tabular-nums text-[#64748B] shrink-0 ml-2">
                     {catCount}
                   </span>
-                </button>
+                </a>
               );
             })}
           </div>
@@ -668,6 +681,17 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
             </div>
           </div>
         </div>
+
+        {activeCategoryIntro && (
+          <div className="mb-6 rounded-2xl bg-white border border-slate-200/90 p-4 sm:p-5 shadow-[0_4px_16px_-10px_rgba(7,26,61,0.06)]">
+            <h3 className="font-hero text-base sm:text-lg font-bold text-[#071A3D]">
+              {activeCategoryIntro.introHeading}
+            </h3>
+            <p className="mt-1 text-xs sm:text-sm text-[#475569] leading-relaxed max-w-4xl">
+              {activeCategoryIntro.introText}
+            </p>
+          </div>
+        )}
 
         {/* Discovery Quick Tabs + Active Filter Indicators */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">

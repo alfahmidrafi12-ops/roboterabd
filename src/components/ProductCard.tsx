@@ -87,7 +87,7 @@ const ProductMedia: React.FC<ProductMediaProps> = ({ product, className = '' }) 
     return (
       <img
         src={rawUrl}
-        alt={product.name}
+        alt={`${product.name} (${product.sku}) – Robotera BD`}
         loading="lazy"
         referrerPolicy="no-referrer"
         onError={() => setImgFailed(true)}
@@ -172,6 +172,14 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   const hasRatings = product.rating > 0 && product.reviews > 0;
   const displayCategory = categoryDisplayName || product.categoryLabel;
 
+  const productHref = `/product/${encodeURIComponent(product.id)}`;
+  const handleProductNav = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+    e.preventDefault();
+    playTapSound();
+    onOpenDetail(product);
+  };
+
   const badge = isOutOfStock
     ? { label: 'OUT OF STOCK', cls: 'bg-[#0F172A] text-white' }
     : hasDiscount
@@ -185,14 +193,14 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       <article className="group bg-white rounded-2xl border border-slate-200/90 hover:border-[#087BFF]/75 shadow-[0_4px_16px_-8px_rgba(7,26,61,0.08)] hover:shadow-[0_16px_32px_-12px_rgba(8,123,255,0.16)] transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] flex flex-col sm:flex-row overflow-hidden">
         {/* Clean Light Product Image Stage */}
         <div className="card-shine relative bg-[#F7FAFE] border-b sm:border-b-0 sm:border-r border-slate-100 w-full sm:w-56 h-48 sm:h-auto shrink-0 overflow-hidden">
-          <button
-            type="button"
-            onClick={() => onOpenDetail(product)}
+          <a
+            href={productHref}
+            onClick={handleProductNav}
             aria-label={`View details for ${product.name}`}
             className="w-full h-full p-4 flex items-center justify-center cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#087BFF]"
           >
             <ProductMedia product={product} />
-          </button>
+          </a>
 
           {badge && (
             <span
@@ -218,15 +226,15 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               <span className="font-mono">{product.sku}</span>
             </div>
 
-            <button
-              type="button"
-              onClick={() => onOpenDetail(product)}
-              className="text-left focus-visible:outline-none focus-visible:underline"
+            <a
+              href={productHref}
+              onClick={handleProductNav}
+              className="block text-left focus-visible:outline-none focus-visible:underline"
             >
               <h3 className="font-hero text-base sm:text-[17px] font-bold text-[#071A3D] group-hover:text-[#087BFF] transition-colors line-clamp-2">
                 <HighlightMatch text={product.name} query={highlightQuery} />
               </h3>
-            </button>
+            </a>
 
             <p className="text-xs sm:text-[13px] text-[#475569] line-clamp-2">{product.shortDesc}</p>
 
@@ -422,17 +430,14 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     <article className="group bg-white rounded-2xl border border-slate-200/90 hover:border-[#087BFF]/75 shadow-[0_4px_16px_-8px_rgba(7,26,61,0.08)] hover:shadow-[0_18px_36px_-14px_rgba(8,123,255,0.16)] hover:-translate-y-1 transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] flex flex-col overflow-hidden h-full">
       {/* Consistent Clean Studio Product Image Area */}
       <div className="card-shine relative bg-[#F7FAFE] border-b border-slate-100 h-[168px] sm:h-[200px] overflow-hidden shrink-0">
-        <button
-          type="button"
-          onClick={() => {
-            playTapSound();
-            onOpenDetail(product);
-          }}
+        <a
+          href={productHref}
+          onClick={handleProductNav}
           aria-label={`View details for ${product.name}`}
           className="w-full h-full p-3.5 sm:p-4 flex items-center justify-center cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#087BFF]"
         >
           <ProductMedia product={product} />
-        </button>
+        </a>
 
         {badge && (
           <span
@@ -521,15 +526,15 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         </div>
 
         {/* 2. Readable 2-Line Product Title */}
-        <button
-          type="button"
-          onClick={() => onOpenDetail(product)}
-          className="text-left focus-visible:outline-none focus-visible:underline"
+        <a
+          href={productHref}
+          onClick={handleProductNav}
+          className="block text-left focus-visible:outline-none focus-visible:underline"
         >
           <h3 className="font-hero text-[13.5px] sm:text-[15px] font-bold text-[#071A3D] leading-[1.35] line-clamp-2 group-hover:text-[#087BFF] transition-colors min-h-[2.3rem] sm:min-h-[2.55rem]">
             <HighlightMatch text={product.name} query={highlightQuery} />
           </h3>
-        </button>
+        </a>
 
         {/* 4. Real Ratings & 8. Stock Availability */}
         <div className="mt-1.5 flex items-center flex-wrap gap-x-1.5 gap-y-0.5 text-[11px] sm:text-xs text-[#475569] min-h-[1.1rem]">

@@ -25,6 +25,7 @@ import {
   getDocFromServer,
   getDocs,
   getFirestore,
+  initializeFirestore,
   limit,
   onSnapshot,
   orderBy,
@@ -60,7 +61,20 @@ import {
 } from '../types/store';
 
 const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+function createFirestoreClient() {
+  try {
+    return initializeFirestore(
+      app,
+      {
+        experimentalForceLongPolling: true,
+      },
+      firebaseConfig.firestoreDatabaseId
+    );
+  } catch {
+    return getFirestore(app, firebaseConfig.firestoreDatabaseId);
+  }
+}
+export const db = createFirestoreClient();
 export const auth = getAuth(app);
 auth.useDeviceLanguage();
 setPersistence(auth, browserLocalPersistence).catch((err) => {

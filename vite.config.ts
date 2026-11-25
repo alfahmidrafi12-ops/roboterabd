@@ -56,12 +56,20 @@ export default defineConfig(() => {
         workbox: {
           maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
+          globIgnores: ['**/google*.html', '**/assets/aistudio/*.html'],
           navigateFallbackDenylist: [
-            /^\/sitemap\.xml$/i,
-            /^\/robots\.txt$/i,
-            /^\/google[a-z0-9]+\.html$/i,
+            /^\/sitemap\.xml(\?.*)?$/i,
+            /^\/robots\.txt(\?.*)?$/i,
+            /^\/google[a-z0-9]+\.html(\?.*)?$/i,
           ],
           runtimeCaching: [
+            {
+              urlPattern: ({ url }) =>
+                url.pathname === '/sitemap.xml' ||
+                url.pathname === '/robots.txt' ||
+                /^\/google[a-z0-9]+\.html$/i.test(url.pathname),
+              handler: 'NetworkOnly',
+            },
             {
               urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
               handler: 'CacheFirst',

@@ -701,4 +701,53 @@ export const BLOG_POSTS: BlogPost[] = [
       'Keep an inline 30A blade fuse or XT60 master switch accessible from outside the robot chassis so your team can cut power instantly during bench testing.',
     ],
   },
+  {
+    id: 'esp32-s3-arduino-iot-guide-bd',
+    title: 'ESP32-S3 vs Arduino Mega 2560: Choosing the Right MCU in Bangladesh',
+    category: 'ESP32 & Arduino',
+    date: 'Nov 18, 2026',
+    readTime: '5 min read',
+    author: 'Tanvir Ahmed, Lead Mechatronics Engineer',
+    excerpt:
+      'Practical comparison of clock speed, Wi-Fi/BLE connectivity, 3.3V vs 5V logic compatibility, and pin count for university robotics projects.',
+    artwork: 'esp32',
+    content: [
+      'When starting an IoT or robotics build in Bangladesh, makers often debate between an ESP32-S3 DevKitC-1 N16R8 and an Arduino Mega 2560 R3. Each board solves a distinct engineering problem: ESP32-S3 delivers a 240MHz dual-core processor, built-in Wi-Fi/BLE 5.0, and 8MB PSRAM for telemetry dashboards or TinyML, whereas the Arduino Mega 2560 provides 54 rugged 5V digital I/O pins ideal for 3D printers, CNC shields, and multi-channel relay racks.',
+      'Voltage discipline prevents fried silicon: ESP32-S3 GPIO pins operate strictly at 3.3V logic. Always pass 5V UART RX signals or older 5V sensor outputs through a bidirectional logic level shifter—or choose dual-voltage modules such as the HC-SR04P that support 3.3V natively.',
+      'বাংলা টিপস (Bangla Lab Note): প্রজেক্টে Wi-Fi, MQTT বা Web Dashboard থাকলে ESP32-S3 ব্যবহার করুন; আর অনেকগুলো 5V সেন্সর বা রিলে একসাথে চালাতে চাইলে Arduino Mega 2560 সবচেয়ে নির্ভরযোগ্য।',
+    ],
+  },
+  {
+    id: 'ultrasonic-imu-oled-tutorial',
+    title: 'Wiring BNO085 9-DOF IMU, HC-SR04P & I2C OLED Without Bus Conflicts',
+    category: 'Lab Tutorials',
+    date: 'Nov 20, 2026',
+    readTime: '5 min read',
+    author: 'Nafisa Rahman, Hardware Specialist',
+    excerpt:
+      'How to share SDA/SCL lines cleanly between an SSD1306 0x3C OLED display and a 9-axis BNO085 IMU while isolating servo power rails.',
+    artwork: 'imu',
+    content: [
+      'Multiple I2C devices can share the same SDA and SCL pins as long as their 7-bit addresses do not collide. Standard 0.96-inch SSD1306 OLED screens default to 0x3C, while the BNO085 IMU uses 0x4A or 0x4B—making them drop-in partners on the same 3.3V bus.',
+      'Keep I2C jumper wires under 20cm and verify pull-up resistors before running 400kHz Fast Mode. Never power MG996R metal-gear servos from your microcontroller 5V regulator pin; give actuators a dedicated XL4015 5V–6V buck converter rail and tie only the GND ground reference together.',
+      'বাংলা টিপস (Bangla Lab Note): সার্ভো মোটরের পাওয়ার সবসময় আলাদা Buck Converter থেকে দিন এবং শুধুমাত্র Common GND কানেক্ট করুন—তাহলে ESP32 বা Arduino রিস্টার্ট হওয়ার সমস্যা হবে না।',
+    ],
+  },
+  {
+    id: 'soldering-logic-analyzer-debugging',
+    title: 'Precision Bench Setup: TS101 USB-C Soldering & 24MHz Logic Analysis',
+    category: 'Lab Tutorials',
+    date: 'Nov 23, 2026',
+    readTime: '4 min read',
+    author: 'Sajid Hasan, Embedded Systems Instructor',
+    excerpt:
+      'Temperature profiles for lead-free robotics joints plus decoding broken SPI, I2C, and UART frames with an 8-channel logic analyzer.',
+    artwork: 'analyzer',
+    content: [
+      'Cold solder joints on XT60 battery leads and motor driver headers cause intermittent brownouts that waste hours of firmware debugging. A PID-controlled USB-C PD iron like the Miniware TS101 heats to 350°C in seconds using a 65W laptop PD charger or 6S LiPo pack, maintaining stable thermal recovery on thick copper ground planes.',
+      'Whenever an SX1278 LoRa module or BNO085 sensor fails to respond, clip an 8-channel 24MHz USB logic analyzer onto CS, SCK, MOSI, and MISO and inspect the capture in PulseView. Verifying real clock polarity and baud rate in seconds beats guessing blind firmware delays.',
+      'বাংলা টিপস (Bangla Lab Note): SPI বা I2C মডিউল কাজ না করলে কোড বদলানোর আগে Logic Analyzer দিয়ে সিগন্যাল ও ভোল্টেজ লেভেল চেক করলে দ্রুত আসল সমস্যা ধরা পড়ে।',
+    ],
+  },
 ];
+

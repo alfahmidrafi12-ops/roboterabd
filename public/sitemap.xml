@@ -29,7 +29,7 @@
   </url>
   <url>
     <loc>https://roboterabd.vercel.app/guides</loc>
-    <lastmod>2026-11-12</lastmod>
+    <lastmod>2026-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -234,6 +234,24 @@
   <url>
     <loc>https://roboterabd.vercel.app/guides/lipo-bms-safety-bd</loc>
     <lastmod>2026-10-27</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://roboterabd.vercel.app/guides/esp32-s3-arduino-iot-guide-bd</loc>
+    <lastmod>2026-11-18</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://roboterabd.vercel.app/guides/ultrasonic-imu-oled-tutorial</loc>
+    <lastmod>2026-11-20</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://roboterabd.vercel.app/guides/soldering-logic-analyzer-debugging</loc>
+    <lastmod>2026-11-23</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>

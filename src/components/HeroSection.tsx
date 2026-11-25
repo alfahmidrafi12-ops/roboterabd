@@ -198,9 +198,11 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
 
                 {/* Two Clean, Uncluttered Conversion Buttons */}
                 <div className="animate-hero-rise-delay-2 mt-7 sm:mt-8 flex flex-col sm:flex-row items-stretch sm:items-center justify-center lg:justify-start gap-3">
-                  <button
-                    type="button"
-                    onClick={() => {
+                  <a
+                    href="/shop"
+                    onClick={(e) => {
+                      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+                      e.preventDefault();
                       playTapSound();
                       onShopNow();
                     }}
@@ -208,11 +210,13 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                   >
                     <span>Explore Hardware Catalog</span>
                     <ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" />
-                  </button>
+                  </a>
 
-                  <button
-                    type="button"
-                    onClick={() => {
+                  <a
+                    href="/category/robotics-kits"
+                    onClick={(e) => {
+                      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+                      e.preventDefault();
                       playTapSound();
                       onExploreKits();
                     }}
@@ -220,17 +224,19 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                   >
                     <span>Discover Robotics Kits</span>
                     <ArrowRight className="w-4 h-4 text-[#A8B6CC] group-hover:text-[#00C8FF] transition-all duration-200 group-hover:translate-x-0.5" />
-                  </button>
+                  </a>
                 </div>
 
                 {/* Quiet Inline Hardware Index (Zero Cards, Zero Pills — Pure Links & Real DB Prices) */}
                 {featuredLinks.length > 0 && (
                   <div className="animate-hero-rise-delay-3 mt-8 pt-6 border-t border-[rgba(100,150,255,0.14)] flex flex-wrap items-center justify-center lg:justify-start gap-x-6 gap-y-2.5">
                     {featuredLinks.map((item) => (
-                      <button
+                      <a
                         key={item.id}
-                        type="button"
-                        onClick={() => {
+                        href={`/product/${encodeURIComponent(item.id)}`}
+                        onClick={(e) => {
+                          if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+                          e.preventDefault();
                           playTapSound();
                           openProductOrCatalog(item);
                         }}
@@ -243,7 +249,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                           ৳{item.price.toLocaleString()}
                         </span>
                         <ArrowUpRight className="w-3.5 h-3.5 text-[#A8B6CC]/70 group-hover/link:text-[#00C8FF] group-hover/link:translate-x-0.5 group-hover/link:-translate-y-0.5 transition-all" />
-                      </button>
+                      </a>
                     ))}
                   </div>
                 )}

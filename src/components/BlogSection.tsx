@@ -10,11 +10,14 @@ interface BlogSectionProps {
   blogImages?: Record<string, string>;
   initialGuideId?: string | null;
   onGuideClosed?: () => void;
+  onActiveGuideChange?: (post: BlogPost | null) => void;
 }
 
 const GUIDE_TOPICS = [
   'All Guides',
   'Robotics Engineering',
+  'ESP32 & Arduino',
+  'Lab Tutorials',
   'Power & Actuation',
   'Battery Systems',
 ] as const;
@@ -29,6 +32,7 @@ export const BlogSection: React.FC<BlogSectionProps> = ({
   blogImages,
   initialGuideId,
   onGuideClosed,
+  onActiveGuideChange,
 }) => {
   const [activePost, setActivePost] = useState<BlogPost | null>(null);
   const [selectedTopic, setSelectedTopic] = useState<string>('All Guides');
@@ -40,6 +44,20 @@ export const BlogSection: React.FC<BlogSectionProps> = ({
       setActivePost(match);
     }
   }, [initialGuideId]);
+
+  useEffect(() => {
+    onActiveGuideChange?.(activePost);
+  }, [activePost, onActiveGuideChange]);
+
+  const openGuidePost = (post: BlogPost) => {
+    setActivePost(post);
+    if (typeof window !== 'undefined') {
+      const targetPath = `/guides/${encodeURIComponent(post.id)}`;
+      if (window.location.pathname !== targetPath) {
+        window.history.pushState(null, '', targetPath);
+      }
+    }
+  };
 
   const closeGuideModal = () => {
     setActivePost(null);
@@ -109,56 +127,67 @@ export const BlogSection: React.FC<BlogSectionProps> = ({
             const customImg = blogImages?.[post.id]?.trim();
             const fallbackCover = FALLBACK_STUDIO_COVERS[origIndex % FALLBACK_STUDIO_COVERS.length];
             const cardImageUrl = customImg || fallbackCover;
+            const guideHref = `/guides/${encodeURIComponent(post.id)}`;
 
             return (
               <Reveal key={post.id} delayMs={origIndex * 65}>
                 <article
-                  onClick={() => setActivePost(post)}
-                  className="group bg-white rounded-2xl border border-slate-200/85 overflow-hidden shadow-[0_8px_24px_-12px_rgba(7,26,61,0.08)] hover:border-[#087BFF]/65 hover:shadow-[0_20px_40px_-16px_rgba(8,123,255,0.16)] hover:-translate-y-1 transition-all duration-300 cursor-pointer flex flex-col h-full"
+                  className="group bg-white rounded-2xl border border-slate-200/85 overflow-hidden shadow-[0_8px_24px_-12px_rgba(7,26,61,0.08)] hover:border-[#087BFF]/65 hover:shadow-[0_20px_40px_-16px_rgba(8,123,255,0.16)] hover:-translate-y-1 transition-all duration-300 flex flex-col h-full"
                 >
-                  <div className="card-shine bg-[#F3F7FC] aspect-[16/10] border-b border-slate-200/80 overflow-hidden">
-                    {customImg ? (
-                      <div className="w-full h-full p-3 flex items-center justify-center">
-                        <HardwareArtwork
-                          kind={post.artwork}
-                          imageUrl={customImg}
+                  <a
+                    href={guideHref}
+                    onClick={(e) => {
+                      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+                      e.preventDefault();
+                      openGuidePost(post);
+                    }}
+                    className="flex flex-col flex-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF]"
+                  >
+                    <div className="card-shine bg-[#F3F7FC] aspect-[16/10] border-b border-slate-200/80 overflow-hidden">
+                      {customImg ? (
+                        <div className="w-full h-full p-3 flex items-center justify-center">
+                          <HardwareArtwork
+                            kind={post.artwork}
+                            imageUrl={customImg}
+                            alt={post.title}
+                            fit="contain"
+                            className="w-full h-full"
+                          />
+                        </div>
+                      ) : (
+                        <img
+                          src={cardImageUrl}
                           alt={post.title}
-                          fit="contain"
-                          className="w-full h-full"
+                          loading="lazy"
+                          className="w-full h-full object-cover object-center transition-transform duration-500 group-hover:scale-[1.03]"
                         />
+                      )}
+                    </div>
+
+                    <div className="p-5 sm:p-6 flex flex-col flex-1">
+                      <div className="flex items-center gap-2 text-xs text-[#64748B] mb-2">
+                        <span className="font-bold text-[#087BFF]">{post.category}</span>
+                        <span aria-hidden="true">·</span>
+                        <span>{post.date}</span>
+                        <span aria-hidden="true">·</span>
+                        <span>{post.readTime}</span>
                       </div>
-                    ) : (
-                      <img
-                        src={cardImageUrl}
-                        alt={post.title}
-                        className="w-full h-full object-cover object-center transition-transform duration-500 group-hover:scale-[1.03]"
-                      />
-                    )}
-                  </div>
 
-                  <div className="p-5 sm:p-6 flex flex-col flex-1">
-                    <div className="flex items-center gap-2 text-xs text-[#64748B] mb-2">
-                      <span className="font-bold text-[#087BFF]">{post.category}</span>
-                      <span aria-hidden="true">·</span>
-                      <span>{post.date}</span>
-                      <span aria-hidden="true">·</span>
-                      <span>{post.readTime}</span>
+                      <h3 className="font-hero text-lg font-bold text-[#071A3D] leading-snug group-hover:text-[#087BFF] transition-colors">
+                        {post.title}
+                      </h3>
+
+                      <p className="mt-2.5 text-sm text-[#475569] leading-relaxed line-clamp-3">
+                        {post.excerpt}
+                      </p>
+
+                      <div className="mt-auto pt-4 inline-flex items-center gap-1.5 text-xs font-bold text-[#087BFF]">
+                        <BookOpen className="w-3.5 h-3.5" />
+                        <span>Read Technical Guide</span>
+                        <ArrowRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-1" />
+                      </div>
                     </div>
-
-                    <h3 className="font-hero text-lg font-bold text-[#071A3D] leading-snug group-hover:text-[#087BFF] transition-colors">
-                      {post.title}
-                    </h3>
-
-                    <p className="mt-2.5 text-sm text-[#475569] leading-relaxed line-clamp-3">
-                      {post.excerpt}
-                    </p>
-
-                    <div className="mt-auto pt-4 inline-flex items-center gap-1.5 text-xs font-bold text-[#087BFF]">
-                      <BookOpen className="w-3.5 h-3.5" />
-                      <span>Read Technical Guide</span>
-                      <ArrowRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-1" />
-                    </div>
-                  </div>
+                  </a>
                 </article>
               </Reveal>
             );
