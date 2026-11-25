@@ -8,6 +8,8 @@ import { Reveal } from './Reveal';
 
 interface BlogSectionProps {
   blogImages?: Record<string, string>;
+  initialGuideId?: string | null;
+  onGuideClosed?: () => void;
 }
 
 const GUIDE_TOPICS = [
@@ -23,9 +25,26 @@ const FALLBACK_STUDIO_COVERS = [
   BRAND_STUDIO_MEDIA.roboticsArm,
 ];
 
-export const BlogSection: React.FC<BlogSectionProps> = ({ blogImages }) => {
+export const BlogSection: React.FC<BlogSectionProps> = ({
+  blogImages,
+  initialGuideId,
+  onGuideClosed,
+}) => {
   const [activePost, setActivePost] = useState<BlogPost | null>(null);
   const [selectedTopic, setSelectedTopic] = useState<string>('All Guides');
+
+  useEffect(() => {
+    if (!initialGuideId) return;
+    const match = BLOG_POSTS.find((p) => p.id === initialGuideId);
+    if (match) {
+      setActivePost(match);
+    }
+  }, [initialGuideId]);
+
+  const closeGuideModal = () => {
+    setActivePost(null);
+    onGuideClosed?.();
+  };
 
   const visiblePosts =
     selectedTopic === 'All Guides'
@@ -36,7 +55,7 @@ export const BlogSection: React.FC<BlogSectionProps> = ({ blogImages }) => {
     if (!activePost) return;
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        setActivePost(null);
+        closeGuideModal();
       }
     };
     const prevOverflow = document.body.style.overflow;
@@ -152,7 +171,7 @@ export const BlogSection: React.FC<BlogSectionProps> = ({ blogImages }) => {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
             className="animate-fade-in fixed inset-0 bg-[#071A3D]/65 backdrop-blur-sm"
-            onClick={() => setActivePost(null)}
+            onClick={closeGuideModal}
             aria-hidden="true"
           />
           <div className="animate-pop-in relative z-10 w-full max-w-2xl max-h-[90dvh] bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col border border-slate-200">
@@ -166,7 +185,7 @@ export const BlogSection: React.FC<BlogSectionProps> = ({ blogImages }) => {
               </div>
               <button
                 type="button"
-                onClick={() => setActivePost(null)}
+                onClick={closeGuideModal}
                 aria-label="Close guide modal"
                 className="p-1.5 rounded-xl text-[#64748B] hover:text-[#071A3D] hover:bg-white transition-colors"
               >

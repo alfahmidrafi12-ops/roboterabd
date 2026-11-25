@@ -101,12 +101,46 @@ function parseTrackingHash(): { isTrack: boolean; orderId: string | null } {
   return { isTrack: false, orderId: null };
 }
 
+type PublicRouteTarget =
+  | { type: 'home' }
+  | { type: 'track' }
+  | { type: 'section'; sectionId: string }
+  | { type: 'category'; categoryId: string }
+  | { type: 'product'; productId: string }
+  | { type: 'guide'; guideId: string };
+
+function parsePublicPathname(): PublicRouteTarget {
+  if (typeof window === 'undefined') return { type: 'home' };
+  const path = window.location.pathname.replace(/\/+$/, '') || '/';
+  if (path === '/track-order') return { type: 'track' };
+  if (path === '/shop') return { type: 'section', sectionId: 'best-selling' };
+  if (path === '/just-arrived') return { type: 'section', sectionId: 'just-arrived' };
+  if (path === '/bundles') return { type: 'section', sectionId: 'bundles' };
+  if (path === '/guides') return { type: 'section', sectionId: 'lab-guides' };
+  if (path.startsWith('/guides/')) {
+    const guideId = decodeURIComponent(path.slice('/guides/'.length)).trim();
+    return guideId ? { type: 'guide', guideId } : { type: 'section', sectionId: 'lab-guides' };
+  }
+  if (path.startsWith('/category/')) {
+    const categoryId = decodeURIComponent(path.slice('/category/'.length)).trim();
+    return categoryId ? { type: 'category', categoryId } : { type: 'section', sectionId: 'best-selling' };
+  }
+  if (path.startsWith('/product/')) {
+    const productId = decodeURIComponent(path.slice('/product/'.length)).trim();
+    return productId ? { type: 'product', productId } : { type: 'section', sectionId: 'best-selling' };
+  }
+  return { type: 'home' };
+}
+
 export default function App() {
   const initialTrack = parseTrackingHash();
+  const initialPathRoute = parsePublicPathname();
   const [activePage, setActivePage] = useState<'shop' | 'track'>(
-    initialTrack.isTrack ? 'track' : 'shop'
+    initialTrack.isTrack || initialPathRoute.type === 'track' ? 'track' : 'shop'
   );
-  const [activeCategory, setActiveCategory] = useState<CategoryId>('all');
+  const [activeCategory, setActiveCategory] = useState<CategoryId>(
+    initialPathRoute.type === 'category' ? (initialPathRoute.categoryId as CategoryId) : 'all'
+  );
   const [searchQuery, setSearchQuery] = useState('');
   const [minPrice, setMinPrice] = useState('');
   const [maxPrice, setMaxPrice] = useState('');
@@ -117,6 +151,12 @@ export default function App() {
   const [startInCheckout, setStartInCheckout] = useState(false);
   const [wishlistOpen, setWishlistOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [deepLinkProductId, setDeepLinkProductId] = useState<string | null>(
+    initialPathRoute.type === 'product' ? initialPathRoute.productId : null
+  );
+  const [deepLinkGuideId, setDeepLinkGuideId] = useState<string | null>(
+    initialPathRoute.type === 'guide' ? initialPathRoute.guideId : null
+  );
   const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
 
   // Live Firestore Data + Store Admin State
@@ -468,7 +508,7 @@ export default function App() {
     }
   }, [products, wishlistIds, restockWatches, knownOosIds]);
 
-  // Secret Admin Access (#admin or ?admin=1 + Ctrl/Cmd+Shift+A) + Dedicated Tracking Page Hash Sync
+  // Secret Admin Access (#admin or ?admin=1 + Ctrl/Cmd+Shift+A) + Dedicated Tracking & Public Sitemap Path Sync
   useEffect(() => {
     const handleRouteSync = () => {
       const hashIsAdmin = window.location.hash === '#admin';
@@ -476,14 +516,45 @@ export default function App() {
       if (hashIsAdmin || paramsIsAdmin) {
         setAdminOpen(true);
       }
+
       const trackState = parseTrackingHash();
-      if (trackState.isTrack) {
+      const pathRoute = parsePublicPathname();
+
+      const canonicalEl = document.querySelector<HTMLLinkElement>('link[rel="canonical"]');
+      if (canonicalEl) {
+        const cleanPath = window.location.pathname.replace(/\/+$/, '') || '/';
+        canonicalEl.href = `${window.location.origin}${cleanPath}`;
+      }
+
+      if (trackState.isTrack || pathRoute.type === 'track') {
         setActivePage('track');
         if (trackState.orderId) {
           setAutoTrackOrderId(trackState.orderId);
         }
-      } else if (!hashIsAdmin) {
+        document.title = 'Track Your Order — Robotera BD';
+        return;
+      }
+
+      if (!hashIsAdmin) {
         setActivePage('shop');
+      }
+
+      if (pathRoute.type === 'category') {
+        setActiveCategory(pathRoute.categoryId as CategoryId);
+        window.setTimeout(() => {
+          document.getElementById('best-selling')?.scrollIntoView({ behavior: 'auto', block: 'start' });
+        }, 80);
+      } else if (pathRoute.type === 'section') {
+        window.setTimeout(() => {
+          document.getElementById(pathRoute.sectionId)?.scrollIntoView({ behavior: 'auto', block: 'start' });
+        }, 80);
+      } else if (pathRoute.type === 'guide') {
+        setDeepLinkGuideId(pathRoute.guideId);
+        window.setTimeout(() => {
+          document.getElementById('lab-guides')?.scrollIntoView({ behavior: 'auto', block: 'start' });
+        }, 80);
+      } else if (pathRoute.type === 'product') {
+        setDeepLinkProductId(pathRoute.productId);
       }
     };
 
@@ -505,6 +576,16 @@ export default function App() {
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, []);
+
+  useEffect(() => {
+    if (!deepLinkProductId || products.length === 0) return;
+    const match = products.find((p) => p.id === deepLinkProductId);
+    if (match) {
+      setSelectedProduct(match);
+      document.title = `${match.name} — Robotera BD`;
+      setDeepLinkProductId(null);
+    }
+  }, [deepLinkProductId, products]);
 
   // Global Escape key + body scroll lock when any overlay/modal is open
   const hasAnyOverlayOpen = Boolean(
@@ -1192,7 +1273,16 @@ export default function App() {
               accent="indigo"
             />
 
-            <BlogSection blogImages={siteSettings.blogImages} />
+            <BlogSection
+              blogImages={siteSettings.blogImages}
+              initialGuideId={deepLinkGuideId}
+              onGuideClosed={() => {
+                setDeepLinkGuideId(null);
+                if (window.location.pathname.startsWith('/guides/')) {
+                  window.history.replaceState(null, '', '/');
+                }
+              }}
+            />
           </>
         )}
       </main>
@@ -1242,7 +1332,13 @@ export default function App() {
             : null
         }
         zIndexClass={compareModalOpen ? 'z-[60]' : 'z-50'}
-        onClose={() => setSelectedProduct(null)}
+        onClose={() => {
+          setSelectedProduct(null);
+          if (window.location.pathname.startsWith('/product/')) {
+            window.history.replaceState(null, '', '/');
+            document.title = 'Robotera BD — Robotics & Embedded Electronics Store';
+          }
+        }}
         onToggleWishlist={handleToggleWishlist}
         onAddToCart={handleAddToCart}
         onBuyNow={handleBuyNow}
