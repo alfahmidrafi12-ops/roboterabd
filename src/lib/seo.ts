@@ -1,4 +1,3 @@
-import { BRAND_STUDIO_MEDIA } from '../data/brandMedia';
 import { BlogPost, Product } from '../types/store';
 
 export const CANONICAL_ORIGIN = 'https://roboterabd.vercel.app';
@@ -11,6 +10,12 @@ export interface CategorySeoInfo {
   introText: string;
 }
 
+export interface ProductOgMeta {
+  priceAmount: number;
+  priceCurrency: 'BDT';
+  availability: 'in stock' | 'out of stock';
+}
+
 export interface DocumentSeoPayload {
   title: string;
   description: string;
@@ -19,6 +24,7 @@ export interface DocumentSeoPayload {
   imageUrl?: string;
   imageAlt?: string;
   noIndex?: boolean;
+  productMeta?: ProductOgMeta;
   jsonLd?: Record<string, unknown> | null;
 }
 
@@ -115,12 +121,23 @@ export function inferProductBrand(product: Product): string | undefined {
   return undefined;
 }
 
+export function truncateSeoText(raw: string, maxLength = 158): string {
+  const normalized = raw.replace(/\s+/g, ' ').trim();
+  if (normalized.length <= maxLength) return normalized;
+  const slice = normalized.slice(0, maxLength - 1);
+  const lastSpace = slice.lastIndexOf(' ');
+  const trimmed = lastSpace > Math.floor(maxLength * 0.55) ? slice.slice(0, lastSpace) : slice;
+  return `${trimmed.replace(/[.,;:\-–]+$/, '')}…`;
+}
+
 export function resolveAbsoluteImageUrl(imageUrl?: string): string {
   const trimmed = imageUrl?.trim() || '';
   if (!trimmed) return DEFAULT_OG_IMAGE;
+  if (/^(data|blob|javascript):/i.test(trimmed)) return DEFAULT_OG_IMAGE;
   if (/^https?:\/\//i.test(trimmed)) return trimmed;
   if (trimmed.startsWith('/')) return `${CANONICAL_ORIGIN}${trimmed}`;
-  return `${CANONICAL_ORIGIN}/${trimmed}`;
+  if (/^[a-zA-Z0-9_-]+\//.test(trimmed)) return `${CANONICAL_ORIGIN}/${trimmed}`;
+  return DEFAULT_OG_IMAGE;
 }
 
 export function getCategorySeoInfo(categoryId: string, categoryName?: string): CategorySeoInfo {
@@ -130,7 +147,9 @@ export function getCategorySeoInfo(categoryId: string, categoryName?: string): C
   const safeName = categoryName?.trim() || categoryId;
   return {
     title: `${safeName} in Bangladesh | Robotera BD`,
-    description: `Explore bench-tested ${safeName} robotics components and embedded electronics at Robotera BD with fast Dhaka and nationwide delivery across Bangladesh.`,
+    description: truncateSeoText(
+      `Explore bench-tested ${safeName} robotics components and embedded electronics at Robotera BD with fast Dhaka and nationwide delivery across Bangladesh.`
+    ),
     introHeading: safeName,
     introText: `Browse verified ${safeName} components stocked in Dhaka for makers, engineering students, and robotics builders across Bangladesh.`,
   };
@@ -140,8 +159,8 @@ export function buildProductSeo(product: Product, categoryDisplayName?: string):
   const categoryLabel = categoryDisplayName || product.categoryLabel || 'Hardware';
   const formattedPrice = `৳${product.price.toLocaleString('en-IN')}`;
   const availabilityLabel = product.stock > 0 ? 'In Stock in Dhaka' : 'Currently Out of Stock';
-  const description = `${product.name} (${formattedPrice} BDT, ${availabilityLabel}). ${product.shortDesc}`.slice(
-    0,
+  const description = truncateSeoText(
+    `${product.name} (${formattedPrice} BDT, ${availabilityLabel}). ${product.shortDesc}`,
     160
   );
   const canonicalPath = `/product/${encodeURIComponent(product.id)}`;
@@ -225,6 +244,11 @@ export function buildProductSeo(product: Product, categoryDisplayName?: string):
     ogType: 'product',
     imageUrl,
     imageAlt: `${product.name} – ${categoryLabel} in Bangladesh | Robotera BD`,
+    productMeta: {
+      priceAmount: product.price,
+      priceCurrency: 'BDT',
+      availability: product.stock > 0 ? 'in stock' : 'out of stock',
+    },
     jsonLd: {
       '@context': 'https://schema.org',
       '@graph': [productSchema, breadcrumbSchema],
@@ -242,9 +266,27 @@ export function buildCategorySeo(
   const canonicalPath = `/category/${encodeURIComponent(categoryId)}`;
   const categoryUrl = `${CANONICAL_ORIGIN}${canonicalPath}`;
 
+  const collectionNode: Record<string, unknown> = {
+    '@type': 'CollectionPage',
+    '@id': `${categoryUrl}#collection`,
+    url: categoryUrl,
+    name: info.title,
+    description: info.description,
+    isPartOf: {
+      '@id': `${CANONICAL_ORIGIN}/#website`,
+    },
+  };
+
+  if (typeof productCount === 'number') {
+    collectionNode.mainEntity = {
+      '@type': 'ItemList',
+      numberOfItems: productCount,
+    };
+  }
+
   return {
     title: info.title,
-    description: info.description,
+    description: truncateSeoText(info.description, 160),
     canonicalPath,
     ogType: 'website',
     imageUrl: DEFAULT_OG_IMAGE,
@@ -252,17 +294,7 @@ export function buildCategorySeo(
     jsonLd: {
       '@context': 'https://schema.org',
       '@graph': [
-        {
-          '@type': 'CollectionPage',
-          '@id': `${categoryUrl}#collection`,
-          url: categoryUrl,
-          name: info.title,
-          description: info.description,
-          numberOfItems: typeof productCount === 'number' ? productCount : undefined,
-          isPartOf: {
-            '@id': `${CANONICAL_ORIGIN}/#website`,
-          },
-        },
+        collectionNode,
         {
           '@type': 'BreadcrumbList',
           itemListElement: [
@@ -292,11 +324,11 @@ export function buildGuideSeo(post: BlogPost, customImageUrl?: string): Document
   const isoDate = Number.isNaN(parsedDate)
     ? undefined
     : new Date(parsedDate).toISOString().split('T')[0];
-  const imageUrl = resolveAbsoluteImageUrl(customImageUrl || BRAND_STUDIO_MEDIA.darkRoboticsStage);
+  const imageUrl = resolveAbsoluteImageUrl(customImageUrl || DEFAULT_OG_IMAGE);
 
   return {
     title: `${post.title} | Robotera BD Guides`,
-    description: post.excerpt.slice(0, 160),
+    description: truncateSeoText(post.excerpt, 160),
     canonicalPath,
     ogType: 'article',
     imageUrl,
@@ -359,6 +391,47 @@ export function buildGuideSeo(post: BlogPost, customImageUrl?: string): Document
   };
 }
 
+function buildSectionJsonLd(
+  pageType: 'CollectionPage' | 'WebPage',
+  sectionUrl: string,
+  title: string,
+  description: string,
+  breadcrumbName: string
+): Record<string, unknown> {
+  return {
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': pageType,
+        '@id': `${sectionUrl}#webpage`,
+        url: sectionUrl,
+        name: title,
+        description,
+        isPartOf: {
+          '@id': `${CANONICAL_ORIGIN}/#website`,
+        },
+      },
+      {
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+          {
+            '@type': 'ListItem',
+            position: 1,
+            name: 'Home',
+            item: `${CANONICAL_ORIGIN}/`,
+          },
+          {
+            '@type': 'ListItem',
+            position: 2,
+            name: breadcrumbName,
+            item: sectionUrl,
+          },
+        ],
+      },
+    ],
+  };
+}
+
 export function buildSectionSeo(pathname: string, searchQuery?: string): DocumentSeoPayload {
   const cleanPath = pathname.replace(/\/+$/, '') || '/';
   const trimmedQuery = searchQuery?.trim() || '';
@@ -367,64 +440,118 @@ export function buildSectionSeo(pathname: string, searchQuery?: string): Documen
     if (trimmedQuery) {
       return {
         title: `Search "${trimmedQuery}" – Electronics & Robotics Catalog | Robotera BD`,
-        description: `Browse ${trimmedQuery} robotics components, microcontrollers, sensors, and embedded hardware in Bangladesh at Robotera BD.`,
+        description: truncateSeoText(
+          `Browse ${trimmedQuery} robotics components, microcontrollers, sensors, and embedded hardware in Bangladesh at Robotera BD.`
+        ),
         canonicalPath: '/shop',
         ogType: 'website',
+        imageUrl: DEFAULT_OG_IMAGE,
+        imageAlt: `Search results for ${trimmedQuery} at Robotera BD`,
         noIndex: true,
         jsonLd: null,
       };
     }
+    const title = 'Shop Robotics, ESP32, Arduino & Electronics Catalog BD | Robotera BD';
+    const description =
+      'Browse all bench-tested microcontrollers, LiDAR sensors, servo & stepper motors, LiPo batteries, and soldering tools at Robotera BD.';
     return {
-      title: 'Shop Robotics, ESP32, Arduino & Electronics Catalog BD | Robotera BD',
-      description:
-        'Browse all bench-tested microcontrollers, LiDAR sensors, servo & stepper motors, LiPo batteries, and soldering tools at Robotera BD.',
+      title,
+      description,
       canonicalPath: '/shop',
       ogType: 'website',
-      jsonLd: null,
+      imageUrl: DEFAULT_OG_IMAGE,
+      imageAlt: 'Robotera BD full robotics and embedded electronics catalog in Bangladesh',
+      jsonLd: buildSectionJsonLd(
+        'CollectionPage',
+        `${CANONICAL_ORIGIN}/shop`,
+        title,
+        description,
+        'Shop Hardware'
+      ),
     };
   }
 
   if (cleanPath === '/just-arrived') {
+    const title = 'New Robotics & Electronics Arrivals in Bangladesh | Robotera BD';
+    const description =
+      'Discover newly stocked Raspberry Pi 5, RPLIDAR A1M8, Jetson Orin Nano, BNO085 IMU, and TS101 lab tools at Robotera BD.';
     return {
-      title: 'New Robotics & Electronics Arrivals in Bangladesh | Robotera BD',
-      description:
-        'Discover newly stocked Raspberry Pi 5, RPLIDAR A1M8, Jetson Orin Nano, BNO085 IMU, and TS101 lab tools at Robotera BD.',
+      title,
+      description,
       canonicalPath: '/just-arrived',
       ogType: 'website',
-      jsonLd: null,
+      imageUrl: DEFAULT_OG_IMAGE,
+      imageAlt: 'New robotics and embedded electronics arrivals at Robotera BD',
+      jsonLd: buildSectionJsonLd(
+        'CollectionPage',
+        `${CANONICAL_ORIGIN}/just-arrived`,
+        title,
+        description,
+        'New Arrivals'
+      ),
     };
   }
 
   if (cleanPath === '/bundles') {
+    const title = 'Robotics Kits & University Lab Bundles in Bangladesh | Robotera BD';
+    const description =
+      'Explore 6-DOF CNC robotic arm kits, 4WD mecanum rovers, and embedded AI lab ecosystems for engineering teams in Bangladesh.';
     return {
-      title: 'Robotics Kits & University Lab Bundles in Bangladesh | Robotera BD',
-      description:
-        'Explore 6-DOF CNC robotic arm kits, 4WD mecanum rovers, and embedded AI lab ecosystems for engineering teams in Bangladesh.',
+      title,
+      description,
       canonicalPath: '/bundles',
       ogType: 'website',
-      jsonLd: null,
+      imageUrl: DEFAULT_OG_IMAGE,
+      imageAlt: '6-DOF robotic arm and mecanum rover kits at Robotera BD',
+      jsonLd: buildSectionJsonLd(
+        'CollectionPage',
+        `${CANONICAL_ORIGIN}/bundles`,
+        title,
+        description,
+        'Robotics Kits & Bundles'
+      ),
     };
   }
 
   if (cleanPath === '/guides') {
+    const title = 'ESP32, Arduino, LiDAR & Robotics Engineering Guides | Robotera BD';
+    const description =
+      'Read technical tutorials on ESP32-S3, ROS2 RPLIDAR navigation, motor driver selection, LiPo BMS wiring, and lab debugging in Bangladesh.';
     return {
-      title: 'ESP32, Arduino, LiDAR & Robotics Engineering Guides | Robotera BD',
-      description:
-        'Read technical tutorials on ESP32-S3, ROS2 RPLIDAR navigation, motor driver selection, LiPo BMS wiring, and lab debugging in Bangladesh.',
+      title,
+      description,
       canonicalPath: '/guides',
       ogType: 'website',
-      jsonLd: null,
+      imageUrl: DEFAULT_OG_IMAGE,
+      imageAlt: 'Robotera BD ESP32, Arduino, and robotics engineering tutorials',
+      jsonLd: buildSectionJsonLd(
+        'CollectionPage',
+        `${CANONICAL_ORIGIN}/guides`,
+        title,
+        description,
+        'Engineering Guides'
+      ),
     };
   }
 
   if (cleanPath === '/track-order') {
+    const title = 'Track Your Order – Nationwide Courier Status | Robotera BD';
+    const description =
+      'Track your Robotera BD robotics and electronics shipment live using your Order ID across Dhaka and nationwide Bangladesh.';
     return {
-      title: 'Track Your Order – Nationwide Courier Status | Robotera BD',
-      description:
-        'Track your Robotera BD robotics and electronics shipment live using your Order ID across Dhaka and nationwide Bangladesh.',
+      title,
+      description,
       canonicalPath: '/track-order',
       ogType: 'website',
-      jsonLd: null,
+      imageUrl: DEFAULT_OG_IMAGE,
+      imageAlt: 'Robotera BD live order and courier tracking across Bangladesh',
+      jsonLd: buildSectionJsonLd(
+        'WebPage',
+        `${CANONICAL_ORIGIN}/track-order`,
+        title,
+        description,
+        'Track Order'
+      ),
     };
   }
 
@@ -436,13 +563,41 @@ export function buildSectionSeo(pathname: string, searchQuery?: string): Documen
 
 function upsertMetaTag(attr: 'name' | 'property', key: string, content: string) {
   if (typeof document === 'undefined') return;
-  let el = document.head.querySelector<HTMLMetaElement>(`meta[${attr}="${key}"]`);
+  const matches = Array.from(
+    document.head.querySelectorAll<HTMLMetaElement>(`meta[${attr}="${key}"]`)
+  );
+  let el = matches[0];
   if (!el) {
     el = document.createElement('meta');
     el.setAttribute(attr, key);
     document.head.appendChild(el);
   }
+  for (let i = 1; i < matches.length; i++) {
+    matches[i].remove();
+  }
   el.setAttribute('content', content);
+}
+
+function removeMetaTag(attr: 'name' | 'property', key: string) {
+  if (typeof document === 'undefined') return;
+  document.head
+    .querySelectorAll<HTMLMetaElement>(`meta[${attr}="${key}"]`)
+    .forEach((el) => el.remove());
+}
+
+function upsertCanonicalLink(canonicalUrl: string) {
+  if (typeof document === 'undefined') return;
+  const matches = Array.from(document.head.querySelectorAll<HTMLLinkElement>('link[rel="canonical"]'));
+  let el = matches[0];
+  if (!el) {
+    el = document.createElement('link');
+    el.setAttribute('rel', 'canonical');
+    document.head.appendChild(el);
+  }
+  for (let i = 1; i < matches.length; i++) {
+    matches[i].remove();
+  }
+  el.setAttribute('href', canonicalUrl);
 }
 
 export function applyDocumentSeo(payload: DocumentSeoPayload) {
@@ -452,28 +607,36 @@ export function applyDocumentSeo(payload: DocumentSeoPayload) {
     ? payload.canonicalPath
     : `/${payload.canonicalPath}`;
   const canonicalUrl = cleanPath === '/' ? `${CANONICAL_ORIGIN}/` : `${CANONICAL_ORIGIN}${cleanPath}`;
-  const ogImage = payload.imageUrl || DEFAULT_OG_IMAGE;
+  const ogImage = resolveAbsoluteImageUrl(payload.imageUrl);
+  const ogType = payload.ogType || 'website';
+  const imageAlt = payload.imageAlt || payload.title;
 
   document.title = payload.title;
-
-  const canonicalEl = document.head.querySelector<HTMLLinkElement>('link[rel="canonical"]');
-  if (canonicalEl) {
-    canonicalEl.href = canonicalUrl;
-  }
+  upsertCanonicalLink(canonicalUrl);
 
   upsertMetaTag('name', 'description', payload.description);
   upsertMetaTag('name', 'robots', payload.noIndex ? 'noindex, nofollow' : 'index, follow');
   upsertMetaTag('property', 'og:title', payload.title);
   upsertMetaTag('property', 'og:description', payload.description);
   upsertMetaTag('property', 'og:url', canonicalUrl);
-  upsertMetaTag('property', 'og:type', payload.ogType || 'website');
+  upsertMetaTag('property', 'og:type', ogType);
   upsertMetaTag('property', 'og:image', ogImage);
-  if (payload.imageAlt) {
-    upsertMetaTag('property', 'og:image:alt', payload.imageAlt);
-  }
+  upsertMetaTag('property', 'og:image:alt', imageAlt);
+  upsertMetaTag('name', 'twitter:url', canonicalUrl);
   upsertMetaTag('name', 'twitter:title', payload.title);
   upsertMetaTag('name', 'twitter:description', payload.description);
   upsertMetaTag('name', 'twitter:image', ogImage);
+  upsertMetaTag('name', 'twitter:image:alt', imageAlt);
+
+  if (ogType === 'product' && payload.productMeta) {
+    upsertMetaTag('property', 'product:price:amount', String(payload.productMeta.priceAmount));
+    upsertMetaTag('property', 'product:price:currency', payload.productMeta.priceCurrency);
+    upsertMetaTag('property', 'product:availability', payload.productMeta.availability);
+  } else {
+    removeMetaTag('property', 'product:price:amount');
+    removeMetaTag('property', 'product:price:currency');
+    removeMetaTag('property', 'product:availability');
+  }
 
   const scriptId = 'robotera-dynamic-jsonld';
   let scriptEl = document.getElementById(scriptId) as HTMLScriptElement | null;
