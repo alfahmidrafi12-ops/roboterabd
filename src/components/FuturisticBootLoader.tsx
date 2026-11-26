@@ -212,16 +212,19 @@ export const FuturisticBootLoader: React.FC<FuturisticBootLoaderProps> = ({ onCo
           </svg>
 
           {/* Crisp Brand Emblem Core */}
-          <div className="relative w-20 h-20 rounded-2xl bg-white p-1.5 border border-[#00CFFF]/55 shadow-[0_0_40px_-8px_rgba(8,123,255,0.85),inset_0_1px_0_rgba(255,255,255,0.3)] flex items-center justify-center">
+          <div className="relative w-20 h-20 sm:w-[84px] sm:h-[84px] flex items-center justify-center">
             <span
               aria-hidden="true"
-              className="absolute -top-1 -left-1 w-2.5 h-2.5 border-t-2 border-l-2 border-[#00CFFF]"
+              className="pointer-events-none z-10 -top-1.5 -left-1.5 absolute w-3 h-3 border-t-2 border-l-2 border-[#00CFFF] rounded-tl-sm"
             />
             <span
               aria-hidden="true"
-              className="absolute -bottom-1 -right-1 w-2.5 h-2.5 border-b-2 border-r-2 border-[#00CFFF]"
+              className="pointer-events-none z-10 -bottom-1.5 -right-1.5 absolute w-3 h-3 border-b-2 border-r-2 border-[#00CFFF] rounded-br-sm"
             />
-            <BrandLogo size="xl" className="w-full h-full border-0 p-1" />
+            <BrandLogo
+              size="xl"
+              className="!w-full !h-full !border-[#00CFFF]/60 shadow-[0_0_40px_-8px_rgba(8,123,255,0.85),0_10px_28px_-8px_rgba(0,0,0,0.65)]"
+            />
           </div>
         </div>
 

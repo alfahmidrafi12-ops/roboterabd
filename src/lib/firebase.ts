@@ -47,6 +47,7 @@ import {
   PRODUCTS,
 } from '../data/catalog';
 import {
+  AdminInvite,
   AdminUser,
   BannerItem,
   CategoryItem,
@@ -160,6 +161,61 @@ export function isVerifiedAdminUser(user: User | null): boolean {
   return isPrimaryAdminUser(user);
 }
 
+export async function getAdminInviteId(email: string): Promise<string> {
+  return sha256HexLower(email.trim().toLowerCase());
+}
+
+export async function claimDelegatedAdminInvite(user: User | null): Promise<boolean> {
+  if (!user?.uid || !user.email || isPrimaryAdminUser(user)) return false;
+  if (auth.currentUser?.uid !== user.uid) return false;
+
+  const cleanEmail = user.email.trim().toLowerCase();
+  const safeUid = user.uid.replace(/[^a-zA-Z0-9_-]/g, '-').slice(0, 128);
+  if (!cleanEmail || !safeUid) return false;
+
+  try {
+    const adminRef = doc(db, 'admins', safeUid);
+    const adminSnap = await getDoc(adminRef);
+    if (adminSnap.exists()) {
+      return (adminSnap.data() as AdminUser).active === true;
+    }
+
+    const inviteId = await getAdminInviteId(cleanEmail);
+    const inviteRef = doc(db, 'admin_invites', inviteId);
+    const inviteSnap = await getDoc(inviteRef);
+    if (!inviteSnap.exists()) return false;
+
+    const invite = inviteSnap.data() as AdminInvite;
+    if (!invite.active || invite.email.toLowerCase() !== cleanEmail) return false;
+
+    await setDoc(
+      adminRef,
+      stripUndefined({
+        uid: safeUid,
+        email: cleanEmail,
+        displayName:
+          truncateStr(invite.displayName, 120) ||
+          truncateStr(user.displayName || undefined, 120),
+        role: 'admin',
+        active: true,
+        addedBy: invite.addedBy,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      })
+    );
+
+    await updateDoc(inviteRef, {
+      claimedUid: safeUid,
+      updatedAt: serverTimestamp(),
+    }).catch(() => {});
+
+    return true;
+  } catch (error) {
+    console.warn('Admin invite claim check warning:', error);
+    return false;
+  }
+}
+
 export function subscribeMyAdminRecord(
   user: User | null,
   onData: (record: AdminUser | null) => void
@@ -173,6 +229,7 @@ export function subscribeMyAdminRecord(
     return () => {};
   }
   const safeUid = user.uid.replace(/[^a-zA-Z0-9_-]/g, '-').slice(0, 128);
+  claimDelegatedAdminInvite(user).catch(() => {});
   return onSnapshot(
     doc(db, 'admins', safeUid),
     (snapshot) => {
@@ -208,14 +265,36 @@ export function subscribeAdmins(
   );
 }
 
+export function subscribeAdminInvites(
+  onData: (invites: AdminInvite[]) => void,
+  onError?: (err: unknown) => void
+): () => void {
+  const path = 'admin_invites';
+  const q = query(collection(db, path), orderBy('createdAt', 'desc'));
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const list = snapshot.docs.map((d) => d.data() as AdminInvite);
+      onData(list);
+    },
+    (error) => {
+      if (onError) onError(error);
+      else handleFirestoreError(error, OperationType.LIST, path);
+    }
+  );
+}
+
 export async function createDelegatedAdminAccess(params: {
   email: string;
   password: string;
   displayName?: string;
 }): Promise<{
-  uid: string;
+  uid?: string;
+  inviteId: string;
   email: string;
   existingAccountReused: boolean;
+  passwordReady: boolean;
+  resetEmailSent: boolean;
 }> {
   const currentOwner = auth.currentUser;
   if (!isPrimaryAdminUser(currentOwner) || !currentOwner?.email) {
@@ -234,8 +313,12 @@ export async function createDelegatedAdminAccess(params: {
   }
 
   const cleanName = truncateStr(params.displayName?.trim(), 120);
+  const ownerEmail = currentOwner.email.toLowerCase();
+  const inviteId = await getAdminInviteId(cleanEmail);
   let targetUid = '';
   let existingAccountReused = false;
+  let passwordReady = false;
+  let resetEmailSent = false;
 
   const secondaryAppName = `admin-provisioner-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
   const secondaryApp = initializeApp(firebaseConfig, secondaryAppName);
@@ -247,6 +330,7 @@ export async function createDelegatedAdminAccess(params: {
     try {
       const cred = await createUserWithEmailAndPassword(secondaryAuth, cleanEmail, params.password);
       targetUid = cred.user.uid;
+      passwordReady = true;
       if (cleanName) {
         await updateProfile(cred.user, { displayName: cleanName }).catch(() => {});
       }
@@ -268,29 +352,33 @@ export async function createDelegatedAdminAccess(params: {
           params.password
         );
         targetUid = existingCred.user.uid;
+        passwordReady = true;
       } catch {
-        // Account exists (e.g. Google login or different password): look up UID from /users collection
-        const directSnap = await getDocs(
-          query(collection(db, 'users'), where('email', '==', cleanEmail))
-        );
-        if (!directSnap.empty) {
-          targetUid = directSnap.docs[0].id;
+        passwordReady = false;
+        // Account already exists (e.g. Google login or older different password):
+        // resolve UID from /admins or /users if present; otherwise admin_invites auto-claims on sign-in.
+        const existingAdminsSnap = await getDocs(
+          query(collection(db, 'admins'), where('email', '==', cleanEmail))
+        ).catch(() => null);
+        if (existingAdminsSnap && !existingAdminsSnap.empty) {
+          targetUid = existingAdminsSnap.docs[0].id;
         } else {
-          const allUsersSnap = await getDocs(collection(db, 'users'));
-          const matchedDoc = allUsersSnap.docs.find((d) => {
-            const data = d.data() as UserProfile;
-            return data.email?.trim().toLowerCase() === cleanEmail;
-          });
-          if (matchedDoc) {
-            targetUid = matchedDoc.id;
+          const directSnap = await getDocs(
+            query(collection(db, 'users'), where('email', '==', cleanEmail))
+          ).catch(() => null);
+          if (directSnap && !directSnap.empty) {
+            targetUid = directSnap.docs[0].id;
+          } else {
+            const allUsersSnap = await getDocs(collection(db, 'users')).catch(() => null);
+            const matchedDoc = allUsersSnap?.docs.find((d) => {
+              const data = d.data() as UserProfile;
+              return data.email?.trim().toLowerCase() === cleanEmail;
+            });
+            if (matchedDoc) {
+              targetUid = matchedDoc.id;
+            }
           }
         }
-      }
-
-      if (!targetUid) {
-        throw new Error(
-          'An account with this email already exists with a different sign-in method or password. Ask them to sign in once first or click "Reset Password" after they log in.'
-        );
       }
     }
   } finally {
@@ -298,49 +386,121 @@ export async function createDelegatedAdminAccess(params: {
     await deleteApp(secondaryApp).catch(() => {});
   }
 
-  const safeUid = targetUid.replace(/[^a-zA-Z0-9_-]/g, '-').slice(0, 128);
-  const path = `admins/${safeUid}`;
+  const safeUid = targetUid
+    ? targetUid.replace(/[^a-zA-Z0-9_-]/g, '-').slice(0, 128)
+    : undefined;
+
+  if (existingAccountReused && !passwordReady) {
+    try {
+      await sendPasswordResetEmail(auth, cleanEmail);
+      resetEmailSent = true;
+    } catch (resetErr) {
+      console.warn('Automatic set-password email warning:', resetErr);
+    }
+  }
+
   try {
-    const ref = doc(db, 'admins', safeUid);
-    const existingSnap = await getDoc(ref);
-    if (existingSnap.exists()) {
+    const inviteRef = doc(db, 'admin_invites', inviteId);
+    const existingInviteSnap = await getDoc(inviteRef);
+    if (existingInviteSnap.exists()) {
       await updateDoc(
-        ref,
+        inviteRef,
         stripUndefined({
-          displayName: cleanName || (existingSnap.data() as AdminUser).displayName,
+          displayName: cleanName || (existingInviteSnap.data() as AdminInvite).displayName,
           active: true,
+          claimedUid: safeUid || (existingInviteSnap.data() as AdminInvite).claimedUid,
           updatedAt: serverTimestamp(),
         })
       );
     } else {
       await setDoc(
-        ref,
+        inviteRef,
         stripUndefined({
-          uid: safeUid,
+          id: inviteId,
           email: cleanEmail,
           displayName: cleanName,
-          role: 'admin',
           active: true,
-          addedBy: currentOwner.email.toLowerCase(),
+          addedBy: ownerEmail,
+          claimedUid: safeUid,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         })
       );
     }
+
+    if (safeUid) {
+      const ref = doc(db, 'admins', safeUid);
+      const existingSnap = await getDoc(ref);
+      if (existingSnap.exists()) {
+        await updateDoc(
+          ref,
+          stripUndefined({
+            displayName: cleanName || (existingSnap.data() as AdminUser).displayName,
+            active: true,
+            updatedAt: serverTimestamp(),
+          })
+        );
+      } else {
+        await setDoc(
+          ref,
+          stripUndefined({
+            uid: safeUid,
+            email: cleanEmail,
+            displayName: cleanName,
+            role: 'admin',
+            active: true,
+            addedBy: ownerEmail,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          })
+        );
+      }
+    }
+
     return {
       uid: safeUid,
+      inviteId,
       email: cleanEmail,
       existingAccountReused,
+      passwordReady,
+      resetEmailSent,
     };
   } catch (error) {
-    handleFirestoreError(error, OperationType.WRITE, path);
+    handleFirestoreError(error, OperationType.WRITE, safeUid ? `admins/${safeUid}` : `admin_invites/${inviteId}`);
   }
 }
 
-export async function setDelegatedAdminActive(uid: string, active: boolean): Promise<void> {
+export async function setDelegatedAdminActive(
+  uid: string,
+  active: boolean,
+  email?: string
+): Promise<void> {
   const path = `admins/${uid}`;
   try {
     await updateDoc(doc(db, 'admins', uid), {
+      active,
+      updatedAt: serverTimestamp(),
+    });
+    if (email) {
+      const inviteId = await getAdminInviteId(email);
+      const inviteRef = doc(db, 'admin_invites', inviteId);
+      const inviteSnap = await getDoc(inviteRef);
+      if (inviteSnap.exists()) {
+        await updateDoc(inviteRef, {
+          active,
+          updatedAt: serverTimestamp(),
+        });
+      }
+    }
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, path);
+  }
+}
+
+export async function setAdminInviteActive(inviteId: string, active: boolean): Promise<void> {
+  const path = `admin_invites/${inviteId}`;
+  try {
+    await updateDoc(doc(db, 'admin_invites', inviteId), {
       active,
       updatedAt: serverTimestamp(),
     });
@@ -349,10 +509,23 @@ export async function setDelegatedAdminActive(uid: string, active: boolean): Pro
   }
 }
 
-export async function removeDelegatedAdmin(uid: string): Promise<void> {
+export async function removeDelegatedAdmin(uid: string, email?: string): Promise<void> {
   const path = `admins/${uid}`;
   try {
     await deleteDoc(doc(db, 'admins', uid));
+    if (email) {
+      const inviteId = await getAdminInviteId(email);
+      await deleteDoc(doc(db, 'admin_invites', inviteId)).catch(() => {});
+    }
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
+  }
+}
+
+export async function removeAdminInvite(inviteId: string): Promise<void> {
+  const path = `admin_invites/${inviteId}`;
+  try {
+    await deleteDoc(doc(db, 'admin_invites', inviteId));
   } catch (error) {
     handleFirestoreError(error, OperationType.DELETE, path);
   }
@@ -440,6 +613,7 @@ export async function syncUserProfile(
         })
       );
     }
+    await claimDelegatedAdminInvite(user).catch(() => {});
   } catch (error) {
     console.warn(`User profile sync warning (${path}):`, error);
   }

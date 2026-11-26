@@ -1277,7 +1277,22 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 {error && (
                   <div className="animate-slide-down text-xs text-red-800 bg-red-50 border border-red-200 rounded-xl p-3 flex items-start gap-2 leading-relaxed">
                     <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
-                    <span>{error}</span>
+                    <div className="space-y-1">
+                      <p>{error}</p>
+                      {mode === 'login' && error.toLowerCase().includes('incorrect email or password') && (
+                        <p className="text-[11px] text-red-700/90">
+                          Already used Google Sign-In or added by an admin? Click{' '}
+                          <button
+                            type="button"
+                            onClick={() => switchMode('reset')}
+                            className="font-semibold underline hover:text-red-950"
+                          >
+                            Forgot password?
+                          </button>{' '}
+                          to set a password, or use Continue with Google below.
+                        </p>
+                      )}
+                    </div>
                   </div>
                 )}
                 {info && (

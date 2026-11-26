@@ -132,6 +132,22 @@
       },
       "required": ["uid", "email", "role", "active", "addedBy", "createdAt", "updatedAt"]
     },
+    "AdminInvite": {
+      "title": "AdminInvite",
+      "description": "Pre-authorized delegated admin invitation keyed by lowercase email SHA-256 hash.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 64, "maxLength": 64, "pattern": "^[a-f0-9]+$" },
+        "email": { "type": "string", "minLength": 5, "maxLength": 120 },
+        "displayName": { "type": "string", "maxLength": 120 },
+        "active": { "type": "boolean" },
+        "addedBy": { "type": "string", "minLength": 5, "maxLength": 120 },
+        "claimedUid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "email", "active", "addedBy", "createdAt", "updatedAt"]
+    },
     "OrderTracking": {
       "title": "OrderTracking",
       "description": "Public non-PII shipment status projection for Order Tracking lookup by exact orderId.",
@@ -390,7 +406,11 @@
     },
     "/admins/{adminUid}": {
       "schema": { "$ref": "#/entities/AdminUser" },
-      "description": "Delegated admin registry; creatable/updatable/deletable strictly by the primary store owner, self-readable by the assigned admin."
+      "description": "Delegated admin registry; creatable/updatable/deletable strictly by the primary store owner (or self-claimed against an active owner-issued admin_invite), self-readable by the assigned admin."
+    },
+    "/admin_invites/{inviteId}": {
+      "schema": { "$ref": "#/entities/AdminInvite" },
+      "description": "Owner-issued delegated admin invitations keyed by SHA-256 hash of lowercase email."
     },
     "/visitor_logs/{logId}": {
       "schema": { "$ref": "#/entities/VisitorLog" },

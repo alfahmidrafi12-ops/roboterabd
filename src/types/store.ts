@@ -284,6 +284,17 @@ export interface AdminUser {
   updatedAt: unknown;
 }
 
+export interface AdminInvite {
+  id: string;
+  email: string;
+  displayName?: string;
+  active: boolean;
+  addedBy: string;
+  claimedUid?: string;
+  createdAt: unknown;
+  updatedAt: unknown;
+}
+
 export type VisitorPlatform = 'Web' | 'PWA App';
 export type VisitorDeviceType = 'Desktop' | 'Mobile' | 'Tablet';
 export type VisitorLocationAccuracy = 'IP' | 'GPS';

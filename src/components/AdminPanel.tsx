@@ -66,6 +66,7 @@ import {
   normalizePromoCodeString,
   removeBanner,
   removeCategory,
+  removeAdminInvite,
   removeDelegatedAdmin,
   removeProduct,
   removePromoCode,
@@ -77,10 +78,12 @@ import {
   savePromoCode,
   saveSiteSettings,
   seedCatalogIfEmpty,
+  setAdminInviteActive,
   setDelegatedAdminActive,
   signInAdminWithGoogle,
   signInWithEmail,
   signOutAdmin,
+  subscribeAdminInvites,
   subscribeAdmins,
   subscribeMyAdminRecord,
   subscribeOrders,
@@ -90,6 +93,7 @@ import {
   updateOrderInFirestore,
 } from '../lib/firebase';
 import {
+  AdminInvite,
   AdminUser,
   ArtworkKind,
   BannerItem,
@@ -180,6 +184,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [restockAlerts, setRestockAlerts] = useState<RestockAlert[]>([]);
   const [visitorLogs, setVisitorLogs] = useState<VisitorLog[]>([]);
   const [adminsList, setAdminsList] = useState<AdminUser[]>([]);
+  const [adminInvites, setAdminInvites] = useState<AdminInvite[]>([]);
   const [myAdminRecord, setMyAdminRecord] = useState<AdminUser | null>(null);
   const [checkingAdminRecord, setCheckingAdminRecord] = useState(false);
 
@@ -189,6 +194,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [showNewAdminPassword, setShowNewAdminPassword] = useState(false);
   const [creatingAdmin, setCreatingAdmin] = useState(false);
   const [adminTeamNotice, setAdminTeamNotice] = useState('');
+  const [adminTeamWarning, setAdminTeamWarning] = useState('');
 
   const [visitorSearch, setVisitorSearch] = useState('');
   const [visitorFilter, setVisitorFilter] = useState<'all' | 'Web' | 'PWA App' | 'Bangladesh' | 'GPS'>('all');
@@ -273,6 +279,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       setRestockAlerts([]);
       setVisitorLogs([]);
       setAdminsList([]);
+      setAdminInvites([]);
       return;
     }
 
@@ -311,6 +318,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       }
     );
 
+    const unsubInvites = isPrimaryOwner
+      ? subscribeAdminInvites(
+          (list) => setAdminInvites(list),
+          (err) => {
+            console.error('Failed to load admin invites:', err);
+          }
+        )
+      : () => {};
+
     if (!seedingDone) {
       seedCatalogIfEmpty()
         .then(() => setSeedingDone(true))
@@ -323,10 +339,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       unsubRestockAlerts();
       unsubVisitors();
       unsubAdmins();
+      unsubInvites();
     };
-  }, [isOpen, isAdmin, seedingDone]);
+  }, [isOpen, isAdmin, isPrimaryOwner, seedingDone]);
 
   if (!isOpen) return null;
+
+  const unclaimedInvites = adminInvites.filter(
+    (inv) => !adminsList.some((a) => a.email.toLowerCase() === inv.email.toLowerCase())
+  );
 
   const handleEmailSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -336,6 +357,25 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     try {
       await signInWithEmail(loginEmail, loginPassword);
       setLoginPassword('');
+    } catch (err) {
+      setAuthError(formatAuthErrorMessage(err));
+    } finally {
+      setAuthBusy(false);
+    }
+  };
+
+  const handleAdminLoginResetPassword = async () => {
+    setAuthError('');
+    setAuthInfo('');
+    const targetEmail = loginEmail.trim();
+    if (!targetEmail) {
+      setAuthError('Enter your Admin Email above first, then click Forgot / Set Password.');
+      return;
+    }
+    setAuthBusy(true);
+    try {
+      await resetUserPassword(targetEmail);
+      setAuthInfo(`Password setup/reset link sent to ${targetEmail}. Check your inbox (and spam) to set your password.`);
     } catch (err) {
       setAuthError(formatAuthErrorMessage(err));
     } finally {
@@ -1377,6 +1417,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     if (!isPrimaryOwner || creatingAdmin) return;
     setAdminError('');
     setAdminTeamNotice('');
+    setAdminTeamWarning('');
     setCreatingAdmin(true);
     setBusyMessage('Provisioning admin account...');
     try {
@@ -1389,12 +1430,22 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       setNewAdminEmail('');
       setNewAdminPassword('');
       setShowNewAdminPassword(false);
-      setAdminTeamNotice(
-        res.existingAccountReused
-          ? `Admin access granted to existing account ${res.email}. They can sign in with their current password/Google or use Reset Pass Link.`
-          : `Created admin login for ${res.email}. They can sign in immediately via Email & Password in the Admin Console.`
-      );
-      showBusyToast(`Admin access granted to ${res.email}.`, 2500);
+      if (res.passwordReady) {
+        setAdminTeamNotice(
+          res.existingAccountReused
+            ? `Admin access granted to ${res.email}. Password verified — they can sign in right now via Email & Password or Google.`
+            : `Created admin login for ${res.email}. They can sign in immediately via Email & Password in Account / Admin Console.`
+        );
+      } else {
+        setAdminTeamWarning(
+          `Admin access enabled for ${res.email}, BUT this email already had an existing Firebase account (Google Sign-In or a different password), so Firebase could not set the typed password directly. ${
+            res.resetEmailSent
+              ? `We emailed a Set/Reset Password link to ${res.email} so they can set their own password (or they can click "Continue with Google" right away).`
+              : `Ask them to click "Continue with Google" or use "Reset Pass Link" below to set their password.`
+          }`
+        );
+      }
+      showBusyToast(`Admin access enabled for ${res.email}.`, 2500);
     } catch (err) {
       setBusyMessage('');
       setAdminError(formatAuthErrorMessage(err) || formatAdminErr(err, 'Could not grant admin access.'));
@@ -1407,9 +1458,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     if (!isPrimaryOwner) return;
     setAdminError('');
     setAdminTeamNotice('');
+    setAdminTeamWarning('');
     setBusyMessage(`${adm.active ? 'Pausing' : 'Activating'} ${adm.email}...`);
     try {
-      await setDelegatedAdminActive(adm.uid, !adm.active);
+      await setDelegatedAdminActive(adm.uid, !adm.active, adm.email);
       showBusyToast(`${adm.email} ${adm.active ? 'paused' : 'activated'}.`, 2000);
     } catch (err) {
       setBusyMessage('');
@@ -1417,13 +1469,29 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     }
   };
 
+  const handleToggleAdminInvite = async (inv: AdminInvite) => {
+    if (!isPrimaryOwner) return;
+    setAdminError('');
+    setAdminTeamNotice('');
+    setAdminTeamWarning('');
+    setBusyMessage(`${inv.active ? 'Pausing' : 'Activating'} ${inv.email}...`);
+    try {
+      await setAdminInviteActive(inv.id, !inv.active);
+      showBusyToast(`${inv.email} ${inv.active ? 'paused' : 'activated'}.`, 2000);
+    } catch (err) {
+      setBusyMessage('');
+      setAdminError(formatAdminErr(err, 'Could not update invite status.'));
+    }
+  };
+
   const handleSendAdminPasswordReset = async (email: string) => {
     setAdminError('');
     setAdminTeamNotice('');
+    setAdminTeamWarning('');
     setBusyMessage(`Sending reset link to ${email}...`);
     try {
       await resetUserPassword(email);
-      setAdminTeamNotice(`Password reset link sent to ${email}.`);
+      setAdminTeamNotice(`Password setup/reset link sent to ${email}. Check inbox & spam folder.`);
       showBusyToast(`Password reset sent to ${email}.`, 2200);
     } catch (err) {
       setBusyMessage('');
@@ -1435,14 +1503,31 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     if (!isPrimaryOwner) return;
     setAdminError('');
     setAdminTeamNotice('');
+    setAdminTeamWarning('');
     setConfirmKey(null);
     setBusyMessage(`Removing ${adm.email}...`);
     try {
-      await removeDelegatedAdmin(adm.uid);
+      await removeDelegatedAdmin(adm.uid, adm.email);
       showBusyToast(`Removed admin access for ${adm.email}.`, 2200);
     } catch (err) {
       setBusyMessage('');
       setAdminError(formatAdminErr(err, 'Could not remove delegated admin.'));
+    }
+  };
+
+  const handleDeleteAdminInvite = async (inv: AdminInvite) => {
+    if (!isPrimaryOwner) return;
+    setAdminError('');
+    setAdminTeamNotice('');
+    setAdminTeamWarning('');
+    setConfirmKey(null);
+    setBusyMessage(`Removing invite for ${inv.email}...`);
+    try {
+      await removeAdminInvite(inv.id);
+      showBusyToast(`Removed admin invite for ${inv.email}.`, 2200);
+    } catch (err) {
+      setBusyMessage('');
+      setAdminError(formatAdminErr(err, 'Could not remove admin invite.'));
     }
   };
 
@@ -1542,9 +1627,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   />
                 </div>
                 <div>
-                  <label htmlFor="admin-password" className="block text-xs font-semibold text-slate-700 mb-1">
-                    Password
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label htmlFor="admin-password" className="block text-xs font-semibold text-slate-700">
+                      Password
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleAdminLoginResetPassword}
+                      disabled={authBusy}
+                      className="text-[11px] font-semibold text-[#0057E7] hover:underline disabled:opacity-50"
+                    >
+                      Forgot / Set Password?
+                    </button>
+                  </div>
                   <input
                     id="admin-password"
                     type="password"
@@ -1555,6 +1650,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     className="w-full h-10 px-3.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600"
                   />
                 </div>
+
+                {authInfo && (
+                  <p className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg p-2.5 leading-relaxed">
+                    {authInfo}
+                  </p>
+                )}
 
                 {authError && (
                   <p className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg p-2.5 leading-relaxed">
@@ -1814,7 +1915,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   }`}
                 >
                   <Shield className="w-3.5 h-3.5" />
-                  <span>Admin Team ({1 + adminsList.length})</span>
+                  <span>Admin Team ({1 + adminsList.length + unclaimedInvites.length})</span>
                 </button>
               </div>
 
@@ -4214,7 +4315,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     </div>
                     <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#F5F8FC] border border-slate-200 text-xs font-semibold text-[#06142E]">
                       <ShieldCheck className="w-4 h-4 text-[#0057E7]" />
-                      <span>{1 + adminsList.filter((a) => a.active).length} Active Admins</span>
+                      <span>
+                        {1 + adminsList.filter((a) => a.active).length + unclaimedInvites.filter((i) => i.active).length} Active Admins
+                      </span>
                     </span>
                   </div>
 
@@ -4229,6 +4332,23 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                         onClick={() => setAdminTeamNotice('')}
                         aria-label="Dismiss notice"
                         className="p-0.5 text-emerald-600 hover:text-emerald-900"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
+
+                  {adminTeamWarning && (
+                    <div className="flex items-start justify-between gap-3 rounded-xl bg-amber-50 border border-amber-300 px-4 py-3 text-xs text-amber-900 leading-relaxed">
+                      <span className="inline-flex items-start gap-2">
+                        <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                        <span>{adminTeamWarning}</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setAdminTeamWarning('')}
+                        aria-label="Dismiss warning"
+                        className="p-0.5 text-amber-700 hover:text-amber-950 shrink-0"
                       >
                         <X className="w-4 h-4" />
                       </button>
@@ -4341,7 +4461,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
                         <p className="text-[11px] text-slate-500">
-                          Credentials are provisioned securely via Firebase Authentication (never stored as plaintext in Firestore) and grant immediate Admin Console login.
+                          New emails are created directly with this password; existing accounts auto-receive a Set/Reset Password link and can also use Google Sign-In.
                         </p>
                         <button
                           type="submit"
@@ -4358,10 +4478,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   {/* Delegated Admins List */}
                   <div className="space-y-3">
                     <h4 className="font-display text-sm font-bold text-[#06142E]">
-                      Delegated Store Admins ({adminsList.length})
+                      Delegated Store Admins ({adminsList.length + unclaimedInvites.length})
                     </h4>
 
-                    {adminsList.length === 0 ? (
+                    {adminsList.length === 0 && unclaimedInvites.length === 0 ? (
                       <div className="rounded-xl border border-dashed border-slate-300 bg-[#F6F8FB] p-8 text-center">
                         <Shield className="w-7 h-7 text-slate-400 mx-auto mb-2" />
                         <p className="text-sm font-semibold text-slate-700">
@@ -4443,6 +4563,87 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                                   <button
                                     type="button"
                                     onClick={() => setConfirmKey(`adm-${adm.uid}`)}
+                                    className="h-8 px-3 rounded-lg border border-red-200 hover:bg-red-50 text-red-600 text-xs font-semibold inline-flex items-center gap-1"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                    <span>Revoke</span>
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+
+                        {unclaimedInvites.map((inv) => (
+                          <div
+                            key={inv.id}
+                            className="rounded-xl border border-blue-200 bg-blue-50/40 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                          >
+                            <div className="min-w-0 space-y-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="font-display text-sm font-bold text-[#06142E]">
+                                  {inv.displayName || inv.email.split('@')[0]}
+                                </span>
+                                <span
+                                  className={`px-2 py-0.5 rounded text-[10px] font-semibold border ${
+                                    inv.active
+                                      ? 'bg-sky-50 text-[#0057E7] border-sky-200'
+                                      : 'bg-amber-50 text-amber-800 border-amber-200'
+                                  }`}
+                                >
+                                  {inv.active ? 'Ready (Pending Sign-In)' : 'Invite Paused'}
+                                </span>
+                              </div>
+                              <p className="font-mono text-xs text-slate-700 break-all">
+                                {inv.email}
+                              </p>
+                              <p className="text-[11px] text-slate-500">
+                                Auto-activates on next Google or Password sign-in · Added by {inv.addedBy}
+                              </p>
+                            </div>
+
+                            {isPrimaryOwner && (
+                              <div className="flex flex-wrap items-center gap-2 shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleAdminInvite(inv)}
+                                  className={`h-8 px-3 rounded-lg border text-xs font-semibold transition-colors ${
+                                    inv.active
+                                      ? 'border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-800'
+                                      : 'border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-700'
+                                  }`}
+                                >
+                                  {inv.active ? 'Pause Access' : 'Activate'}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleSendAdminPasswordReset(inv.email)}
+                                  className="h-8 px-3 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold inline-flex items-center gap-1"
+                                >
+                                  <KeyRound className="w-3.5 h-3.5" />
+                                  <span>Reset Pass Link</span>
+                                </button>
+                                {confirmKey === `inv-${inv.id}` ? (
+                                  <div className="inline-flex items-center gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteAdminInvite(inv)}
+                                      className="h-8 px-3 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-semibold"
+                                    >
+                                      Confirm Remove
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setConfirmKey(null)}
+                                      className="h-8 px-2.5 rounded-lg border border-slate-200 text-xs text-slate-600"
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => setConfirmKey(`inv-${inv.id}`)}
                                     className="h-8 px-3 rounded-lg border border-red-200 hover:bg-red-50 text-red-600 text-xs font-semibold inline-flex items-center gap-1"
                                   >
                                     <Trash2 className="w-3.5 h-3.5" />

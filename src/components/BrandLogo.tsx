@@ -9,11 +9,11 @@ interface BrandLogoProps {
 }
 
 const SIZE_CLASSES: Record<NonNullable<BrandLogoProps['size']>, string> = {
-  xs: 'w-6 h-6 rounded-md p-0.5',
-  sm: 'w-8 h-8 rounded-lg p-0.5',
-  md: 'w-10 h-10 rounded-xl p-1',
-  lg: 'w-14 h-14 rounded-2xl p-1.5',
-  xl: 'w-20 h-20 rounded-2xl p-2',
+  xs: 'w-6 h-6 rounded-md',
+  sm: 'w-8 h-8 rounded-lg',
+  md: 'w-10 h-10 rounded-xl',
+  lg: 'w-14 h-14 rounded-2xl',
+  xl: 'w-20 h-20 rounded-2xl',
 };
 
 export const BrandLogo: React.FC<BrandLogoProps> = ({
@@ -35,7 +35,7 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
           decoding="async"
           referrerPolicy="no-referrer"
           onError={() => setImgError(true)}
-          className="w-full h-full object-contain"
+          className="w-full h-full object-contain scale-[1.12] block"
         />
       ) : (
         <svg viewBox="0 0 64 64" className="w-full h-full" fill="none" aria-hidden="true">
