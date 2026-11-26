@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Download, Smartphone, X } from 'lucide-react';
 import { usePWAInstall } from '../hooks/usePWAInstall';
+import { BrandLogo } from './BrandLogo';
 
 interface PWAInstallButtonProps {
   variant?: 'header' | 'sidebar';
@@ -83,9 +84,7 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({ variant = 'h
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-10 h-10 rounded-xl bg-[#071A3B] text-white flex items-center justify-center shrink-0">
-                    <Smartphone className="w-5 h-5 text-blue-400" />
-                  </div>
+                  <BrandLogo size="md" className="shadow-sm" />
                   <div>
                     <h3 className="font-display text-base font-bold text-[#071A3B]">
                       Install Robotera BD App

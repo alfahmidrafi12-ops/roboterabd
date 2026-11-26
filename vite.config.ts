@@ -13,6 +13,8 @@ export default defineConfig(() => {
       VitePWA({
         registerType: 'autoUpdate',
         includeAssets: [
+          'favicon.ico',
+          'favicon-64x64.png',
           'icon.svg',
           'apple-touch-icon.png',
           'pwa-192x192.png',
@@ -25,8 +27,8 @@ export default defineConfig(() => {
           short_name: 'Robotera BD',
           description:
             'Shop microcontrollers, LiDAR sensors, brushless motors, robotics kits, and lab tools in Bangladesh.',
-          theme_color: '#06142E',
-          background_color: '#06142E',
+          theme_color: '#071A3B',
+          background_color: '#071A3B',
           display: 'standalone',
           orientation: 'portrait',
           start_url: '/',

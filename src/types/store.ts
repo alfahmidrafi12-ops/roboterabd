@@ -195,6 +195,7 @@ export interface OrderReceipt {
   address: string;
   district: string;
   paymentMethod: string;
+  status?: OrderStatus;
   items: CartItem[];
   subtotal: number;
   discount: number;
@@ -203,7 +204,9 @@ export interface OrderReceipt {
   rewardDiscount?: number;
   deliveryFee: number;
   total: number;
+  notes?: string;
   createdAt: string;
+  createdAtIso?: string;
 }
 
 export interface PriceAlert {
@@ -268,6 +271,17 @@ export interface UserProfile {
   createdAt?: unknown;
   updatedAt?: unknown;
   lastLoginAt?: unknown;
+}
+
+export interface AdminUser {
+  uid: string;
+  email: string;
+  displayName?: string;
+  role: 'admin';
+  active: boolean;
+  addedBy: string;
+  createdAt: unknown;
+  updatedAt: unknown;
 }
 
 export type VisitorPlatform = 'Web' | 'PWA App';

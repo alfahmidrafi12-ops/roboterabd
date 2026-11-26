@@ -13,9 +13,12 @@ import {
   Download,
   Edit3,
   ExternalLink,
+  Eye,
+  EyeOff,
   FolderTree,
   Globe,
   Image as ImageIcon,
+  KeyRound,
   LayoutDashboard,
   LayoutTemplate,
   Link2,
@@ -29,15 +32,19 @@ import {
   RefreshCw,
   Save,
   Search,
+  Shield,
   ShieldAlert,
+  ShieldCheck,
   ShoppingBag,
   Smartphone,
   Ticket,
   Trash2,
+  UserPlus,
   Video,
   X,
 } from 'lucide-react';
 import { BLOG_POSTS, DEFAULT_SITE_SETTINGS } from '../data/catalog';
+import { BrandLogo } from './BrandLogo';
 import {
   BrowserGpsSnapshot,
   getBrowserGpsSnapshot,
@@ -48,28 +55,34 @@ import { isValidHttpUrl, resolveProductVideo } from '../lib/video';
 import {
   ADMIN_EMAIL,
   clearVisitorLogs,
+  createDelegatedAdminAccess,
   deleteOrderInFirestore,
   deletePriceAlert,
   deleteRestockAlert,
   deleteVisitorLog,
-  isVerifiedAdminUser,
+  isPrimaryAdminUser,
   markPriceAlertNotified,
   markRestockAlertNotified,
   normalizePromoCodeString,
   removeBanner,
   removeCategory,
+  removeDelegatedAdmin,
   removeProduct,
   removePromoCode,
   resendVerificationEmail,
+  resetUserPassword,
   saveBanner,
   saveCategory,
   saveProduct,
   savePromoCode,
   saveSiteSettings,
   seedCatalogIfEmpty,
+  setDelegatedAdminActive,
   signInAdminWithGoogle,
   signInWithEmail,
   signOutAdmin,
+  subscribeAdmins,
+  subscribeMyAdminRecord,
   subscribeOrders,
   subscribePriceAlerts,
   subscribeRestockAlerts,
@@ -77,6 +90,7 @@ import {
   updateOrderInFirestore,
 } from '../lib/firebase';
 import {
+  AdminUser,
   ArtworkKind,
   BannerItem,
   BannerTheme,
@@ -159,11 +173,23 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     | 'updates'
     | 'site-images'
     | 'alerts'
+    | 'admins'
   >('dashboard');
   const [orders, setOrders] = useState<StoredOrder[]>([]);
   const [priceAlerts, setPriceAlerts] = useState<PriceAlert[]>([]);
   const [restockAlerts, setRestockAlerts] = useState<RestockAlert[]>([]);
   const [visitorLogs, setVisitorLogs] = useState<VisitorLog[]>([]);
+  const [adminsList, setAdminsList] = useState<AdminUser[]>([]);
+  const [myAdminRecord, setMyAdminRecord] = useState<AdminUser | null>(null);
+  const [checkingAdminRecord, setCheckingAdminRecord] = useState(false);
+
+  const [newAdminName, setNewAdminName] = useState('');
+  const [newAdminEmail, setNewAdminEmail] = useState('');
+  const [newAdminPassword, setNewAdminPassword] = useState('');
+  const [showNewAdminPassword, setShowNewAdminPassword] = useState(false);
+  const [creatingAdmin, setCreatingAdmin] = useState(false);
+  const [adminTeamNotice, setAdminTeamNotice] = useState('');
+
   const [visitorSearch, setVisitorSearch] = useState('');
   const [visitorFilter, setVisitorFilter] = useState<'all' | 'Web' | 'PWA App' | 'Bangladesh' | 'GPS'>('all');
   const [copiedIpId, setCopiedIpId] = useState<string | null>(null);
@@ -213,7 +239,32 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     return subscribeBrowserGpsSnapshot(setGpsSnapshot);
   }, []);
 
-  const isAdmin = isVerifiedAdminUser(user);
+  const isPrimaryOwner = isPrimaryAdminUser(user);
+
+  useEffect(() => {
+    if (!isOpen || !user?.uid || isPrimaryOwner) {
+      setMyAdminRecord(null);
+      setCheckingAdminRecord(false);
+      return;
+    }
+    setCheckingAdminRecord(true);
+    let settled = false;
+    const unsub = subscribeMyAdminRecord(user, (rec) => {
+      setMyAdminRecord(rec);
+      if (!settled) {
+        settled = true;
+        setCheckingAdminRecord(false);
+      }
+    });
+    return () => unsub();
+  }, [isOpen, user?.uid, user?.email, isPrimaryOwner]);
+
+  const isDelegatedAdmin = Boolean(
+    user?.email &&
+      myAdminRecord?.active === true &&
+      myAdminRecord.email.toLowerCase() === user.email.toLowerCase()
+  );
+  const isAdmin = isPrimaryOwner || isDelegatedAdmin;
 
   useEffect(() => {
     if (!isOpen || !isAdmin) {
@@ -221,6 +272,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       setPriceAlerts([]);
       setRestockAlerts([]);
       setVisitorLogs([]);
+      setAdminsList([]);
       return;
     }
 
@@ -252,6 +304,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       }
     );
 
+    const unsubAdmins = subscribeAdmins(
+      (list) => setAdminsList(list),
+      (err) => {
+        console.error('Failed to load delegated admins:', err);
+      }
+    );
+
     if (!seedingDone) {
       seedCatalogIfEmpty()
         .then(() => setSeedingDone(true))
@@ -263,6 +322,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       unsubAlerts();
       unsubRestockAlerts();
       unsubVisitors();
+      unsubAdmins();
     };
   }, [isOpen, isAdmin, seedingDone]);
 
@@ -1312,6 +1372,80 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     showBusyToast(`Exported ${filteredVisitorLogs.length} visitor logs to CSV.`, 2200);
   };
 
+  const handleCreateDelegatedAdmin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isPrimaryOwner || creatingAdmin) return;
+    setAdminError('');
+    setAdminTeamNotice('');
+    setCreatingAdmin(true);
+    setBusyMessage('Provisioning admin account...');
+    try {
+      const res = await createDelegatedAdminAccess({
+        email: newAdminEmail,
+        password: newAdminPassword,
+        displayName: newAdminName,
+      });
+      setNewAdminName('');
+      setNewAdminEmail('');
+      setNewAdminPassword('');
+      setShowNewAdminPassword(false);
+      setAdminTeamNotice(
+        res.existingAccountReused
+          ? `Admin access granted to existing account ${res.email}. They can sign in with their current password/Google or use Reset Pass Link.`
+          : `Created admin login for ${res.email}. They can sign in immediately via Email & Password in the Admin Console.`
+      );
+      showBusyToast(`Admin access granted to ${res.email}.`, 2500);
+    } catch (err) {
+      setBusyMessage('');
+      setAdminError(formatAuthErrorMessage(err) || formatAdminErr(err, 'Could not grant admin access.'));
+    } finally {
+      setCreatingAdmin(false);
+    }
+  };
+
+  const handleToggleDelegatedAdmin = async (adm: AdminUser) => {
+    if (!isPrimaryOwner) return;
+    setAdminError('');
+    setAdminTeamNotice('');
+    setBusyMessage(`${adm.active ? 'Pausing' : 'Activating'} ${adm.email}...`);
+    try {
+      await setDelegatedAdminActive(adm.uid, !adm.active);
+      showBusyToast(`${adm.email} ${adm.active ? 'paused' : 'activated'}.`, 2000);
+    } catch (err) {
+      setBusyMessage('');
+      setAdminError(formatAdminErr(err, 'Could not update admin access status.'));
+    }
+  };
+
+  const handleSendAdminPasswordReset = async (email: string) => {
+    setAdminError('');
+    setAdminTeamNotice('');
+    setBusyMessage(`Sending reset link to ${email}...`);
+    try {
+      await resetUserPassword(email);
+      setAdminTeamNotice(`Password reset link sent to ${email}.`);
+      showBusyToast(`Password reset sent to ${email}.`, 2200);
+    } catch (err) {
+      setBusyMessage('');
+      setAdminError(formatAuthErrorMessage(err));
+    }
+  };
+
+  const handleDeleteDelegatedAdmin = async (adm: AdminUser) => {
+    if (!isPrimaryOwner) return;
+    setAdminError('');
+    setAdminTeamNotice('');
+    setConfirmKey(null);
+    setBusyMessage(`Removing ${adm.email}...`);
+    try {
+      await removeDelegatedAdmin(adm.uid);
+      showBusyToast(`Removed admin access for ${adm.email}.`, 2200);
+    } catch (err) {
+      setBusyMessage('');
+      setAdminError(formatAdminErr(err, 'Could not remove delegated admin.'));
+    }
+  };
+
   const handleClearAllVisitors = async () => {
     if (visitorLogs.length === 0) return;
     setAdminError('');
@@ -1337,6 +1471,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         {/* Top Admin Bar */}
         <div className="px-3.5 sm:px-7 py-3 sm:py-4 bg-[#06142E] text-white flex items-center justify-between gap-2 sm:gap-4 shrink-0">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <BrandLogo size="xs" className="border-white/20" />
             <span className="font-display text-sm sm:text-lg font-bold tracking-tight truncate">
               Robotera BD Admin Console
             </span>
@@ -1386,9 +1521,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 Admin Access Required
               </h3>
               <p className="text-xs sm:text-sm text-slate-600 mt-2 leading-relaxed text-center">
-                Sign in with your authorized store owner account (
-                <span className="font-mono text-xs text-slate-800">{ADMIN_EMAIL}</span>) to manage
-                orders, products, and scrolling banners.
+                Sign in with the store owner account (
+                <span className="font-mono text-xs text-slate-800">{ADMIN_EMAIL}</span>) or an
+                owner-approved admin email &amp; password to manage orders, products, and banners.
               </p>
 
               <form onSubmit={handleEmailSignIn} className="mt-5 space-y-3">
@@ -1455,6 +1590,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               </button>
             </div>
           </div>
+        ) : !isAdmin && checkingAdminRecord ? (
+          <div className="flex-1 flex flex-col items-center justify-center p-6 sm:p-8 text-center bg-[#F6F8FB]">
+            <div className="max-w-sm w-full bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-sm">
+              <RefreshCw className="w-8 h-8 text-[#0057E7] animate-spin mx-auto mb-3" />
+              <h3 className="font-display text-lg font-bold text-[#06142E]">
+                Verifying Admin Access...
+              </h3>
+              <p className="text-xs text-slate-500 mt-1.5">
+                Checking permissions for <span className="font-mono">{user.email || user.uid}</span>
+              </p>
+            </div>
+          </div>
         ) : !isAdmin ? (
           <div className="flex-1 flex flex-col items-center justify-center p-6 sm:p-8 text-center bg-[#F6F8FB]">
             <div className="max-w-md w-full bg-white rounded-2xl border border-amber-200 p-6 sm:p-8 shadow-sm">
@@ -1514,9 +1661,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     Unauthorized Account
                   </h3>
                   <p className="text-sm text-slate-600 mt-2">
-                    Signed in as <span className="font-mono text-xs">{user.email}</span>. Only
-                    verified store admin <span className="font-mono text-xs">{ADMIN_EMAIL}</span>{' '}
-                    can access this console.
+                    Signed in as <span className="font-mono text-xs">{user.email || user.phoneNumber}</span>. Only
+                    verified owner <span className="font-mono text-xs">{ADMIN_EMAIL}</span> or an
+                    authorized admin email can access this console.
                   </p>
                 </>
               )}
@@ -1656,6 +1803,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 >
                   <Bell className="w-3.5 h-3.5" />
                   <span>Alerts ({priceAlerts.length + restockAlerts.length})</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('admins')}
+                  className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap shrink-0 ${
+                    activeTab === 'admins'
+                      ? 'bg-[#0057E7] text-white'
+                      : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
+                  }`}
+                >
+                  <Shield className="w-3.5 h-3.5" />
+                  <span>Admin Team ({1 + adminsList.length})</span>
                 </button>
               </div>
 
@@ -4038,6 +4197,265 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                       })}
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* TAB 10: ADMIN TEAM ACCESS MANAGEMENT */}
+              {activeTab === 'admins' && (
+                <div className="space-y-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-200">
+                    <div>
+                      <h3 className="font-display text-lg font-bold text-[#06142E]">
+                        Admin Team &amp; Email Credentials
+                      </h3>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Grant other team emails Admin Console access with a login password, pause access, or revoke anytime.
+                      </p>
+                    </div>
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#F5F8FC] border border-slate-200 text-xs font-semibold text-[#06142E]">
+                      <ShieldCheck className="w-4 h-4 text-[#0057E7]" />
+                      <span>{1 + adminsList.filter((a) => a.active).length} Active Admins</span>
+                    </span>
+                  </div>
+
+                  {adminTeamNotice && (
+                    <div className="flex items-start justify-between gap-3 rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3 text-xs text-emerald-800">
+                      <span className="inline-flex items-start gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                        <span>{adminTeamNotice}</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setAdminTeamNotice('')}
+                        aria-label="Dismiss notice"
+                        className="p-0.5 text-emerald-600 hover:text-emerald-900"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Primary Protected Store Owner */}
+                  <div className="rounded-xl border border-blue-200 bg-[#F5F8FC] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-xl bg-[#06142E] text-white flex items-center justify-center shrink-0">
+                        <ShieldCheck className="w-5 h-5 text-[#38BDF8]" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-display text-sm font-bold text-[#06142E]">
+                            Primary Store Owner
+                          </span>
+                          <span className="px-2 py-0.5 rounded bg-[#06142E] text-white text-[10px] font-semibold">
+                            Protected Owner
+                          </span>
+                        </div>
+                        <p className="font-mono text-xs text-slate-600 truncate mt-0.5">
+                          {ADMIN_EMAIL}
+                        </p>
+                      </div>
+                    </div>
+                    <p className="text-[11px] text-slate-500">
+                      {isPrimaryOwner
+                        ? 'You are signed in as Primary Owner — full team controls enabled.'
+                        : 'Only the Primary Owner can add, pause, or remove delegated admins.'}
+                    </p>
+                  </div>
+
+                  {/* Add Admin Form (Primary Owner Only) */}
+                  {isPrimaryOwner && (
+                    <form
+                      onSubmit={handleCreateDelegatedAdmin}
+                      className="rounded-xl border border-slate-200 bg-white p-5 space-y-4"
+                    >
+                      <div className="flex items-center gap-2">
+                        <UserPlus className="w-4 h-4 text-[#0057E7]" />
+                        <h4 className="font-display text-sm font-bold text-[#06142E]">
+                          Add Admin Email &amp; Password
+                        </h4>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 text-xs">
+                        <div>
+                          <label htmlFor="new-admin-name" className="block font-semibold text-slate-700 mb-1">
+                            Name / Role Label (Optional)
+                          </label>
+                          <input
+                            id="new-admin-name"
+                            type="text"
+                            maxLength={120}
+                            value={newAdminName}
+                            onChange={(e) => setNewAdminName(e.target.value)}
+                            placeholder="e.g. Lab Manager"
+                            className="w-full h-10 px-3 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#0057E7]"
+                          />
+                        </div>
+
+                        <div>
+                          <label htmlFor="new-admin-email" className="block font-semibold text-slate-700 mb-1">
+                            Admin Email Address
+                          </label>
+                          <input
+                            id="new-admin-email"
+                            type="email"
+                            required
+                            maxLength={120}
+                            value={newAdminEmail}
+                            onChange={(e) => setNewAdminEmail(e.target.value)}
+                            placeholder="manager@example.com"
+                            className="w-full h-10 px-3 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#0057E7]"
+                          />
+                        </div>
+
+                        <div>
+                          <label htmlFor="new-admin-pass" className="block font-semibold text-slate-700 mb-1">
+                            Login Password (min 6 chars)
+                          </label>
+                          <div className="relative">
+                            <input
+                              id="new-admin-pass"
+                              type={showNewAdminPassword ? 'text' : 'password'}
+                              required
+                              minLength={6}
+                              maxLength={128}
+                              value={newAdminPassword}
+                              onChange={(e) => setNewAdminPassword(e.target.value)}
+                              placeholder="Enter strong password"
+                              className="w-full h-10 pl-3 pr-9 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#0057E7]"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowNewAdminPassword((v) => !v)}
+                              aria-label={showNewAdminPassword ? 'Hide password' : 'Show password'}
+                              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+                            >
+                              {showNewAdminPassword ? (
+                                <EyeOff className="w-4 h-4" />
+                              ) : (
+                                <Eye className="w-4 h-4" />
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+                        <p className="text-[11px] text-slate-500">
+                          Credentials are provisioned securely via Firebase Authentication (never stored as plaintext in Firestore) and grant immediate Admin Console login.
+                        </p>
+                        <button
+                          type="submit"
+                          disabled={creatingAdmin}
+                          className="h-10 px-5 rounded-lg bg-[#0057E7] hover:bg-[#0044BB] disabled:opacity-60 text-white text-xs font-semibold inline-flex items-center justify-center gap-2 shrink-0 transition-colors"
+                        >
+                          <UserPlus className="w-4 h-4" />
+                          <span>{creatingAdmin ? 'Adding Admin...' : 'Grant Admin Access'}</span>
+                        </button>
+                      </div>
+                    </form>
+                  )}
+
+                  {/* Delegated Admins List */}
+                  <div className="space-y-3">
+                    <h4 className="font-display text-sm font-bold text-[#06142E]">
+                      Delegated Store Admins ({adminsList.length})
+                    </h4>
+
+                    {adminsList.length === 0 ? (
+                      <div className="rounded-xl border border-dashed border-slate-300 bg-[#F6F8FB] p-8 text-center">
+                        <Shield className="w-7 h-7 text-slate-400 mx-auto mb-2" />
+                        <p className="text-sm font-semibold text-slate-700">
+                          No delegated admins added yet
+                        </p>
+                        <p className="text-xs text-slate-500 mt-1">
+                          Add a teammate&apos;s email and password above so they can log in and manage orders, catalog, and visitors.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2.5">
+                        {adminsList.map((adm) => (
+                          <div
+                            key={adm.uid}
+                            className="rounded-xl border border-slate-200 bg-white p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                          >
+                            <div className="min-w-0 space-y-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="font-display text-sm font-bold text-[#06142E]">
+                                  {adm.displayName || adm.email.split('@')[0]}
+                                </span>
+                                <span
+                                  className={`px-2 py-0.5 rounded text-[10px] font-semibold border ${
+                                    adm.active
+                                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                      : 'bg-amber-50 text-amber-800 border-amber-200'
+                                  }`}
+                                >
+                                  {adm.active ? 'Active Admin' : 'Access Paused'}
+                                </span>
+                              </div>
+                              <p className="font-mono text-xs text-slate-700 break-all">
+                                {adm.email}
+                              </p>
+                              <p className="text-[11px] text-slate-500">
+                                Added by {adm.addedBy} · UID: <span className="font-mono">{adm.uid.slice(0, 12)}…</span>
+                              </p>
+                            </div>
+
+                            {isPrimaryOwner && (
+                              <div className="flex flex-wrap items-center gap-2 shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleDelegatedAdmin(adm)}
+                                  className={`h-8 px-3 rounded-lg border text-xs font-semibold transition-colors ${
+                                    adm.active
+                                      ? 'border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-800'
+                                      : 'border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-700'
+                                  }`}
+                                >
+                                  {adm.active ? 'Pause Access' : 'Activate'}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleSendAdminPasswordReset(adm.email)}
+                                  className="h-8 px-3 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold inline-flex items-center gap-1"
+                                >
+                                  <KeyRound className="w-3.5 h-3.5" />
+                                  <span>Reset Pass Link</span>
+                                </button>
+                                {confirmKey === `adm-${adm.uid}` ? (
+                                  <div className="inline-flex items-center gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteDelegatedAdmin(adm)}
+                                      className="h-8 px-3 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-semibold"
+                                    >
+                                      Confirm Remove
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setConfirmKey(null)}
+                                      className="h-8 px-2.5 rounded-lg border border-slate-200 text-xs text-slate-600"
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => setConfirmKey(`adm-${adm.uid}`)}
+                                    className="h-8 px-3 rounded-lg border border-red-200 hover:bg-red-50 text-red-600 text-xs font-semibold inline-flex items-center gap-1"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                    <span>Revoke</span>
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>

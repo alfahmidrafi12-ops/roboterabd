@@ -7,6 +7,8 @@ import {
   ClipboardCheck,
   Clock,
   Copy,
+  Download,
+  Loader2,
   MapPin,
   MessageCircle,
   Navigation,
@@ -19,12 +21,18 @@ import {
   XCircle,
 } from 'lucide-react';
 import { subscribeOrderTracking } from '../lib/firebase';
+import {
+  buildOrderReceiptPdf,
+  storedOrderToReceipt,
+  triggerPdfDownload,
+} from '../lib/receiptPdf';
 import { playErrorSound, playSuccessSound, playTapSound } from '../lib/sound';
-import { OrderStatus, OrderTrackingInfo, StoredOrder } from '../types/store';
+import { OrderStatus, OrderTrackingInfo, Product, StoredOrder } from '../types/store';
 
 interface OrderTrackingSectionProps {
   recentOrderIds: string[];
   userOrders?: StoredOrder[];
+  products?: Product[];
   isSignedIn?: boolean;
   autoTrackOrderId?: string | null;
   onBackToStore?: () => void;
@@ -94,7 +102,7 @@ function formatFirestoreTimestamp(ts: unknown): string {
   if (!date) return 'Just now';
   return date.toLocaleString('en-BD', {
     dateStyle: 'medium',
-    timeStyle: 'short',
+    timeStyle: 'medium',
   });
 }
 
@@ -248,6 +256,7 @@ const DeliveryCarSvg: React.FC<{
 export const OrderTrackingSection: React.FC<OrderTrackingSectionProps> = ({
   recentOrderIds,
   userOrders = [],
+  products = [],
   isSignedIn = false,
   autoTrackOrderId,
   onBackToStore,
@@ -260,9 +269,25 @@ export const OrderTrackingSection: React.FC<OrderTrackingSectionProps> = ({
   const [copiedLink, setCopiedLink] = useState(false);
   const [liveUpdateFlash, setLiveUpdateFlash] = useState(false);
   const [carDisplayPct, setCarDisplayPct] = useState(9);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
 
   const prevSnapshotRef = useRef<{ status?: OrderStatus; courierNote?: string } | null>(null);
   const prevNotFoundIdRef = useRef<string | null>(null);
+
+  const handleDownloadManifestPdf = async (order: StoredOrder) => {
+    playTapSound();
+    setDownloadingPdf(true);
+    try {
+      const receiptModel = storedOrderToReceipt(order, products);
+      const { blob, filename } = await buildOrderReceiptPdf(receiptModel);
+      triggerPdfDownload(blob, filename);
+    } catch (pdfErr) {
+      console.error('Failed to generate order PDF receipt:', pdfErr);
+      playErrorSound();
+    } finally {
+      setDownloadingPdf(false);
+    }
+  };
 
   const startLiveTracking = (idToTrack: string, pushUrl = true) => {
     const clean = idToTrack.trim().replace(/^#/, '');
@@ -1031,12 +1056,27 @@ export const OrderTrackingSection: React.FC<OrderTrackingSectionProps> = ({
                 {ownedOrderDetail && (
                   <div className="rounded-xl bg-white border border-slate-300/80 p-4 space-y-2.5 text-xs">
                     <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-200/80">
-                      <span className="font-display font-bold text-[#071A3B]">
-                        Verified Order Manifest
-                      </span>
-                      <span className="text-[11px] text-[#475569]">
-                        {ownedOrderDetail.customerName} · {ownedOrderDetail.address}
-                      </span>
+                      <div>
+                        <span className="font-display font-bold text-[#071A3B]">
+                          Verified Order Manifest
+                        </span>
+                        <span className="block sm:inline sm:ml-2 text-[11px] text-[#475569]">
+                          {ownedOrderDetail.customerName} · {ownedOrderDetail.address}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleDownloadManifestPdf(ownedOrderDetail)}
+                        disabled={downloadingPdf}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#071A3B] hover:bg-[#0D2B5E] disabled:opacity-60 text-white text-[11px] font-semibold transition-colors"
+                      >
+                        {downloadingPdf ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin text-[#00CFFF]" />
+                        ) : (
+                          <Download className="w-3.5 h-3.5 text-[#00CFFF]" />
+                        )}
+                        <span>{downloadingPdf ? 'Generating...' : 'Download A4 Receipt (PDF)'}</span>
+                      </button>
                     </div>
                     <div className="divide-y divide-slate-100">
                       {ownedOrderDetail.items.map((item, idx) => (

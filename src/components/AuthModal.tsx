@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   ChevronDown,
   Clock,
+  Download,
   ExternalLink,
   Eye,
   EyeOff,
@@ -27,26 +28,34 @@ import {
 } from 'lucide-react';
 import {
   ADMIN_EMAIL,
-  isVerifiedAdminUser,
+  isPrimaryAdminUser,
   resendVerificationEmail,
   resetUserPassword,
   signInAdminWithGoogle,
   signInWithEmail,
   signOutAdmin,
   signUpWithEmail,
+  subscribeMyAdminRecord,
   subscribeUserOrders,
 } from '../lib/firebase';
 import { downloadGiftCardPng } from '../lib/giftCard';
+import {
+  buildOrderReceiptPdf,
+  storedOrderToReceipt,
+  triggerPdfDownload,
+} from '../lib/receiptPdf';
 import { playErrorSound, playTapSound, playVoucherCopySound } from '../lib/sound';
-import { GiftCardReward, OrderStatus, StoredOrder } from '../types/store';
+import { AdminUser, GiftCardReward, OrderStatus, Product, StoredOrder } from '../types/store';
 import { DigitalGiftCard } from './DigitalGiftCard';
 import { RewardDashboard } from './RewardDashboard';
+import { BrandLogo } from './BrandLogo';
 import firebaseConfig from '../../firebase-applet-config.json';
 
 interface AuthModalProps {
   isOpen: boolean;
   user: User | null;
   giftCards?: GiftCardReward[];
+  products?: Product[];
   onClose: () => void;
   onOpenAdmin: () => void;
   onTrackOrder?: (orderId: string) => void;
@@ -66,13 +75,13 @@ function formatOrderDate(ts: unknown): string {
     if ('toDate' in ts && typeof (ts as { toDate: () => Date }).toDate === 'function') {
       return (ts as { toDate: () => Date }).toDate().toLocaleString('en-BD', {
         dateStyle: 'medium',
-        timeStyle: 'short',
+        timeStyle: 'medium',
       });
     }
     if ('seconds' in ts && typeof (ts as { seconds: number }).seconds === 'number') {
       return new Date((ts as { seconds: number }).seconds * 1000).toLocaleString('en-BD', {
         dateStyle: 'medium',
-        timeStyle: 'short',
+        timeStyle: 'medium',
       });
     }
   }
@@ -138,6 +147,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   isOpen,
   user,
   giftCards,
+  products = [],
   onClose,
   onOpenAdmin,
   onTrackOrder,
@@ -166,6 +176,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [ordersError, setOrdersError] = useState('');
   const [ordersReloadKey, setOrdersReloadKey] = useState(0);
+  const [downloadingReceiptId, setDownloadingReceiptId] = useState<string | null>(null);
+  const [myAdminRecord, setMyAdminRecord] = useState<AdminUser | null>(null);
 
   useEffect(() => {
     return () => {
@@ -224,9 +236,23 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     return () => unsub();
   }, [isOpen, user?.uid, ordersReloadKey]);
 
+  useEffect(() => {
+    if (!isOpen || !user?.uid || isPrimaryAdminUser(user)) {
+      setMyAdminRecord(null);
+      return;
+    }
+    return subscribeMyAdminRecord(user, setMyAdminRecord);
+  }, [isOpen, user?.uid, user?.email]);
+
   if (!isOpen) return null;
 
-  const isAdmin = isVerifiedAdminUser(user);
+  const isAdmin =
+    isPrimaryAdminUser(user) ||
+    Boolean(
+      user?.email &&
+        myAdminRecord?.active === true &&
+        myAdminRecord.email.toLowerCase() === user.email.toLowerCase()
+    );
   const activeGiftCardsCount = localGiftCards.filter((c) => !c.redeemed).length;
 
   const handleCopyGiftCode = (code: string) => {
@@ -235,6 +261,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setCopiedGiftCode(code);
     if (copiedGiftTimerRef.current) window.clearTimeout(copiedGiftTimerRef.current);
     copiedGiftTimerRef.current = window.setTimeout(() => setCopiedGiftCode(null), 1800);
+  };
+
+  const handleDownloadOrderPdf = async (order: StoredOrder) => {
+    playTapSound();
+    setDownloadingReceiptId(order.orderId);
+    try {
+      const receiptModel = storedOrderToReceipt(order, products);
+      const { blob, filename } = await buildOrderReceiptPdf(receiptModel);
+      triggerPdfDownload(blob, filename);
+    } catch (pdfErr) {
+      console.error('Failed to build A4 PDF receipt:', pdfErr);
+      playErrorSound();
+    } finally {
+      setDownloadingReceiptId(null);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -707,6 +748,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                               <span className="font-mono text-sm font-bold text-[#071A3B] tabular-nums">
                                 ৳{order.total.toLocaleString()}
                               </span>
+                              <button
+                                type="button"
+                                onClick={() => handleDownloadOrderPdf(order)}
+                                disabled={downloadingReceiptId === order.orderId}
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-slate-300 bg-[#F8FAFC] hover:bg-white hover:border-[#0866F5] text-[11px] font-semibold text-[#071A3B] disabled:opacity-50 transition-colors"
+                              >
+                                {downloadingReceiptId === order.orderId ? (
+                                  <Loader2 className="w-3 h-3 animate-spin text-[#0866F5]" />
+                                ) : (
+                                  <Download className="w-3 h-3 text-[#0866F5]" />
+                                )}
+                                <span>A4 PDF</span>
+                              </button>
                               {onTrackOrder && (
                                 <button
                                   type="button"
@@ -789,12 +843,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             <div className="relative z-10 space-y-7">
               {/* Brand Lockup */}
               <div className="flex items-center gap-2.5 animate-form-stagger">
-                <span className="w-8 h-8 rounded-lg bg-[#087BFF] flex items-center justify-center shadow-[0_6px_16px_-4px_rgba(8,123,255,0.6)]">
-                  <svg viewBox="0 0 24 24" className="w-4 h-4 text-white" fill="none" aria-hidden="true">
-                    <rect x="6" y="6" width="12" height="12" rx="2.5" stroke="currentColor" strokeWidth="2" />
-                    <circle cx="12" cy="12" r="2.2" fill="#FFFFFF" />
-                  </svg>
-                </span>
+                <BrandLogo
+                  size="sm"
+                  className="border-white/25 shadow-[0_6px_16px_-4px_rgba(8,123,255,0.45)]"
+                />
                 <span className="font-display text-base font-bold tracking-tight text-white flex items-center gap-1.5">
                   <span>ROBOTERA</span>
                   <span className="bg-white/15 text-[#7DD3FC] text-[10px] font-mono font-bold px-1.5 py-0.5 rounded">
@@ -860,12 +912,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           {/* Mobile Compact Header (< md) */}
           <div className="md:hidden px-5 py-4 bg-[#071A3D] text-white flex items-center justify-between shrink-0 border-b border-white/10">
             <div className="flex items-center gap-2.5">
-              <span className="w-7 h-7 rounded-lg bg-[#087BFF] flex items-center justify-center">
-                <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 text-white" fill="none" aria-hidden="true">
-                  <rect x="6" y="6" width="12" height="12" rx="2.5" stroke="currentColor" strokeWidth="2" />
-                  <circle cx="12" cy="12" r="2.2" fill="#FFFFFF" />
-                </svg>
-              </span>
+              <BrandLogo size="xs" className="border-white/20" />
               <span className="font-display text-sm font-bold tracking-tight">ROBOTERA BD</span>
             </div>
             <button
@@ -1170,10 +1217,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                           </p>
                           <p>
                             Inside Dhaka Metro orders deliver in 2–3 days (৳80) and Outside Dhaka in
-                            2–4 days (৳150), with free courier on orders of ৳3,000+. Components are
-                            bench-tested under ESD protocols and carry a 7-day replacement warranty
-                            for manufacturing defects (excluding physical damage, reverse polarity,
-                            or over-voltage burns).
+                            2–4 days (৳150). Components are bench-tested under ESD protocols and
+                            carry a 7-day replacement warranty for manufacturing defects (excluding
+                            physical damage, reverse polarity, or over-voltage burns).
                           </p>
                         </div>
 

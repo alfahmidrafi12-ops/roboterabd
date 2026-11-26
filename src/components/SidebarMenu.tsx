@@ -1,6 +1,7 @@
 import React from 'react';
 import { ChevronRight, MessageCircle, PackageSearch, ShieldCheck, User as UserIcon, X } from 'lucide-react';
 import { CategoryId, CategoryItem } from '../types/store';
+import { BrandLogo } from './BrandLogo';
 import { PWAInstallButton } from './PWAInstallButton';
 import { WHATSAPP_URL } from './WhatsAppButton';
 
@@ -49,9 +50,12 @@ export const SidebarMenu: React.FC<SidebarMenuProps> = ({
       />
       <aside className="relative w-80 max-w-[85vw] bg-white h-full shadow-2xl flex flex-col z-10 border-r border-slate-200">
         <div className="px-6 py-5 border-b border-slate-200 flex items-center justify-between">
-          <div>
-            <p className="text-xs font-medium text-slate-500">Hardware Catalog</p>
-            <h2 className="font-display text-lg font-bold text-[#071A3B]">All Departments</h2>
+          <div className="flex items-center gap-2.5 min-w-0">
+            <BrandLogo size="sm" />
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-slate-500">Robotera BD</p>
+              <h2 className="font-display text-lg font-bold text-[#071A3B] truncate">All Departments</h2>
+            </div>
           </div>
           <button
             type="button"

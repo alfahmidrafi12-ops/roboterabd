@@ -86,6 +86,114 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
 
   const isDefaultHeadline = displayTitle === DEFAULT_SITE_SETTINGS.heroTitle;
 
+  const line1Text: string = isDefaultHeadline ? 'Precision Robotics.' : displayTitle || '';
+  const line2Text: string = isDefaultHeadline ? 'Built for Innovation.' : '';
+  const totalTypeChars = line1Text.length + line2Text.length;
+
+  const [typedCount, setTypedCount] = useState<number>(() => {
+    if (
+      typeof window !== 'undefined' &&
+      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    ) {
+      return totalTypeChars;
+    }
+    return 0;
+  });
+  const [showCursor, setShowCursor] = useState<boolean>(() => {
+    if (
+      typeof window !== 'undefined' &&
+      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    ) {
+      return false;
+    }
+    return true;
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      setTypedCount(totalTypeChars);
+      setShowCursor(false);
+      return;
+    }
+
+    let cancelled = false;
+    let stepTimer = 0;
+    let cursorHideTimer = 0;
+    let fallbackStartTimer = 0;
+    let started = false;
+
+    setTypedCount(0);
+    setShowCursor(true);
+
+    const scheduleNextChar = (currentCount: number) => {
+      if (cancelled) return;
+      if (currentCount >= totalTypeChars) {
+        cursorHideTimer = window.setTimeout(() => {
+          if (!cancelled) setShowCursor(false);
+        }, 1150);
+        return;
+      }
+
+      const nextCount = currentCount + 1;
+      const typedChar =
+        currentCount < line1Text.length
+          ? line1Text[currentCount]
+          : line2Text[currentCount - line1Text.length];
+
+      let delay = 36 + (currentCount % 3) * 8;
+      if (isDefaultHeadline && currentCount === line1Text.length) {
+        delay = 220;
+      } else if (typedChar === '.') {
+        delay = 95;
+      } else if (typedChar === ' ') {
+        delay = 58;
+      }
+
+      stepTimer = window.setTimeout(() => {
+        if (cancelled) return;
+        setTypedCount(nextCount);
+        scheduleNextChar(nextCount);
+      }, delay);
+    };
+
+    const startTyping = () => {
+      if (cancelled || started) return;
+      started = true;
+      window.clearTimeout(fallbackStartTimer);
+      window.removeEventListener('robotera:boot-complete', startTyping);
+      stepTimer = window.setTimeout(() => {
+        scheduleNextChar(0);
+      }, 120);
+    };
+
+    const bootOverlay = document.querySelector('[aria-label="Initializing Robotera BD"]');
+    if (!bootOverlay) {
+      startTyping();
+    } else {
+      window.addEventListener('robotera:boot-complete', startTyping, { once: true });
+      fallbackStartTimer = window.setTimeout(startTyping, 2800);
+    }
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(stepTimer);
+      window.clearTimeout(cursorHideTimer);
+      window.clearTimeout(fallbackStartTimer);
+      window.removeEventListener('robotera:boot-complete', startTyping);
+    };
+  }, [line1Text, line2Text, totalTypeChars, isDefaultHeadline]);
+
+  const typedLine1 = line1Text.slice(0, Math.min(typedCount, line1Text.length));
+  const typedLine2 =
+    isDefaultHeadline && typedCount > line1Text.length
+      ? line2Text.slice(0, typedCount - line1Text.length)
+      : '';
+  const cursorOnLine1 =
+    showCursor && (!isDefaultHeadline || typedCount < line1Text.length);
+  const cursorOnLine2 =
+    showCursor && isDefaultHeadline && typedCount >= line1Text.length;
+
   const handleStagePointerMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (
       typeof window !== 'undefined' &&
@@ -182,13 +290,49 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                 </p>
 
                 {isDefaultHeadline ? (
-                  <h1 className="animate-hero-rise-delay-1 font-hero font-extrabold text-[38px] sm:text-[50px] lg:text-[56px] xl:text-[62px] leading-[1.04] tracking-[-0.035em] text-[#F5F8FF] [text-wrap:balance]">
-                    Precision Robotics.
-                    <span className="block text-[#1677FF] mt-1">Built for Innovation.</span>
+                  <h1
+                    aria-label="Precision Robotics. Built for Innovation."
+                    className="relative font-hero font-extrabold text-[38px] sm:text-[50px] lg:text-[56px] xl:text-[62px] leading-[1.04] tracking-[-0.035em] text-[#F5F8FF] [text-wrap:balance]"
+                  >
+                    <span
+                      aria-hidden="true"
+                      className="invisible select-none pointer-events-none block"
+                    >
+                      Precision Robotics.
+                      <span className="block text-[#1677FF] mt-1">Built for Innovation.</span>
+                    </span>
+                    <span aria-hidden="true" className="absolute inset-0 block">
+                      <span>
+                        {typedLine1}
+                        {cursorOnLine1 && (
+                          <span className="animate-type-cursor inline-block w-[3px] h-[0.82em] align-[-0.06em] ml-1 rounded-[1px] bg-[#00C8FF] shadow-[0_0_12px_rgba(0,200,255,0.85)]" />
+                        )}
+                      </span>
+                      <span className="block text-[#1677FF] mt-1">
+                        {typedLine2}
+                        {cursorOnLine2 && (
+                          <span className="animate-type-cursor inline-block w-[3px] h-[0.82em] align-[-0.06em] ml-1 rounded-[1px] bg-[#00C8FF] shadow-[0_0_12px_rgba(0,200,255,0.85)]" />
+                        )}
+                      </span>
+                    </span>
                   </h1>
                 ) : (
-                  <h1 className="animate-hero-rise-delay-1 font-hero font-extrabold text-[36px] sm:text-[48px] lg:text-[54px] leading-[1.05] tracking-[-0.035em] text-[#F5F8FF] [text-wrap:balance]">
-                    {displayTitle}
+                  <h1
+                    aria-label={displayTitle}
+                    className="relative font-hero font-extrabold text-[36px] sm:text-[48px] lg:text-[54px] leading-[1.05] tracking-[-0.035em] text-[#F5F8FF] [text-wrap:balance]"
+                  >
+                    <span
+                      aria-hidden="true"
+                      className="invisible select-none pointer-events-none block"
+                    >
+                      {displayTitle}
+                    </span>
+                    <span aria-hidden="true" className="absolute inset-0 block">
+                      {typedLine1}
+                      {showCursor && (
+                        <span className="animate-type-cursor inline-block w-[3px] h-[0.82em] align-[-0.06em] ml-1 rounded-[1px] bg-[#00C8FF] shadow-[0_0_12px_rgba(0,200,255,0.85)]" />
+                      )}
+                    </span>
                   </h1>
                 )}
 

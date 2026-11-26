@@ -1,7 +1,8 @@
 import React from 'react';
-import { Check, Copy, Cpu, Download, ShieldCheck, Sparkles, Wifi } from 'lucide-react';
+import { Check, Copy, Download, ShieldCheck, Sparkles, Wifi } from 'lucide-react';
 import { playTapSound } from '../lib/sound';
 import { GiftCardReward } from '../types/store';
+import { BrandLogo } from './BrandLogo';
 
 interface DigitalGiftCardProps {
   card: GiftCardReward;
@@ -87,15 +88,14 @@ export const DigitalGiftCard: React.FC<DigitalGiftCardProps> = ({
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-start gap-3 min-w-0">
               {/* Brand Hardware Emblem */}
-              <div
-                className={`w-10 h-10 rounded-xl flex items-center justify-center border shrink-0 ${
+              <BrandLogo
+                size="md"
+                className={
                   isRedeemed
-                    ? 'bg-white border-slate-300 text-slate-500'
-                    : 'bg-[#087BFF]/20 border-[#00CFFF]/45 text-[#00CFFF] shadow-[inset_0_1px_0_rgba(255,255,255,0.2)]'
-                }`}
-              >
-                <Cpu className="w-5 h-5" />
-              </div>
+                    ? 'opacity-75 grayscale border-slate-300'
+                    : 'border-[#00CFFF]/50 shadow-[0_4px_16px_-4px_rgba(0,207,255,0.45)]'
+                }
+              />
               <div className="min-w-0">
                 <p
                   className={`inline-flex items-center gap-1 font-mono text-[9.5px] font-bold uppercase tracking-[0.14em] ${

@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import { Award, Banknote, Check, Mail, MapPin, MessageCircle, Phone, ShieldCheck, Truck } from 'lucide-react';
 import { QUICK_SEARCH_TAGS } from '../data/catalog';
 import { CategoryId, CategoryItem } from '../types/store';
+import { BrandLogo } from './BrandLogo';
 import { Reveal } from './Reveal';
 import { WHATSAPP_URL } from './WhatsAppButton';
 
@@ -85,7 +86,7 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
             {
               icon: Truck,
               title: 'Nationwide Delivery',
-              desc: 'Inside Dhaka: 2–3 days (৳80) · Outside Dhaka: 2–4 days (৳150). Free over ৳3,000.',
+              desc: 'Inside Dhaka: 2–3 days (৳80) · Outside Dhaka: 2–4 days (৳150).',
             },
             {
               icon: ShieldCheck,
@@ -126,12 +127,10 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
         <div className="w-full max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10 py-12 sm:py-14 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-8">
           <div className="lg:col-span-4 space-y-4">
             <div className="font-hero text-xl font-extrabold text-white tracking-tight flex items-center gap-2.5">
-              <span className="w-8 h-8 rounded-xl bg-[#087BFF] shadow-[0_6px_16px_-4px_rgba(8,123,255,0.5)] flex items-center justify-center">
-                <svg viewBox="0 0 24 24" className="w-4 h-4 text-white" fill="none" aria-hidden="true">
-                  <rect x="6" y="6" width="12" height="12" rx="2.5" stroke="currentColor" strokeWidth="2" />
-                  <circle cx="12" cy="12" r="2.2" fill="#FFFFFF" />
-                </svg>
-              </span>
+              <BrandLogo
+                size="sm"
+                className="border-white/20 shadow-[0_6px_16px_-4px_rgba(8,123,255,0.45)]"
+              />
               <span className="tracking-tight">
                 ROBOTERA <span className="text-[#00CFFF]">BD</span>
               </span>

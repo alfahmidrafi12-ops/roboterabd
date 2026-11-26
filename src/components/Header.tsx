@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   ArrowRight,
   ChevronDown,
@@ -15,6 +15,7 @@ import {
 import { DEFAULT_SITE_SETTINGS } from '../data/catalog';
 import { playTapSound } from '../lib/sound';
 import { AvailabilityFilter, CategoryId, CategoryItem, Product } from '../types/store';
+import { BrandLogo } from './BrandLogo';
 import { HardwareArtwork } from './HardwareArtwork';
 import { PWAInstallButton } from './PWAInstallButton';
 
@@ -86,8 +87,10 @@ export const Header: React.FC<HeaderProps> = ({
   const [scrolled, setScrolled] = useState(false);
   const [scrollProgress, setScrollProgress] = useState(0);
   const [cartPulsing, setCartPulsing] = useState(false);
+  const [barHeight, setBarHeight] = useState<number | null>(null);
   const prevPulseKeyRef = useRef(cartPulseKey);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const barRef = useRef<HTMLDivElement>(null);
 
   const visibleCategories = categories.filter((c) => c.active !== false);
   const resolvedTickerItems = (
@@ -141,6 +144,28 @@ export const Header: React.FC<HeaderProps> = ({
       window.removeEventListener('resize', handleScroll);
     };
   }, []);
+
+  useLayoutEffect(() => {
+    const el = barRef.current;
+    if (!el) return;
+    const measure = () => {
+      const nextHeight = Math.round(el.getBoundingClientRect().height);
+      if (nextHeight > 0) {
+        setBarHeight((prev) => (prev === nextHeight ? prev : nextHeight));
+      }
+    };
+    measure();
+    let ro: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined') {
+      ro = new ResizeObserver(measure);
+      ro.observe(el);
+    }
+    window.addEventListener('resize', measure, { passive: true });
+    return () => {
+      ro?.disconnect();
+      window.removeEventListener('resize', measure);
+    };
+  }, [showNewsTicker]);
 
   useEffect(() => {
     if (!categoriesOpen) return;
@@ -204,21 +229,28 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <header
-      className={`sticky top-0 z-40 transition-all duration-200 border-b ${
-        scrolled
-          ? 'bg-white/95 backdrop-blur-xl border-slate-200/90 shadow-[0_6px_24px_-16px_rgba(7,26,61,0.14)]'
-          : 'bg-white/90 backdrop-blur-xl border-slate-200/75'
-      }`}
-    >
-      <div className="max-w-[1440px] mx-auto px-3 sm:px-6 lg:px-10 h-16 flex items-center justify-between gap-2 sm:gap-4 xl:gap-8">
+    <>
+      <header
+        className={`fixed top-0 left-0 right-0 z-40 transition-[background-color,box-shadow] duration-200 ${
+          scrolled
+            ? 'bg-white/95 backdrop-blur-xl shadow-[0_6px_24px_-16px_rgba(7,26,61,0.14)]'
+            : 'bg-white/90 backdrop-blur-xl'
+        }`}
+      >
+        <div
+          ref={barRef}
+          className={`w-full border-b transition-colors duration-200 ${
+            scrolled ? 'border-slate-200/90' : 'border-slate-200/75'
+          }`}
+        >
+          <div className="max-w-[1440px] mx-auto px-2.5 sm:px-6 lg:px-10 h-14 sm:h-16 flex items-center justify-between gap-1.5 sm:gap-4 xl:gap-8">
         {/* Zone 1: Menu Trigger + Clean Architectural Robotera BD Brand Lockup */}
-        <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+        <div className="flex items-center gap-1 sm:gap-3 min-w-0">
           <button
             type="button"
             onClick={onOpenSidebar}
             aria-label="Open department categories menu"
-            className="p-2 -ml-1 sm:-ml-2 rounded-xl text-[#071A3D] hover:text-[#087BFF] hover:bg-[#F3F7FC] border border-transparent hover:border-slate-200/80 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF]"
+            className="p-1.5 sm:p-2 -ml-0.5 sm:-ml-2 rounded-xl text-[#071A3D] hover:text-[#087BFF] hover:bg-[#F3F7FC] border border-transparent hover:border-slate-200/80 transition-colors shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF]"
           >
             <Menu className="w-5 h-5" />
           </button>
@@ -230,18 +262,15 @@ export const Header: React.FC<HeaderProps> = ({
               e.preventDefault();
               onGoHome();
             }}
-            className="font-hero text-[15px] sm:text-[18px] font-extrabold tracking-tight text-[#071A3D] whitespace-nowrap shrink-0 flex items-center gap-2.5 group"
+            className="font-hero text-[13.5px] min-[390px]:text-[15px] sm:text-[18px] font-extrabold tracking-tight text-[#071A3D] whitespace-nowrap shrink-0 flex items-center gap-1.5 sm:gap-2.5 group"
           >
-            <span className="w-7 h-7 rounded-lg bg-[#071A3D] flex items-center justify-center group-hover:bg-[#087BFF] transition-colors shadow-[0_4px_12px_-4px_rgba(7,26,61,0.35)]">
-              <svg viewBox="0 0 24 24" className="w-4 h-4 text-white" fill="none" aria-hidden="true">
-                <rect x="6" y="6" width="12" height="12" rx="2.5" stroke="currentColor" strokeWidth="2" />
-                <circle cx="12" cy="12" r="2.2" fill="#00CFFF" />
-                <path d="M9 2.5V6M15 2.5V6M9 18V21.5M15 18V21.5M2.5 9H6M2.5 15H6M18 9H21.5M18 15H21.5" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
-              </svg>
-            </span>
-            <span className="flex items-baseline gap-1">
+            <BrandLogo
+              size="sm"
+              className="!w-7 !h-7 sm:!w-8 sm:!h-8 shadow-[0_4px_12px_-4px_rgba(7,26,61,0.22)] group-hover:border-[#087BFF]/60 transition-colors"
+            />
+            <span className="flex items-baseline gap-0.5 sm:gap-1">
               <span>ROBOTERA</span>
-              <span className="text-[#087BFF] font-mono text-[12px] sm:text-[13px] font-bold tracking-wider">
+              <span className="text-[#087BFF] font-mono text-[11px] min-[390px]:text-[12px] sm:text-[13px] font-bold tracking-wider">
                 BD
               </span>
             </span>
@@ -268,7 +297,7 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
 
             {categoriesOpen && (
-              <div className="animate-slide-down absolute left-0 top-full mt-2.5 w-[560px] bg-white rounded-2xl border border-slate-200/90 shadow-[0_24px_56px_-18px_rgba(7,26,61,0.22)] p-4 z-50">
+              <div className="animate-slide-down absolute left-0 top-full mt-2.5 w-[560px] max-h-[calc(100dvh-5rem)] overflow-y-auto bg-white rounded-2xl border border-slate-200/90 shadow-[0_24px_56px_-18px_rgba(7,26,61,0.22)] p-4 z-50">
                 <div className="flex items-center justify-between pb-2.5 mb-3 border-b border-slate-100">
                   <span className="text-[11px] font-mono font-semibold uppercase tracking-wider text-[#64748B]">
                     Hardware Departments
@@ -356,7 +385,7 @@ export const Header: React.FC<HeaderProps> = ({
         </nav>
 
         {/* Zone 3: Install App, Smart Search, Wishlist, Account & Primary Cart Action */}
-        <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+        <div className="flex items-center gap-0.5 sm:gap-1.5 shrink-0">
           <PWAInstallButton variant="header" />
 
           <button
@@ -367,7 +396,7 @@ export const Header: React.FC<HeaderProps> = ({
             }}
             aria-label="Toggle product search"
             aria-expanded={searchOpen}
-            className={`h-9 sm:h-10 px-2.5 sm:px-3.5 rounded-xl inline-flex items-center gap-2 border transition-all duration-200 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF] ${
+            className={`h-8 sm:h-10 px-2 sm:px-3.5 rounded-xl inline-flex items-center gap-2 border transition-all duration-200 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF] ${
               searchOpen || hasActiveSearchFilters
                 ? 'text-[#087BFF] bg-[#EFF6FF] border-[#087BFF]/45'
                 : 'bg-[#F3F7FC] hover:bg-[#E7EFFA] border-slate-200/90 text-[#071A3D]'
@@ -422,7 +451,7 @@ export const Header: React.FC<HeaderProps> = ({
               onOpenCart();
             }}
             aria-label={`Open shopping cart (${cartCount} items)`}
-            className={`cta-sheen inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 h-9 sm:h-10 rounded-xl bg-[#071A3D] hover:bg-[#0D2554] active:scale-[0.97] border text-white text-xs sm:text-sm font-semibold transition-all duration-300 whitespace-nowrap shrink-0 shadow-[0_6px_16px_-6px_rgba(7,26,61,0.35)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF] focus-visible:ring-offset-2 ${
+            className={`cta-sheen inline-flex items-center gap-1 sm:gap-2 px-2.5 sm:px-4 h-8 sm:h-10 rounded-xl bg-[#071A3D] hover:bg-[#0D2554] active:scale-[0.97] border text-white text-xs sm:text-sm font-semibold transition-all duration-300 whitespace-nowrap shrink-0 shadow-[0_6px_16px_-6px_rgba(7,26,61,0.35)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF] focus-visible:ring-offset-2 ${
               cartPulsing
                 ? 'border-[#00CFFF]/85 shadow-[0_0_18px_rgba(0,207,255,0.32)]'
                 : 'border-[#071A3D] hover:border-[#087BFF]/60'
@@ -436,7 +465,7 @@ export const Header: React.FC<HeaderProps> = ({
                 />
               )}
               <ShoppingBag
-                className={`w-4 h-4 transition-colors duration-200 ${
+                className={`w-3.5 h-3.5 sm:w-4 sm:h-4 transition-colors duration-200 ${
                   cartPulsing ? 'animate-cart-pulse text-[#00CFFF]' : ''
                 }`}
               />
@@ -513,10 +542,15 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
       )}
+        </div>
 
       {/* Expandable Live Technical Catalog Search Panel */}
       {searchOpen && (
-        <div className="animate-slide-down border-t border-slate-200/90 bg-white/98 backdrop-blur-xl shadow-[0_24px_48px_-16px_rgba(7,26,61,0.16)] max-h-[calc(100dvh-4rem)] overflow-y-auto overscroll-contain">
+        <div
+          className={`animate-slide-down border-b border-slate-200/90 bg-white/98 backdrop-blur-xl shadow-[0_24px_48px_-16px_rgba(7,26,61,0.16)] overflow-y-auto overscroll-contain ${
+            showNewsTicker ? 'max-h-[calc(100dvh-6.5rem)]' : 'max-h-[calc(100dvh-4.25rem)]'
+          }`}
+        >
           <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10 py-4 space-y-3">
             <form onSubmit={handleSearchSubmit} className="flex flex-col md:flex-row gap-2.5">
               <div className="relative flex-1 flex items-center bg-[#F5F8FC] border border-slate-200/90 rounded-xl px-3.5 h-10 focus-within:bg-white focus-within:ring-2 focus-within:ring-[#087BFF] focus-within:border-[#087BFF] transition-colors">
@@ -728,6 +762,13 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
       )}
-    </header>
+      </header>
+
+      <div
+        aria-hidden="true"
+        className={`w-full shrink-0 ${showNewsTicker ? 'h-[91px] sm:h-[103px]' : 'h-[59px] sm:h-[67px]'}`}
+        style={barHeight !== null ? { height: `${barHeight}px` } : undefined}
+      />
+    </>
   );
 };

@@ -127,7 +127,7 @@ export const WhatsAppButton: React.FC = () => {
   return (
     <div
       ref={rootRef}
-      className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] md:bottom-5 right-3 sm:right-5 z-40 flex flex-col items-end gap-2.5 font-sans"
+      className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] md:bottom-5 right-3 sm:right-5 z-40 flex flex-col items-end gap-2 font-sans"
     >
       {open && (
         <div
@@ -276,25 +276,25 @@ export const WhatsAppButton: React.FC = () => {
         }}
         aria-expanded={open}
         aria-label="Open Robotera BD WhatsApp Support (+880 1624-987366)"
-        className={`group cta-sheen inline-flex items-center gap-2.5 h-11 sm:h-12 pl-2.5 pr-3.5 sm:pl-3 sm:pr-4 rounded-2xl bg-gradient-to-r from-[#075E54] via-[#128C7E] to-[#15803D] hover:brightness-110 hover:-translate-y-0.5 active:scale-[0.97] border border-[#25D366]/60 text-white shadow-[0_14px_28px_-8px_rgba(7,94,84,0.55)] transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#25D366] focus-visible:ring-offset-2 ${
+        className={`group cta-sheen inline-flex items-center gap-2 sm:gap-2.5 h-10 sm:h-12 pl-2 pr-3 sm:pl-3 sm:pr-4 rounded-xl sm:rounded-2xl bg-gradient-to-r from-[#075E54] via-[#128C7E] to-[#15803D] hover:brightness-110 hover:-translate-y-0.5 active:scale-[0.97] border border-[#25D366]/60 text-white shadow-[0_14px_28px_-8px_rgba(7,94,84,0.55)] transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#25D366] focus-visible:ring-offset-2 ${
           !open ? 'md:animate-whatsapp-bob' : ''
         }`}
       >
-        <span className="relative w-7 h-7 rounded-xl bg-white/15 border border-white/25 flex items-center justify-center shrink-0">
+        <span className="relative w-6 h-6 sm:w-7 sm:h-7 rounded-lg sm:rounded-xl bg-white/15 border border-white/25 flex items-center justify-center shrink-0">
           {!open && (
             <span
               aria-hidden="true"
-              className="pointer-events-none absolute inset-0 rounded-xl border border-[#86EFAC]/85 animate-whatsapp-halo"
+              className="pointer-events-none absolute inset-0 rounded-lg sm:rounded-xl border border-[#86EFAC]/85 animate-whatsapp-halo"
             />
           )}
-          <WhatsAppGlyph className="w-4 h-4 text-white transition-transform duration-200 group-hover:scale-110 group-hover:-rotate-6" />
+          <WhatsAppGlyph className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white transition-transform duration-200 group-hover:scale-110 group-hover:-rotate-6" />
         </span>
 
         <span className="hidden sm:inline text-[13px] font-bold tracking-tight whitespace-nowrap">
           WhatsApp Support
         </span>
 
-        <span className="sm:hidden text-xs font-bold whitespace-nowrap">
+        <span className="sm:hidden text-[11.5px] font-bold whitespace-nowrap">
           WhatsApp
         </span>
 

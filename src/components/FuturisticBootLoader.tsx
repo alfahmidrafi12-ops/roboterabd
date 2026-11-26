@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowRight, Check, Cpu } from 'lucide-react';
+import { ArrowRight, Check } from 'lucide-react';
 import { playBootChime } from '../lib/sound';
+import { BrandLogo } from './BrandLogo';
 
 interface FuturisticBootLoaderProps {
   onComplete?: () => void;
@@ -210,17 +211,17 @@ export const FuturisticBootLoader: React.FC<FuturisticBootLoaderProps> = ({ onCo
             />
           </svg>
 
-          {/* Dark Glass Core + Brand Silicon Emblem */}
-          <div className="relative w-20 h-20 rounded-2xl bg-[#071A3D]/95 border border-[#00CFFF]/40 shadow-[0_0_40px_-8px_rgba(8,123,255,0.85),inset_0_1px_0_rgba(255,255,255,0.2)] flex items-center justify-center">
+          {/* Crisp Brand Emblem Core */}
+          <div className="relative w-20 h-20 rounded-2xl bg-white p-1.5 border border-[#00CFFF]/55 shadow-[0_0_40px_-8px_rgba(8,123,255,0.85),inset_0_1px_0_rgba(255,255,255,0.3)] flex items-center justify-center">
             <span
               aria-hidden="true"
-              className="absolute top-1.5 left-1.5 w-2 h-2 border-t border-l border-[#00CFFF]/70"
+              className="absolute -top-1 -left-1 w-2.5 h-2.5 border-t-2 border-l-2 border-[#00CFFF]"
             />
             <span
               aria-hidden="true"
-              className="absolute bottom-1.5 right-1.5 w-2 h-2 border-b border-r border-[#00CFFF]/70"
+              className="absolute -bottom-1 -right-1 w-2.5 h-2.5 border-b-2 border-r-2 border-[#00CFFF]"
             />
-            <Cpu className="w-9 h-9 text-[#00CFFF]" strokeWidth={1.75} />
+            <BrandLogo size="xl" className="w-full h-full border-0 p-1" />
           </div>
         </div>
 

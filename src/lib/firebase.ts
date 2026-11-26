@@ -1,4 +1,4 @@
-import { getApp, getApps, initializeApp } from 'firebase/app';
+import { deleteApp, getApp, getApps, initializeApp } from 'firebase/app';
 import {
   ConfirmationResult,
   GoogleAuthProvider,
@@ -7,6 +7,8 @@ import {
   browserLocalPersistence,
   createUserWithEmailAndPassword,
   getAuth,
+  inMemoryPersistence,
+  initializeAuth,
   onAuthStateChanged,
   sendEmailVerification,
   sendPasswordResetEmail,
@@ -45,6 +47,7 @@ import {
   PRODUCTS,
 } from '../data/catalog';
 import {
+  AdminUser,
   BannerItem,
   CategoryItem,
   CustomerRewardBalance,
@@ -57,6 +60,7 @@ import {
   RewardTransaction,
   SiteImagesConfig,
   StoredOrder,
+  UserProfile,
   VisitorLog,
 } from '../types/store';
 
@@ -147,9 +151,211 @@ export async function testConnection(): Promise<void> {
   }
 }
 
-export function isVerifiedAdminUser(user: User | null): boolean {
+export function isPrimaryAdminUser(user: User | null): boolean {
   if (!user) return false;
   return Boolean(user.emailVerified && user.email?.toLowerCase() === ADMIN_EMAIL);
+}
+
+export function isVerifiedAdminUser(user: User | null): boolean {
+  return isPrimaryAdminUser(user);
+}
+
+export function subscribeMyAdminRecord(
+  user: User | null,
+  onData: (record: AdminUser | null) => void
+): () => void {
+  if (!user?.uid || !user.email) {
+    onData(null);
+    return () => {};
+  }
+  if (isPrimaryAdminUser(user)) {
+    onData(null);
+    return () => {};
+  }
+  const safeUid = user.uid.replace(/[^a-zA-Z0-9_-]/g, '-').slice(0, 128);
+  return onSnapshot(
+    doc(db, 'admins', safeUid),
+    (snapshot) => {
+      if (!snapshot.exists()) {
+        onData(null);
+        return;
+      }
+      onData(snapshot.data() as AdminUser);
+    },
+    (error) => {
+      console.warn('Delegated admin check warning:', error);
+      onData(null);
+    }
+  );
+}
+
+export function subscribeAdmins(
+  onData: (admins: AdminUser[]) => void,
+  onError?: (err: unknown) => void
+): () => void {
+  const path = 'admins';
+  const q = query(collection(db, path), orderBy('createdAt', 'desc'));
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const list = snapshot.docs.map((d) => d.data() as AdminUser);
+      onData(list);
+    },
+    (error) => {
+      if (onError) onError(error);
+      else handleFirestoreError(error, OperationType.LIST, path);
+    }
+  );
+}
+
+export async function createDelegatedAdminAccess(params: {
+  email: string;
+  password: string;
+  displayName?: string;
+}): Promise<{
+  uid: string;
+  email: string;
+  existingAccountReused: boolean;
+}> {
+  const currentOwner = auth.currentUser;
+  if (!isPrimaryAdminUser(currentOwner) || !currentOwner?.email) {
+    throw new Error('Only the verified primary store owner can grant admin access.');
+  }
+
+  const cleanEmail = params.email.trim().toLowerCase();
+  if (!/^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/.test(cleanEmail)) {
+    throw new Error('Please enter a valid email address.');
+  }
+  if (cleanEmail === ADMIN_EMAIL) {
+    throw new Error('The primary owner email already holds full admin access.');
+  }
+  if (!params.password || params.password.length < 6) {
+    throw new Error('Password must be at least 6 characters.');
+  }
+
+  const cleanName = truncateStr(params.displayName?.trim(), 120);
+  let targetUid = '';
+  let existingAccountReused = false;
+
+  const secondaryAppName = `admin-provisioner-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+  const secondaryApp = initializeApp(firebaseConfig, secondaryAppName);
+  const secondaryAuth = initializeAuth(secondaryApp, {
+    persistence: inMemoryPersistence,
+  });
+
+  try {
+    try {
+      const cred = await createUserWithEmailAndPassword(secondaryAuth, cleanEmail, params.password);
+      targetUid = cred.user.uid;
+      if (cleanName) {
+        await updateProfile(cred.user, { displayName: cleanName }).catch(() => {});
+      }
+      await sendEmailVerification(cred.user).catch(() => {});
+    } catch (authErr) {
+      const errCode =
+        typeof authErr === 'object' && authErr !== null && 'code' in authErr
+          ? String((authErr as { code?: unknown }).code || '')
+          : '';
+      if (errCode !== 'auth/email-already-in-use') {
+        throw authErr;
+      }
+
+      existingAccountReused = true;
+      try {
+        const existingCred = await signInWithEmailAndPassword(
+          secondaryAuth,
+          cleanEmail,
+          params.password
+        );
+        targetUid = existingCred.user.uid;
+      } catch {
+        // Account exists (e.g. Google login or different password): look up UID from /users collection
+        const directSnap = await getDocs(
+          query(collection(db, 'users'), where('email', '==', cleanEmail))
+        );
+        if (!directSnap.empty) {
+          targetUid = directSnap.docs[0].id;
+        } else {
+          const allUsersSnap = await getDocs(collection(db, 'users'));
+          const matchedDoc = allUsersSnap.docs.find((d) => {
+            const data = d.data() as UserProfile;
+            return data.email?.trim().toLowerCase() === cleanEmail;
+          });
+          if (matchedDoc) {
+            targetUid = matchedDoc.id;
+          }
+        }
+      }
+
+      if (!targetUid) {
+        throw new Error(
+          'An account with this email already exists with a different sign-in method or password. Ask them to sign in once first or click "Reset Password" after they log in.'
+        );
+      }
+    }
+  } finally {
+    await signOut(secondaryAuth).catch(() => {});
+    await deleteApp(secondaryApp).catch(() => {});
+  }
+
+  const safeUid = targetUid.replace(/[^a-zA-Z0-9_-]/g, '-').slice(0, 128);
+  const path = `admins/${safeUid}`;
+  try {
+    const ref = doc(db, 'admins', safeUid);
+    const existingSnap = await getDoc(ref);
+    if (existingSnap.exists()) {
+      await updateDoc(
+        ref,
+        stripUndefined({
+          displayName: cleanName || (existingSnap.data() as AdminUser).displayName,
+          active: true,
+          updatedAt: serverTimestamp(),
+        })
+      );
+    } else {
+      await setDoc(
+        ref,
+        stripUndefined({
+          uid: safeUid,
+          email: cleanEmail,
+          displayName: cleanName,
+          role: 'admin',
+          active: true,
+          addedBy: currentOwner.email.toLowerCase(),
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        })
+      );
+    }
+    return {
+      uid: safeUid,
+      email: cleanEmail,
+      existingAccountReused,
+    };
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
+  }
+}
+
+export async function setDelegatedAdminActive(uid: string, active: boolean): Promise<void> {
+  const path = `admins/${uid}`;
+  try {
+    await updateDoc(doc(db, 'admins', uid), {
+      active,
+      updatedAt: serverTimestamp(),
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, path);
+  }
+}
+
+export async function removeDelegatedAdmin(uid: string): Promise<void> {
+  const path = `admins/${uid}`;
+  try {
+    await deleteDoc(doc(db, 'admins', uid));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
+  }
 }
 
 export function normalizeBdPhoneToE164(rawPhone: string): string {

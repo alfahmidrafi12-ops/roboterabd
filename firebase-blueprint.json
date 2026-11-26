@@ -118,14 +118,19 @@
     },
     "AdminUser": {
       "title": "AdminUser",
-      "description": "Authorized Robotera BD store administrator UID record.",
+      "description": "Authorized Robotera BD delegated store administrator record managed by the primary owner.",
       "type": "object",
       "properties": {
-        "uid": { "type": "string", "minLength": 1, "maxLength": 128 },
-        "email": { "type": "string", "minLength": 3, "maxLength": 120 },
-        "createdAt": { "type": "string", "format": "date-time" }
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "email": { "type": "string", "minLength": 5, "maxLength": 120 },
+        "displayName": { "type": "string", "maxLength": 120 },
+        "role": { "type": "string", "enum": ["admin"] },
+        "active": { "type": "boolean" },
+        "addedBy": { "type": "string", "minLength": 5, "maxLength": 120 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["uid", "email", "createdAt"]
+      "required": ["uid", "email", "role", "active", "addedBy", "createdAt", "updatedAt"]
     },
     "OrderTracking": {
       "title": "OrderTracking",
@@ -385,7 +390,7 @@
     },
     "/admins/{adminUid}": {
       "schema": { "$ref": "#/entities/AdminUser" },
-      "description": "Admin access registry."
+      "description": "Delegated admin registry; creatable/updatable/deletable strictly by the primary store owner, self-readable by the assigned admin."
     },
     "/visitor_logs/{logId}": {
       "schema": { "$ref": "#/entities/VisitorLog" },

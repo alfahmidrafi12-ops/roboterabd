@@ -458,7 +458,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                   <Truck className="w-4 h-4 text-[#0866F5] shrink-0 mt-0.5" />
                   <span>
                     <strong className="text-[#101828]">Delivery:</strong> Inside Dhaka 2–3 days (৳80) ·
-                    Outside Dhaka 2–4 days (৳150) · Free ≥ ৳3,000
+                    Outside Dhaka 2–4 days (৳150)
                   </span>
                 </div>
                 <div className="flex items-start gap-2">

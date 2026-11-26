@@ -9,7 +9,11 @@ import {
   ClipboardCheck,
   Coins,
   Copy,
+  Download,
+  ExternalLink,
+  FileText,
   Gift,
+  Loader2,
   LocateFixed,
   Lock,
   LogIn,
@@ -46,6 +50,12 @@ import {
   saveGiftCard,
 } from '../lib/giftCard';
 import {
+  buildOrderReceiptPdf,
+  formatReceiptDateTime,
+  generateOrderTrackingQrDataUrl,
+  triggerPdfDownload,
+} from '../lib/receiptPdf';
+import {
   playErrorSound,
   playGiftCardRevealSound,
   playSuccessSound,
@@ -61,8 +71,10 @@ import {
   PromoCode,
   StoredOrder,
 } from '../types/store';
+import { BrandLogo } from './BrandLogo';
 import { DigitalGiftCard } from './DigitalGiftCard';
 import { HardwareArtwork } from './HardwareArtwork';
+import { PrintReceiptSheet } from './PrintReceiptSheet';
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -152,6 +164,13 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   const [pendingOrderId, setPendingOrderId] = useState('');
   const [checkoutError, setCheckoutError] = useState('');
   const [receipt, setReceipt] = useState<OrderReceipt | null>(null);
+  const [receiptPdf, setReceiptPdf] = useState<{
+    blob: Blob;
+    url: string;
+    filename: string;
+  } | null>(null);
+  const [receiptQrUrl, setReceiptQrUrl] = useState('');
+  const [generatingPdf, setGeneratingPdf] = useState(false);
   const [issuedGiftCard, setIssuedGiftCard] = useState<GiftCardReward | null>(null);
   const [copiedId, setCopiedId] = useState(false);
   const [copiedGiftCode, setCopiedGiftCode] = useState(false);
@@ -164,6 +183,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   const copiedIdTimerRef = useRef<number | null>(null);
   const copiedGiftTimerRef = useRef<number | null>(null);
   const giftRevealTimerRef = useRef<number | null>(null);
+  const pdfBuildSeqRef = useRef(0);
 
   useEffect(() => {
     return () => {
@@ -172,6 +192,15 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
       if (giftRevealTimerRef.current) window.clearTimeout(giftRevealTimerRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    const activeUrl = receiptPdf?.url;
+    return () => {
+      if (activeUrl) {
+        URL.revokeObjectURL(activeUrl);
+      }
+    };
+  }, [receiptPdf?.url]);
 
   useEffect(() => {
     if (cartPulseKey <= prevPulseKeyRef.current) {
@@ -209,6 +238,9 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
       setSelectedGiftCardCode(null);
       setRedeemedRewardPoints(0);
       setReceipt(null);
+      setReceiptPdf(null);
+      setReceiptQrUrl('');
+      setGeneratingPdf(false);
       setIssuedGiftCard(null);
       setCheckoutError('');
       setCouponError('');
@@ -252,6 +284,9 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
       if (items.length > 0 && step === 'receipt') {
         setStep(startInCheckout ? 'checkout' : 'cart');
         setReceipt(null);
+        setReceiptPdf(null);
+        setReceiptQrUrl('');
+        setGeneratingPdf(false);
         setIssuedGiftCard(null);
       } else if (startInCheckout && items.length > 0) {
         setStep('checkout');
@@ -374,15 +409,9 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     discount,
   });
   const remainingForReward = Math.max(0, MIN_ORDER_FOR_REWARD_BDT - discountedSubtotal);
-  const freeShippingThreshold = 3000;
-  const freeShipping = discountedSubtotal >= freeShippingThreshold || discountedSubtotal === 0;
-  const shippingProgress = Math.min(
-    100,
-    Math.round((discountedSubtotal / freeShippingThreshold) * 100)
-  );
   const isInsideDhaka = district === 'Dhaka Metro';
   const estimatedDeliveryWindow = isInsideDhaka ? '2–3 days' : '2–4 days';
-  const deliveryFee = freeShipping ? 0 : isInsideDhaka ? 80 : 150;
+  const deliveryFee = items.length > 0 ? (isInsideDhaka ? 80 : 150) : 0;
   const total = discountedSubtotal + deliveryFee;
 
   const hasOutOfStockInCart = items.some((item) => item.product.stock <= 0);
@@ -518,6 +547,9 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
         .join(' · ')
         .slice(0, 300);
 
+      const orderPlacedAt = new Date();
+      const formattedTs = formatReceiptDateTime(orderPlacedAt);
+
       const newReceipt: OrderReceipt = {
         orderId: orderNumber,
         customerName: trimmedName,
@@ -525,6 +557,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
         address: trimmedAddress,
         district,
         paymentMethod,
+        status: 'Pending',
         items: [...items],
         subtotal,
         discount,
@@ -533,10 +566,9 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
         rewardDiscount: rewardDiscount > 0 ? rewardDiscount : undefined,
         deliveryFee,
         total,
-        createdAt: new Date().toLocaleString('en-BD', {
-          dateStyle: 'medium',
-          timeStyle: 'short',
-        }),
+        notes: combinedNotes || undefined,
+        createdAt: formattedTs.fullDateTime,
+        createdAtIso: formattedTs.isoString,
       };
 
       const rewardCard = generateGiftCardReward(newReceipt, user.uid);
@@ -601,6 +633,30 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
       }
       onOrderCreated?.(orderNumber);
       onClearCart();
+
+      // Auto-prepare A4 PDF receipt + scannable QR immediately and trigger automatic download
+      const seq = ++pdfBuildSeqRef.current;
+      setGeneratingPdf(true);
+      setReceiptPdf(null);
+      setReceiptQrUrl('');
+      void Promise.all([
+        buildOrderReceiptPdf(newReceipt),
+        generateOrderTrackingQrDataUrl(newReceipt.orderId),
+      ])
+        .then(([{ blob, filename }, qrUrl]) => {
+          if (pdfBuildSeqRef.current !== seq) return;
+          const url = URL.createObjectURL(blob);
+          setReceiptPdf({ blob, url, filename });
+          setReceiptQrUrl(qrUrl);
+          setGeneratingPdf(false);
+          triggerPdfDownload(blob, filename);
+        })
+        .catch((pdfErr) => {
+          console.error('Automatic A4 PDF generation error:', pdfErr);
+          if (pdfBuildSeqRef.current === seq) {
+            setGeneratingPdf(false);
+          }
+        });
     } catch (err) {
       console.error('Order submission error:', err);
       playErrorSound();
@@ -619,10 +675,47 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     }
   };
 
+  const handleDownloadReceiptPdf = async () => {
+    if (!receipt) return;
+    playTapSound();
+    if (receiptPdf) {
+      triggerPdfDownload(receiptPdf.blob, receiptPdf.filename);
+      return;
+    }
+    setGeneratingPdf(true);
+    try {
+      const { blob, filename } = await buildOrderReceiptPdf(receipt);
+      const url = URL.createObjectURL(blob);
+      setReceiptPdf({ blob, url, filename });
+      triggerPdfDownload(blob, filename);
+    } finally {
+      setGeneratingPdf(false);
+    }
+  };
+
+  const handlePrintA4Sheet = () => {
+    if (!receipt) return;
+    playTapSound();
+    document.body.classList.add('printing-a4-receipt');
+    const cleanup = () => {
+      document.body.classList.remove('printing-a4-receipt');
+      window.removeEventListener('afterprint', cleanup);
+    };
+    window.addEventListener('afterprint', cleanup);
+    window.setTimeout(() => {
+      window.print();
+      window.setTimeout(cleanup, 1500);
+    }, 60);
+  };
+
   const handleResetAndClose = () => {
     if (submitting) return;
+    pdfBuildSeqRef.current += 1;
     setStep('cart');
     setReceipt(null);
+    setReceiptPdf(null);
+    setReceiptQrUrl('');
+    setGeneratingPdf(false);
     setIssuedGiftCard(null);
     setCopiedGiftCode(false);
     setCheckoutError('');
@@ -850,6 +943,75 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
               </div>
             </div>
 
+            {/* Auto-Generated A4 PDF Receipt + Tracking QR Ready Card */}
+            <div className="animate-cart-enter rounded-2xl border border-slate-200 bg-white p-4 space-y-3 shadow-[0_8px_24px_-16px_rgba(7,26,61,0.18)]">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <BrandLogo size="sm" className="border-slate-200" />
+                  <div className="min-w-0">
+                    <p className="font-display text-xs sm:text-sm font-bold text-[#071A3B] truncate inline-flex items-center gap-1.5">
+                      {generatingPdf && <Loader2 className="w-3.5 h-3.5 animate-spin text-[#0866F5]" />}
+                      <span>
+                        {generatingPdf ? 'Preparing A4 PDF & QR...' : 'Print-Ready A4 Receipt & QR'}
+                      </span>
+                    </p>
+                    <p className="text-[11px] font-mono text-[#475569] truncate">
+                      {receiptPdf
+                        ? receiptPdf.filename
+                        : `Order #${receipt.orderId} · ${receipt.createdAt}`}
+                    </p>
+                  </div>
+                </div>
+                {receiptQrUrl ? (
+                  <img
+                    src={receiptQrUrl}
+                    alt={`Tracking QR for ${receipt.orderId}`}
+                    className="w-12 h-12 rounded-lg border border-slate-200 bg-white p-0.5 shrink-0"
+                  />
+                ) : (
+                  <span className="px-2 py-0.5 rounded-md bg-slate-100 text-[#071A3B] border border-slate-200 font-mono text-[10px] font-bold shrink-0">
+                    A4 QR
+                  </span>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={handleDownloadReceiptPdf}
+                  disabled={generatingPdf}
+                  className="h-10 rounded-xl bg-[#071A3B] hover:bg-[#0D2B5E] disabled:opacity-60 text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors"
+                >
+                  {generatingPdf ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Download className="w-3.5 h-3.5 text-[#00CFFF]" />
+                  )}
+                  <span>{generatingPdf ? 'Generating...' : 'Download A4 PDF'}</span>
+                </button>
+                {receiptPdf ? (
+                  <a
+                    href={receiptPdf.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="h-10 rounded-xl border border-[#0866F5]/30 bg-[#F8FAFC] hover:bg-[#EFF6FF] text-[#0866F5] text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    <span>Preview A4 PDF</span>
+                  </a>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handlePrintA4Sheet}
+                    className="h-10 rounded-xl border border-slate-200 bg-white hover:bg-[#F5F8FC] text-[#475569] text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors"
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                    <span>Print A4 Sheet</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
             {/* Post-Order Holographic Digital Gift Card (Orders >= ৳500 · ৳3 per ৳100) */}
             {issuedGiftCard ? (
               <DigitalGiftCard
@@ -904,11 +1066,22 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   key={`${item.product.id}-${item.variant ?? ''}`}
                   className="p-3.5 flex items-center justify-between gap-3 text-xs"
                 >
-                  <div className="min-w-0">
-                    <p className="font-semibold text-[#071A3B] truncate">{item.product.name}</p>
-                    <p className="text-[#64748B] font-mono tabular-nums">
-                      Qty {item.quantity} × ৳{item.product.price.toLocaleString('en-IN')}
-                    </p>
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-10 h-10 rounded-lg bg-[#F8FAFC] border border-slate-200 p-1 shrink-0 flex items-center justify-center overflow-hidden">
+                      <HardwareArtwork
+                        kind={item.product.artwork}
+                        imageUrl={item.product.imageUrl}
+                        alt={item.product.name}
+                        fit="contain"
+                        className="w-full h-full"
+                      />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-semibold text-[#071A3B] truncate">{item.product.name}</p>
+                      <p className="text-[#64748B] font-mono tabular-nums truncate">
+                        {item.product.sku} · Qty {item.quantity} × ৳{item.product.price.toLocaleString('en-IN')}
+                      </p>
+                    </div>
                   </div>
                   <span className="font-mono font-bold text-[#071A3B] shrink-0 tabular-nums">
                     ৳{(item.product.price * item.quantity).toLocaleString('en-IN')}
@@ -945,7 +1118,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 <div className="flex justify-between text-[#64748B]">
                   <span>Delivery ({receipt.district})</span>
                   <span className="font-mono tabular-nums">
-                    {receipt.deliveryFee === 0 ? 'Free' : `৳${receipt.deliveryFee}`}
+                    ৳{receipt.deliveryFee}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm font-bold text-[#071A3B] pt-1.5 border-t border-slate-200">
@@ -987,11 +1160,11 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
             <button
               type="button"
-              onClick={() => window.print()}
+              onClick={handlePrintA4Sheet}
               className="w-full h-9 rounded-xl border border-slate-200 hover:bg-[#F5F8FC] text-xs font-semibold text-[#64748B] inline-flex items-center justify-center gap-1.5 transition-colors"
             >
               <Printer className="w-3.5 h-3.5" />
-              <span>Print Order Receipt</span>
+              <span>Print A4 Receipt Sheet</span>
             </button>
           </div>
         ) : items.length === 0 ? (
@@ -1070,31 +1243,17 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
         ) : step === 'cart' ? (
           <>
             <div className="flex-1 overflow-y-auto p-5 space-y-4">
-              {/* Free Delivery + Gift Card Eligibility Progress */}
+              {/* Courier Rates + Gift Card Eligibility Progress */}
               <div className="rounded-xl bg-[#F5F8FC] border border-slate-200 px-4 py-3 text-xs text-[#101828] space-y-2">
-                {freeShipping ? (
-                  <p className="font-semibold text-emerald-700 inline-flex items-center gap-1.5">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 animate-icon-pop" />
-                    <span>Unlocked Free Nationwide Courier (Orders ≥ ৳3,000)</span>
-                  </p>
-                ) : (
-                  <p>
-                    Add{' '}
-                    <strong className="font-mono text-[#0866F5] tabular-nums">
-                      ৳{(freeShippingThreshold - discountedSubtotal).toLocaleString('en-IN')}
-                    </strong>{' '}
-                    more for free nationwide delivery.
-                  </p>
-                )}
-                <div className="h-1.5 w-full rounded-full bg-slate-200 overflow-hidden">
-                  <div
-                    className={`relative h-full rounded-full transition-all duration-500 overflow-hidden ${
-                      freeShipping ? 'bg-emerald-600' : 'bg-[#0866F5]'
-                    }`}
-                    style={{ width: `${shippingProgress}%` }}
-                  >
-                    <div className="animate-bar-shimmer absolute inset-y-0 w-16 bg-gradient-to-r from-transparent via-white/45 to-transparent" />
-                  </div>
+                <div className="flex flex-wrap items-center justify-between gap-1.5 text-[11px] text-[#334155]">
+                  <span className="font-semibold text-[#071A3B] inline-flex items-center gap-1.5">
+                    <Truck className="w-3.5 h-3.5 text-[#0866F5] shrink-0" />
+                    <span>Courier Dispatch Rates</span>
+                  </span>
+                  <span className="font-mono tabular-nums text-[#0F172A]">
+                    Dhaka <strong className="text-[#0866F5]">৳80</strong> · Outside{' '}
+                    <strong className="text-[#0866F5]">৳150</strong>
+                  </span>
                 </div>
 
                 <div className="pt-1.5 border-t border-slate-200/80 flex items-center justify-between gap-2 text-[11px]">
@@ -1433,7 +1592,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 <div className="flex justify-between text-[#64748B]">
                   <span>Shipping Estimate ({estimatedDeliveryWindow})</span>
                   <span className="font-mono tabular-nums text-[#101828]">
-                    {freeShipping ? 'Free' : `৳${deliveryFee}`}
+                    ৳{deliveryFee}
                   </span>
                 </div>
                 <div className="flex justify-between text-base font-bold text-[#071A3B] pt-2 border-t border-slate-200">
@@ -1615,17 +1774,17 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   onChange={(e) => setDistrict(e.target.value)}
                   className="w-full h-10 px-3 rounded-lg border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#0866F5] transition-colors"
                 >
-                  <option value="Dhaka Metro">Inside Dhaka — Dhaka Metro (2–3 days · {freeShipping ? 'Free' : '৳80'})</option>
-                  <option value="Chattogram">Outside Dhaka — Chattogram (2–4 days · {freeShipping ? 'Free' : '৳150'})</option>
-                  <option value="Sylhet">Outside Dhaka — Sylhet (2–4 days · {freeShipping ? 'Free' : '৳150'})</option>
-                  <option value="Rajshahi">Outside Dhaka — Rajshahi (2–4 days · {freeShipping ? 'Free' : '৳150'})</option>
-                  <option value="Khulna">Outside Dhaka — Khulna (2–4 days · {freeShipping ? 'Free' : '৳150'})</option>
-                  <option value="Gazipur / Savar">Outside Dhaka — Gazipur / Savar (2–4 days · {freeShipping ? 'Free' : '৳150'})</option>
-                  <option value="Other District">Outside Dhaka — Other District (2–4 days · {freeShipping ? 'Free' : '৳150'})</option>
+                  <option value="Dhaka Metro">Inside Dhaka — Dhaka Metro (2–3 days · ৳80)</option>
+                  <option value="Chattogram">Outside Dhaka — Chattogram (2–4 days · ৳150)</option>
+                  <option value="Sylhet">Outside Dhaka — Sylhet (2–4 days · ৳150)</option>
+                  <option value="Rajshahi">Outside Dhaka — Rajshahi (2–4 days · ৳150)</option>
+                  <option value="Khulna">Outside Dhaka — Khulna (2–4 days · ৳150)</option>
+                  <option value="Gazipur / Savar">Outside Dhaka — Gazipur / Savar (2–4 days · ৳150)</option>
+                  <option value="Other District">Outside Dhaka — Other District (2–4 days · ৳150)</option>
                 </select>
                 <p className="mt-1.5 text-[11px] text-[#64748B]">
                   Estimated delivery: <strong className="text-[#101828]">{estimatedDeliveryWindow}</strong> · Charge:{' '}
-                  <strong className="font-mono text-[#101828]">{freeShipping ? 'Free' : `৳${deliveryFee}`}</strong>
+                  <strong className="font-mono text-[#101828]">৳{deliveryFee}</strong>
                 </p>
               </div>
 
@@ -1799,7 +1958,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 )}
                 <div className="flex justify-between text-[#64748B]">
                   <span>Delivery ({isInsideDhaka ? 'Inside Dhaka' : 'Outside Dhaka'} · {estimatedDeliveryWindow})</span>
-                  <span className="font-mono tabular-nums text-[#101828]">{freeShipping ? 'Free' : `৳${deliveryFee}`}</span>
+                  <span className="font-mono tabular-nums text-[#101828]">৳{deliveryFee}</span>
                 </div>
                 <div className="flex justify-between text-[11px] text-[#475569]">
                   <span>Order Reward Points (min ৳{MIN_ORDER_FOR_REWARD_BDT.toLocaleString('en-IN')})</span>
@@ -1841,6 +2000,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
           </form>
         )}
       </aside>
+      <PrintReceiptSheet receipt={receipt} qrDataUrl={receiptQrUrl} />
     </div>
   );
 };

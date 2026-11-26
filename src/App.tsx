@@ -1240,6 +1240,7 @@ export default function App() {
           <OrderTrackingSection
             recentOrderIds={recentOrderIds}
             userOrders={userOrders}
+            products={products}
             isSignedIn={Boolean(authUser)}
             autoTrackOrderId={autoTrackOrderId}
             onBackToStore={() => scrollToSection()}
@@ -1603,6 +1604,7 @@ export default function App() {
         isOpen={authModalOpen}
         user={authUser}
         giftCards={giftCards}
+        products={products}
         onClose={() => setAuthModalOpen(false)}
         onOpenAdmin={() => setAdminOpen(true)}
         onTrackOrder={(orderId) => {
