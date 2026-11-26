@@ -117,8 +117,8 @@ function renderHtmlPage(template: string, payload: DocumentSeoPayload, bodyHtml:
   }
 
   html = html.replace(
-    /<div id="root">[\s\S]*?<\/main>\s*<\/div>/i,
-    `<div id="root">\n      <main style="max-width:960px;margin:48px auto;padding:28px;background:#071A3B;color:#F8FAFC;border-radius:16px;font-family:system-ui,-apple-system,sans-serif;line-height:1.6;">\n${bodyHtml}\n      </main>\n    </div>`
+    /<noscript>[\s\S]*?<\/noscript>/i,
+    `<noscript>\n      <main style="min-height:100vh;width:100%;margin:0;box-sizing:border-box;padding:40px 20px;background:#040F24;color:#F8FAFC;font-family:system-ui,-apple-system,sans-serif;line-height:1.6;">\n        <div style="max-width:860px;width:100%;margin:0 auto;">\n${bodyHtml}\n        </div>\n      </main>\n    </noscript>`
   );
 
   return html;
@@ -133,15 +133,17 @@ function writeRouteHtml(routePath: string, html: string) {
 }
 
 function buildNavFooterHtml(): string {
+  const linkStyle =
+    'color:#E2E8F0;text-decoration:none;font-size:12px;font-weight:600;padding:5px 10px;border-radius:8px;background:rgba(255,255,255,0.05);border:1px solid rgba(148,163,184,0.22);';
   const categoryLinks = CATEGORIES.map(
-    (c) => `<a href="/category/${escapeHtml(c.id)}" style="color:#93C5FD;text-decoration:underline;">${escapeHtml(c.name)}</a>`
+    (c) => `<a href="/category/${escapeHtml(c.id)}" style="${linkStyle}">${escapeHtml(c.name)}</a>`
   ).join('\n          ');
 
-  return `<nav aria-label="Storefront links" style="display:flex;flex-wrap:wrap;gap:12px;margin-top:20px;padding-top:16px;border-top:1px solid rgba(148,163,184,0.25);">
-          <a href="/" style="color:#93C5FD;text-decoration:underline;">Home</a>
-          <a href="/shop" style="color:#93C5FD;text-decoration:underline;">All Hardware</a>
+  return `<nav aria-label="Storefront links" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:20px;padding-top:16px;border-top:1px solid rgba(148,163,184,0.2);">
+          <a href="/" style="${linkStyle}">Home</a>
+          <a href="/shop" style="${linkStyle}">All Hardware</a>
           ${categoryLinks}
-          <a href="/guides" style="color:#93C5FD;text-decoration:underline;">Engineering Guides</a>
+          <a href="/guides" style="${linkStyle}">Engineering Guides</a>
         </nav>`;
 }
 

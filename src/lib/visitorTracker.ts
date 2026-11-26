@@ -504,6 +504,7 @@ export type BrowserGpsState = PermissionState | 'unsupported' | 'unknown';
 
 export interface BrowserGpsSnapshot {
   state: BrowserGpsState;
+  checked?: boolean;
   isEmbeddedIframe: boolean;
   blockedByPolicy: boolean;
   lastError?: string;
@@ -515,6 +516,7 @@ const GPS_STATUS_EVENT = 'robotera:gps-status';
 
 let lastGpsSnapshot: BrowserGpsSnapshot = {
   state: 'unknown',
+  checked: false,
   isEmbeddedIframe:
     typeof window !== 'undefined' ? window.self !== window.top : false,
   blockedByPolicy: false,
@@ -563,12 +565,13 @@ export function getBrowserGpsSnapshot(): BrowserGpsSnapshot {
 
 export async function refreshBrowserGpsSnapshot(): Promise<BrowserGpsSnapshot> {
   if (typeof navigator === 'undefined' || !navigator.geolocation) {
-    publishGpsSnapshot({ state: 'unsupported', blockedByPolicy: false });
+    publishGpsSnapshot({ state: 'unsupported', checked: true, blockedByPolicy: false });
     return lastGpsSnapshot;
   }
   const perm = await queryGpsPermissionState();
   publishGpsSnapshot({
     state: perm,
+    checked: true,
     ...(perm === 'granted' ? { blockedByPolicy: false, lastError: undefined } : {}),
   });
   return lastGpsSnapshot;

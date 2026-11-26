@@ -76,6 +76,9 @@ export const FuturisticBootLoader: React.FC<FuturisticBootLoaderProps> = ({ onCo
 
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') {
+        if (e.key === ' ') {
+          e.preventDefault();
+        }
         dismiss();
       }
     };
@@ -94,7 +97,7 @@ export const FuturisticBootLoader: React.FC<FuturisticBootLoaderProps> = ({ onCo
     <div
       role="status"
       aria-label="Initializing Robotera BD"
-      className={`fixed inset-0 z-[100] bg-[#040F24] text-white flex flex-col items-center justify-center overflow-hidden transition-all duration-[440ms] ease-[cubic-bezier(0.16,1,0.3,1)] ${
+      className={`fixed inset-0 z-[100] bg-[#040F24] text-white flex flex-col items-center justify-center overflow-hidden touch-none overscroll-none transition-all duration-[440ms] ease-[cubic-bezier(0.16,1,0.3,1)] ${
         exiting ? 'opacity-0 scale-[1.035] blur-[2px] pointer-events-none' : 'opacity-100 scale-100'
       }`}
     >

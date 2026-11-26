@@ -1258,6 +1258,7 @@ export default function App() {
             />
 
             {!gpsBarDismissed &&
+              gpsSnapshot.checked &&
               gpsSnapshot.state !== 'granted' &&
               gpsSnapshot.state !== 'unsupported' && (
                 <div className="bg-[#0B162C] text-[#E6EEFF] border-b border-[#1E3A6E]/60">

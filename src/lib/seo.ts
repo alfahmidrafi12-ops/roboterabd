@@ -29,9 +29,9 @@ export interface DocumentSeoPayload {
 }
 
 export const HOME_SEO: Omit<DocumentSeoPayload, 'jsonLd'> = {
-  title: 'Robotera BD – Robotics, ESP32 & Electronics Store in Bangladesh',
+  title: 'Robotera BD — Robotics & Embedded Electronics Store',
   description:
-    'Shop ESP32, Arduino, robotics kits, LiDAR sensors, electronic components and engineering tools at Robotera BD. Nationwide delivery across Bangladesh.',
+    'Robotera BD is a robotics and embedded electronics store in Bangladesh offering ESP32, Arduino, LiDAR sensors, motors, and kits with nationwide delivery.',
   canonicalPath: '/',
   ogType: 'website',
   imageUrl: DEFAULT_OG_IMAGE,
@@ -616,6 +616,7 @@ export function applyDocumentSeo(payload: DocumentSeoPayload) {
 
   upsertMetaTag('name', 'description', payload.description);
   upsertMetaTag('name', 'robots', payload.noIndex ? 'noindex, nofollow' : 'index, follow');
+  upsertMetaTag('property', 'og:site_name', 'Robotera BD');
   upsertMetaTag('property', 'og:title', payload.title);
   upsertMetaTag('property', 'og:description', payload.description);
   upsertMetaTag('property', 'og:url', canonicalUrl);

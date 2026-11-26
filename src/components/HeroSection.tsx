@@ -266,6 +266,9 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                   <img
                     src={heroSrc}
                     alt="Robotera BD dark robotics bench showcasing 6-DOF CNC robotic arm, 360 degree LiDAR scanner, Raspberry Pi, and ESP32 controller"
+                    loading="eager"
+                    decoding="async"
+                    fetchPriority="high"
                     referrerPolicy="no-referrer"
                     style={{
                       transform: `translate3d(${parallax.x}px, ${parallax.y}px, 0) scale(1.03)`,
