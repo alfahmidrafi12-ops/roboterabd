@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowRight,
   BatteryCharging,
@@ -20,7 +20,7 @@ import {
   X,
 } from 'lucide-react';
 import { isWatermarkedUrl } from '../data/brandMedia';
-import { ArtworkKind, Product } from '../types/store';
+import { AddToCartResult, ArtworkKind, Product } from '../types/store';
 
 function getNeutralPlaceholderIcon(category: string, artwork: ArtworkKind) {
   if (category === 'microcontrollers' || ['esp32', 'arduino', 'raspberry-pi', 'stm32'].includes(artwork)) {
@@ -134,7 +134,7 @@ export const CompareDock: React.FC<CompareDockProps> = ({
             {products.map((product) => (
               <div
                 key={product.id}
-                className="flex items-center gap-2 bg-[#0F2754] border border-white/15 rounded-xl pl-1.5 pr-1.5 py-1 shrink-0 max-w-[175px]"
+                className="group motion-row flex items-center gap-2 bg-[#0F2754] border border-white/15 rounded-xl pl-1.5 pr-1.5 py-1 shrink-0 max-w-[175px]"
               >
                 <div className="w-7 h-7 rounded-lg bg-[#F7FAFE] p-1 flex items-center justify-center shrink-0 overflow-hidden">
                   <CompareThumbnail product={product} compact />
@@ -151,7 +151,7 @@ export const CompareDock: React.FC<CompareDockProps> = ({
                   type="button"
                   onClick={() => onRemoveProduct(product.id)}
                   aria-label={`Remove ${product.name} from compare`}
-                  className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors shrink-0"
+                  className="motion-press p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors shrink-0"
                 >
                   <X className="w-3 h-3" />
                 </button>
@@ -173,18 +173,18 @@ export const CompareDock: React.FC<CompareDockProps> = ({
             <button
               type="button"
               onClick={onClearAll}
-              className="px-2.5 py-1.5 rounded-xl text-[11px] font-semibold text-slate-300 hover:text-white hover:bg-white/10 transition-colors whitespace-nowrap"
+              className="motion-press px-2.5 py-1.5 rounded-xl text-[11px] font-semibold text-slate-300 hover:text-white hover:bg-white/10 transition-colors whitespace-nowrap"
             >
               Clear
             </button>
             <button
               type="button"
               onClick={onOpenModal}
-              className="h-9 px-3.5 rounded-xl bg-[#087BFF] hover:bg-[#0669DB] text-white text-xs font-bold tracking-[0.03em] inline-flex items-center gap-1.5 whitespace-nowrap shadow-[0_8px_18px_-8px_rgba(8,123,255,0.65)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00CFFF]"
+              className="motion-press cta-sheen group h-9 px-3.5 rounded-xl bg-[#087BFF] hover:bg-[#0669DB] text-white text-xs font-bold tracking-[0.03em] inline-flex items-center gap-1.5 whitespace-nowrap shadow-[0_8px_18px_-8px_rgba(8,123,255,0.65)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00CFFF]"
             >
-              <GitCompareArrows className="w-3.5 h-3.5 shrink-0" />
+              <GitCompareArrows className="motion-icon-tilt w-3.5 h-3.5 shrink-0" />
               <span>Compare Specs ({products.length})</span>
-              <ArrowRight className="w-3.5 h-3.5 shrink-0" />
+              <ArrowRight className="w-3.5 h-3.5 shrink-0 transition-transform duration-200 group-hover:translate-x-0.5" />
             </button>
           </div>
         </div>
@@ -197,10 +197,11 @@ interface CompareModalProps {
   isOpen: boolean;
   products: Product[];
   categoryLabels: Record<string, string>;
+  cartQtyByProductId?: Record<string, number>;
   onClose: () => void;
   onRemoveProduct: (productId: string) => void;
   onClearAll: () => void;
-  onAddToCart: (product: Product, quantity: number) => void;
+  onAddToCart: (product: Product, quantity: number) => AddToCartResult | void;
   onQuickViewProduct: (product: Product) => void;
   onBrowseCatalog: () => void;
 }
@@ -217,6 +218,7 @@ export const CompareModal: React.FC<CompareModalProps> = ({
   isOpen,
   products,
   categoryLabels,
+  cartQtyByProductId = {},
   onClose,
   onRemoveProduct,
   onClearAll,
@@ -226,6 +228,14 @@ export const CompareModal: React.FC<CompareModalProps> = ({
 }) => {
   const [differencesOnly, setDifferencesOnly] = useState(false);
   const [recentlyAddedId, setRecentlyAddedId] = useState<string | null>(null);
+  const timersRef = useRef<number[]>([]);
+
+  useEffect(() => {
+    return () => {
+      timersRef.current.forEach((id) => window.clearTimeout(id));
+      timersRef.current = [];
+    };
+  }, []);
 
   const comparisonRows = useMemo<ComparisonRow[]>(() => {
     if (products.length === 0) return [];
@@ -328,11 +338,15 @@ export const CompareModal: React.FC<CompareModalProps> = ({
 
   const handleQuickAdd = (product: Product) => {
     if (product.stock <= 0) return;
-    onAddToCart(product, 1);
-    setRecentlyAddedId(product.id);
-    window.setTimeout(() => {
-      setRecentlyAddedId((prev) => (prev === product.id ? null : prev));
-    }, 1200);
+    const res = onAddToCart(product, 1);
+    if (!res || res.addedQty > 0) {
+      setRecentlyAddedId(product.id);
+      const id = window.setTimeout(() => {
+        timersRef.current = timersRef.current.filter((t) => t !== id);
+        setRecentlyAddedId((prev) => (prev === product.id ? null : prev));
+      }, 1200);
+      timersRef.current.push(id);
+    }
   };
 
   return (
@@ -379,7 +393,7 @@ export const CompareModal: React.FC<CompareModalProps> = ({
                 type="button"
                 onClick={() => setDifferencesOnly((prev) => !prev)}
                 aria-pressed={differencesOnly}
-                className={`h-9 px-3 rounded-xl border text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap ${
+                className={`motion-pill h-9 px-3 rounded-xl border text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap ${
                   differencesOnly
                     ? 'bg-[#087BFF] border-[#087BFF] text-white'
                     : 'bg-[#F8FAFC] border-slate-200 text-[#334155] hover:border-[#087BFF]/60 hover:text-[#071A3D]'
@@ -400,7 +414,7 @@ export const CompareModal: React.FC<CompareModalProps> = ({
                 onClearAll();
                 onClose();
               }}
-              className="h-9 px-3 rounded-xl border border-slate-200 bg-white hover:bg-red-50 hover:border-red-200 hover:text-red-600 text-xs font-semibold text-[#475569] inline-flex items-center gap-1.5 transition-colors whitespace-nowrap"
+              className="motion-press h-9 px-3 rounded-xl border border-slate-200 bg-white hover:bg-red-50 hover:border-red-200 hover:text-red-600 text-xs font-semibold text-[#475569] inline-flex items-center gap-1.5 transition-colors whitespace-nowrap"
             >
               <Trash2 className="w-3.5 h-3.5" />
               <span>Clear All</span>
@@ -446,6 +460,8 @@ export const CompareModal: React.FC<CompareModalProps> = ({
                         )
                       : null;
                   const justAdded = recentlyAddedId === product.id;
+                  const inCartQty = cartQtyByProductId[product.id] ?? 0;
+                  const isAtCartLimit = !isOutOfStock && inCartQty >= product.stock;
 
                   return (
                     <th
@@ -455,11 +471,11 @@ export const CompareModal: React.FC<CompareModalProps> = ({
                     >
                       <div className="flex flex-col h-full justify-between gap-3">
                         <div>
-                          <div className="relative h-28 rounded-xl bg-[#F7FAFE] border border-slate-200/80 p-3 flex items-center justify-center overflow-hidden mb-3">
+                          <div className="group card-scan relative h-28 rounded-xl bg-[#F7FAFE] border border-slate-200/80 p-3 flex items-center justify-center overflow-hidden mb-3">
                             <button
                               type="button"
                               onClick={() => onQuickViewProduct(product)}
-                              className="w-full h-full flex items-center justify-center cursor-pointer focus-visible:outline-none"
+                              className="thumb-hover-zoom w-full h-full flex items-center justify-center cursor-pointer focus-visible:outline-none"
                               aria-label={`Quick view ${product.name}`}
                             >
                               <CompareThumbnail product={product} />
@@ -469,7 +485,7 @@ export const CompareModal: React.FC<CompareModalProps> = ({
                               type="button"
                               onClick={() => onRemoveProduct(product.id)}
                               aria-label={`Remove ${product.name} from comparison`}
-                              className="absolute top-2 right-2 w-7 h-7 rounded-lg bg-white/95 border border-slate-200 text-[#64748B] hover:text-red-600 hover:border-red-200 flex items-center justify-center transition-colors"
+                              className="motion-press absolute top-2 right-2 z-10 w-7 h-7 rounded-lg bg-white/95 border border-slate-200 text-[#64748B] hover:text-red-600 hover:border-red-200 flex items-center justify-center transition-colors"
                             >
                               <X className="w-3.5 h-3.5" />
                             </button>
@@ -508,7 +524,7 @@ export const CompareModal: React.FC<CompareModalProps> = ({
                           <button
                             type="button"
                             onClick={() => onQuickViewProduct(product)}
-                            className="w-full h-8 px-3 rounded-xl border border-slate-200 bg-white hover:bg-[#F3F7FC] hover:border-[#087BFF]/60 text-[#071A3D] hover:text-[#087BFF] text-[11px] font-bold tracking-[0.03em] inline-flex items-center justify-center gap-1.5 whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF]"
+                            className="motion-press w-full h-8 px-3 rounded-xl border border-slate-200 bg-white hover:bg-[#F3F7FC] hover:border-[#087BFF]/60 text-[#071A3D] hover:text-[#087BFF] text-[11px] font-bold tracking-[0.03em] inline-flex items-center justify-center gap-1.5 whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF]"
                           >
                             <Eye className="w-3.5 h-3.5 shrink-0" />
                             <span>Quick View</span>
@@ -518,11 +534,13 @@ export const CompareModal: React.FC<CompareModalProps> = ({
                             type="button"
                             disabled={isOutOfStock}
                             onClick={() => handleQuickAdd(product)}
-                            className={`w-full h-9 px-3 rounded-xl text-[11px] font-bold uppercase tracking-[0.04em] inline-flex items-center justify-center gap-1.5 whitespace-nowrap transition-colors disabled:bg-slate-200 disabled:text-slate-500 disabled:cursor-not-allowed ${
+                            className={`motion-press cta-sheen w-full h-9 px-3 rounded-xl text-[11px] font-bold uppercase tracking-[0.04em] inline-flex items-center justify-center gap-1.5 whitespace-nowrap transition-colors disabled:bg-slate-200 disabled:text-slate-500 disabled:cursor-not-allowed ${
                               isOutOfStock
                                 ? ''
                                 : justAdded
                                 ? 'bg-[#071A3D] text-white'
+                                : isAtCartLimit
+                                ? 'bg-slate-100 hover:bg-slate-200 border border-slate-200 text-[#071A3D]'
                                 : 'bg-[#087BFF] hover:bg-[#0669DB] text-white'
                             }`}
                           >
@@ -530,6 +548,11 @@ export const CompareModal: React.FC<CompareModalProps> = ({
                               <>
                                 <Check className="w-3.5 h-3.5 text-[#00CFFF]" />
                                 <span>Added</span>
+                              </>
+                            ) : isAtCartLimit ? (
+                              <>
+                                <Check className="w-3.5 h-3.5 text-[#087BFF]" />
+                                <span>Max in Cart ({inCartQty})</span>
                               </>
                             ) : (
                               <>
@@ -555,10 +578,10 @@ export const CompareModal: React.FC<CompareModalProps> = ({
                         onClose();
                         onBrowseCatalog();
                       }}
-                      className="w-full h-44 rounded-xl border-2 border-dashed border-slate-200 hover:border-[#087BFF] bg-white hover:bg-[#F3F7FC] transition-colors flex flex-col items-center justify-center gap-2 p-4 text-center group"
+                      className="motion-card w-full h-44 rounded-xl border-2 border-dashed border-slate-200 hover:border-[#087BFF] bg-white hover:bg-[#F3F7FC] transition-colors flex flex-col items-center justify-center gap-2 p-4 text-center group"
                     >
                       <div className="w-9 h-9 rounded-xl bg-[#F3F7FC] group-hover:bg-[#087BFF] text-[#087BFF] group-hover:text-white flex items-center justify-center transition-colors">
-                        <Plus className="w-4 h-4" />
+                        <Plus className="motion-icon-tilt w-4 h-4" />
                       </div>
                       <span className="text-xs font-bold text-[#071A3D]">Add Another Product</span>
                       <span className="text-[11px] text-[#64748B]">
@@ -592,11 +615,11 @@ export const CompareModal: React.FC<CompareModalProps> = ({
                 visibleRows.map((row) => (
                   <tr
                     key={row.key}
-                    className={
+                    className={`spec-row-hover ${
                       row.hasDifference && products.length >= 2
                         ? 'bg-[#087BFF]/[0.03]'
                         : 'hover:bg-slate-50/70'
-                    }
+                    }`}
                   >
                     <th
                       scope="row"

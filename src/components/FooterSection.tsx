@@ -50,7 +50,7 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
   };
 
   return (
-    <footer className="bg-white min-[1500px]:bg-transparent min-[1500px]:pointer-events-none border-t border-slate-200/90 min-[1500px]:border-t-0">
+    <footer className="cv-section bg-white min-[1500px]:bg-transparent min-[1500px]:pointer-events-none border-t border-slate-200/90 min-[1500px]:border-t-0">
       {/* Popular Engineering Queries & Store Guarantees */}
       <div className="relative z-20 pointer-events-auto w-full max-w-[1440px] mx-auto bg-white min-[1500px]:border-x min-[1500px]:border-t min-[1500px]:border-slate-200/90 px-4 sm:px-6 lg:px-10 py-11 border-b border-slate-200/80">
         <Reveal>
@@ -63,7 +63,7 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
             </span>
           </div>
           <div className="flex flex-wrap gap-2">
-            {QUICK_SEARCH_TAGS.map((term) => (
+            {QUICK_SEARCH_TAGS.map((term, idx) => (
               <a
                 key={term}
                 href={`/shop?q=${encodeURIComponent(term)}`}
@@ -72,7 +72,8 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
                   e.preventDefault();
                   onQuickSearch(term);
                 }}
-                className="px-3.5 py-2 rounded-xl bg-[#F3F7FC] hover:bg-[#087BFF] text-[#071A3D] hover:text-white text-xs sm:text-sm font-medium border border-slate-200/90 hover:border-[#087BFF] transition-colors whitespace-nowrap"
+                style={{ '--stagger-delay': `${Math.min(idx * 22, 220)}ms` } as React.CSSProperties}
+                className="animate-stagger-up motion-pill px-3.5 py-2 rounded-xl bg-[#F3F7FC] hover:bg-[#087BFF] text-[#071A3D] hover:text-white text-xs sm:text-sm font-medium border border-slate-200/90 hover:border-[#087BFF] transition-colors whitespace-nowrap"
               >
                 {term}
               </a>
@@ -109,7 +110,7 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
               <Reveal key={item.title} delayMs={idx * 55}>
                 <div className={`group flex items-start gap-3.5 ${idx === 0 ? 'lg:pr-6' : 'lg:px-6'}`}>
                   <div className="w-10 h-10 rounded-xl bg-[#F3F7FC] border border-slate-200/80 group-hover:border-[#087BFF]/40 group-hover:bg-[#087BFF]/10 flex items-center justify-center shrink-0 transition-colors">
-                    <Icon className="w-5 h-5 text-[#087BFF]" strokeWidth={1.85} />
+                    <Icon className="motion-icon-tilt w-5 h-5 text-[#087BFF]" strokeWidth={1.85} />
                   </div>
                   <div>
                     <h3 className="font-hero text-sm font-bold text-[#071A3D]">{item.title}</h3>
@@ -140,29 +141,29 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
               teams, and embedded hardware developers.
             </p>
             <div className="space-y-2.5 text-xs text-slate-300 pt-1">
-              <p className="flex items-center gap-2.5">
-                <MapPin className="w-4 h-4 text-[#00CFFF] shrink-0" />
+              <p className="group flex items-center gap-2.5">
+                <MapPin className="motion-icon-tilt w-4 h-4 text-[#00CFFF] shrink-0" />
                 <span>Level 4, Multiplan &amp; Mirpur-10 Robotics Hub, Dhaka 1216</span>
               </p>
-              <p className="flex items-center gap-2.5">
-                <Phone className="w-4 h-4 text-[#00CFFF] shrink-0" />
-                <a href="tel:+8801624987366" className="font-mono hover:text-white transition-colors">
+              <p className="group flex items-center gap-2.5">
+                <Phone className="motion-icon-tilt w-4 h-4 text-[#00CFFF] shrink-0" />
+                <a href="tel:+8801624987366" className="motion-link inline-block font-mono hover:text-white transition-colors">
                   +880 1624-987366
                 </a>
               </p>
-              <p className="flex items-center gap-2.5">
-                <MessageCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+              <p className="group flex items-center gap-2.5">
+                <MessageCircle className="motion-icon-tilt w-4 h-4 text-emerald-400 shrink-0" />
                 <a
                   href={WHATSAPP_URL}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="hover:text-white transition-colors"
+                  className="motion-link inline-block hover:text-white transition-colors"
                 >
                   WhatsApp Engineering Support (+880 1624-987366)
                 </a>
               </p>
-              <p className="flex items-center gap-2.5">
-                <Mail className="w-4 h-4 text-[#00CFFF] shrink-0" />
+              <p className="group flex items-center gap-2.5">
+                <Mail className="motion-icon-tilt w-4 h-4 text-[#00CFFF] shrink-0" />
                 <span>support@roboterabd.com</span>
               </p>
             </div>
@@ -183,7 +184,7 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
                         e.preventDefault();
                         onSelectCategory(cat.id);
                       }}
-                      className="hover:text-[#00CFFF] transition-colors text-left inline-block"
+                      className="motion-link hover:text-[#00CFFF] transition-colors text-left inline-block"
                     >
                       {cat.name}
                     </a>
@@ -203,7 +204,7 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
                     e.preventDefault();
                     onNavigateSection('best-selling');
                   }}
-                  className="hover:text-[#00CFFF] transition-colors inline-block"
+                  className="motion-link hover:text-[#00CFFF] transition-colors inline-block"
                 >
                   Shop Hardware
                 </a>
@@ -216,7 +217,7 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
                     e.preventDefault();
                     onNavigateSection('just-arrived');
                   }}
-                  className="hover:text-[#00CFFF] transition-colors inline-block"
+                  className="motion-link hover:text-[#00CFFF] transition-colors inline-block"
                 >
                   New Arrivals
                 </a>
@@ -229,7 +230,7 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
                     e.preventDefault();
                     onNavigateSection('bundles');
                   }}
-                  className="hover:text-[#00CFFF] transition-colors inline-block"
+                  className="motion-link hover:text-[#00CFFF] transition-colors inline-block"
                 >
                   Robotics Kits
                 </a>
@@ -242,7 +243,7 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
                     e.preventDefault();
                     onOpenTracking();
                   }}
-                  className="hover:text-[#00CFFF] transition-colors inline-block"
+                  className="motion-link hover:text-[#00CFFF] transition-colors inline-block"
                 >
                   Track Order
                 </a>
@@ -255,7 +256,7 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
                     e.preventDefault();
                     onNavigateSection('lab-guides');
                   }}
-                  className="hover:text-[#00CFFF] transition-colors inline-block"
+                  className="motion-link hover:text-[#00CFFF] transition-colors inline-block"
                 >
                   Engineering Guides
                 </a>
@@ -288,7 +289,7 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
                   />
                   <button
                     type="submit"
-                    className="h-10 px-4 rounded-xl bg-[#087BFF] hover:bg-[#0066DB] text-white text-xs font-semibold shadow-[0_10px_24px_-8px_rgba(8,123,255,0.55)] transition-colors whitespace-nowrap shrink-0"
+                    className="motion-press h-10 px-4 rounded-xl bg-[#087BFF] hover:bg-[#0066DB] text-white text-xs font-semibold shadow-[0_10px_24px_-8px_rgba(8,123,255,0.55)] transition-colors whitespace-nowrap shrink-0"
                   >
                     Subscribe
                   </button>
@@ -304,7 +305,7 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
                 {['bKash', 'Nagad', 'SSLCommerz', 'Cash on Delivery'].map((ch) => (
                   <span
                     key={ch}
-                    className="px-2.5 py-1 rounded-lg bg-white/[0.07] border border-white/10"
+                    className="motion-pill px-2.5 py-1 rounded-lg bg-white/[0.07] hover:bg-white/[0.14] border border-white/10 hover:border-[#00CFFF]/40 cursor-default"
                   >
                     {ch}
                   </span>

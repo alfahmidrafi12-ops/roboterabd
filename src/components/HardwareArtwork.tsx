@@ -28,6 +28,8 @@ export const HardwareArtwork: React.FC<HardwareArtworkProps> = ({
       <img
         src={imageUrl}
         alt={alt || kind}
+        loading="lazy"
+        decoding="async"
         referrerPolicy="no-referrer"
         onError={() => setImgFailed(true)}
         className={`${className} ${

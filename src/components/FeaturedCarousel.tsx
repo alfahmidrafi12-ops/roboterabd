@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { Product } from '../types/store';
+import { AddToCartResult, Product } from '../types/store';
 import { ProductCard } from './ProductCard';
 import { Reveal } from './Reveal';
 
@@ -11,9 +11,10 @@ interface FeaturedCarouselProps {
   wishlistIds: string[];
   restockWatchedIds?: string[];
   compareIds?: string[];
+  cartQtyByProductId?: Record<string, number>;
   onToggleWishlist: (productId: string) => void;
   onToggleCompare?: (productId: string) => void;
-  onAddToCart: (product: Product, quantity: number) => void;
+  onAddToCart: (product: Product, quantity: number) => AddToCartResult | void;
   onOpenDetail: (product: Product) => void;
   onRequestRestockAlert?: (product: Product) => void;
 }
@@ -27,6 +28,7 @@ export const FeaturedCarousel: React.FC<FeaturedCarouselProps> = ({
   wishlistIds,
   restockWatchedIds = [],
   compareIds = [],
+  cartQtyByProductId = {},
   onToggleWishlist,
   onToggleCompare,
   onAddToCart,
@@ -59,7 +61,7 @@ export const FeaturedCarousel: React.FC<FeaturedCarouselProps> = ({
   };
 
   return (
-    <section id="just-arrived" className="scroll-mt-[108px] bg-white min-[1500px]:bg-transparent min-[1500px]:pointer-events-none">
+    <section id="just-arrived" className="cv-section scroll-mt-[108px] bg-white min-[1500px]:bg-transparent min-[1500px]:pointer-events-none">
       <div className="relative z-20 pointer-events-auto w-full max-w-[1440px] mx-auto bg-white min-[1500px]:border-x min-[1500px]:border-slate-200/90 px-4 sm:px-6 lg:px-10 py-11 sm:py-14">
         <Reveal>
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-7 sm:mb-8">
@@ -89,7 +91,7 @@ export const FeaturedCarousel: React.FC<FeaturedCarouselProps> = ({
                     key={tab.id}
                     type="button"
                     onClick={() => setActiveTab(tab.id)}
-                    className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 whitespace-nowrap ${
+                    className={`motion-press px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors duration-200 whitespace-nowrap ${
                       activeTab === tab.id
                         ? 'bg-white text-[#071A3D] shadow-[0_2px_8px_rgba(7,26,61,0.08)]'
                         : 'text-[#475569] hover:text-[#071A3D]'
@@ -105,7 +107,7 @@ export const FeaturedCarousel: React.FC<FeaturedCarouselProps> = ({
                   type="button"
                   onClick={() => scrollByAmount('left')}
                   aria-label="Scroll products left"
-                  className="w-9 h-9 rounded-full bg-[#F3F7FC] hover:bg-[#071A3D] text-[#071A3D] hover:text-white border border-slate-200/90 hover:border-[#071A3D] transition-colors flex items-center justify-center"
+                  className="motion-press w-9 h-9 rounded-full bg-[#F3F7FC] hover:bg-[#071A3D] text-[#071A3D] hover:text-white border border-slate-200/90 hover:border-[#071A3D] transition-colors flex items-center justify-center"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
@@ -113,7 +115,7 @@ export const FeaturedCarousel: React.FC<FeaturedCarouselProps> = ({
                   type="button"
                   onClick={() => scrollByAmount('right')}
                   aria-label="Scroll products right"
-                  className="w-9 h-9 rounded-full bg-[#F3F7FC] hover:bg-[#071A3D] text-[#071A3D] hover:text-white border border-slate-200/90 hover:border-[#071A3D] transition-colors flex items-center justify-center"
+                  className="motion-press w-9 h-9 rounded-full bg-[#F3F7FC] hover:bg-[#071A3D] text-[#071A3D] hover:text-white border border-slate-200/90 hover:border-[#071A3D] transition-colors flex items-center justify-center"
                 >
                   <ChevronRight className="w-4 h-4" />
                 </button>
@@ -139,6 +141,7 @@ export const FeaturedCarousel: React.FC<FeaturedCarouselProps> = ({
                     isRestockWatched={restockWatchedIds.includes(product.id)}
                     isCompared={compareIds.includes(product.id)}
                     compareLimitReached={compareIds.length >= 3}
+                    inCartQty={cartQtyByProductId[product.id] ?? 0}
                     onToggleWishlist={onToggleWishlist}
                     onToggleCompare={onToggleCompare}
                     onAddToCart={onAddToCart}

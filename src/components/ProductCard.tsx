@@ -15,13 +15,13 @@ import {
   Plus,
   Radar,
   Radio,
-  ShoppingCart,
   Star,
   Wrench,
 } from 'lucide-react';
 import { isWatermarkedUrl } from '../data/brandMedia';
 import { playStepTickSound, playTapSound } from '../lib/sound';
-import { ArtworkKind, Product } from '../types/store';
+import { AddToCartResult, ArtworkKind, Product } from '../types/store';
+import { AnimatedCartIcon } from './AnimatedCartIcon';
 import { HighlightMatch } from './HighlightMatch';
 
 interface ProductCardProps {
@@ -32,10 +32,11 @@ interface ProductCardProps {
   isRestockWatched?: boolean;
   isCompared?: boolean;
   compareLimitReached?: boolean;
+  inCartQty?: number;
   layout?: 'grid' | 'list';
   onToggleWishlist: (productId: string) => void;
   onToggleCompare?: (productId: string) => void;
-  onAddToCart: (product: Product, quantity: number) => void;
+  onAddToCart: (product: Product, quantity: number) => AddToCartResult | void;
   onOpenDetail: (product: Product) => void;
   onRequestRestockAlert?: (product: Product) => void;
 }
@@ -89,9 +90,10 @@ const ProductMedia: React.FC<ProductMediaProps> = ({ product, className = '' }) 
         src={rawUrl}
         alt={`${product.name} (${product.sku}) – Robotera BD`}
         loading="lazy"
+        decoding="async"
         referrerPolicy="no-referrer"
         onError={() => setImgFailed(true)}
-        className={`w-full h-full object-contain object-center transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-[1.04] ${className}`}
+        className={`w-full h-full object-contain object-center transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-[1.06] ${className}`}
       />
     );
   }
@@ -121,6 +123,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   isRestockWatched = false,
   isCompared = false,
   compareLimitReached = false,
+  inCartQty = 0,
   layout = 'grid',
   onToggleWishlist,
   onToggleCompare,
@@ -130,6 +133,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 }) => {
   const isOutOfStock = product.stock <= 0;
   const isLowStock = product.stock > 0 && product.stock <= 5;
+  const remainingStock = Math.max(0, product.stock - inCartQty);
+  const isAtCartLimit = !isOutOfStock && remainingStock === 0;
+  const maxSelectableQty = isAtCartLimit ? 1 : Math.max(1, remainingStock);
   const [qty, setQty] = useState(1);
   const [justAdded, setJustAdded] = useState(false);
   const [heartBurstKey, setHeartBurstKey] = useState(0);
@@ -137,10 +143,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   const lastAddTsRef = useRef<number>(0);
 
   useEffect(() => {
-    if (product.stock > 0 && qty > product.stock) {
-      setQty(product.stock);
+    if (!isOutOfStock && qty > maxSelectableQty) {
+      setQty(maxSelectableQty);
     }
-  }, [product.stock, qty]);
+  }, [isOutOfStock, maxSelectableQty, qty]);
 
   useEffect(() => {
     return () => {
@@ -157,10 +163,16 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     if (now - lastAddTsRef.current < 350) return;
     lastAddTsRef.current = now;
 
-    onAddToCart(product, Math.min(qty, product.stock));
-    setJustAdded(true);
-    if (timerRef.current) window.clearTimeout(timerRef.current);
-    timerRef.current = window.setTimeout(() => setJustAdded(false), 1200);
+    const requestedQty = isAtCartLimit ? 1 : Math.min(qty, maxSelectableQty);
+    const result = onAddToCart(product, requestedQty);
+    if (!result || result.addedQty > 0) {
+      setQty(1);
+      setJustAdded(true);
+      if (timerRef.current) window.clearTimeout(timerRef.current);
+      timerRef.current = window.setTimeout(() => setJustAdded(false), 1200);
+    } else {
+      setJustAdded(false);
+    }
   };
 
   const hasDiscount = Boolean(product.originalPrice && product.originalPrice > product.price);
@@ -190,9 +202,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
   if (layout === 'list') {
     return (
-      <article className="group bg-white rounded-2xl border border-slate-200/90 hover:border-[#087BFF]/75 shadow-[0_4px_16px_-8px_rgba(7,26,61,0.08)] hover:shadow-[0_16px_32px_-12px_rgba(8,123,255,0.16)] transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] flex flex-col sm:flex-row overflow-hidden">
+      <article className="motion-card group bg-white rounded-2xl border border-slate-200/90 hover:border-[#087BFF]/75 shadow-[0_4px_16px_-8px_rgba(7,26,61,0.08)] hover:shadow-[0_16px_32px_-12px_rgba(8,123,255,0.16)] flex flex-col sm:flex-row overflow-hidden">
         {/* Clean Light Product Image Stage */}
-        <div className="card-shine relative bg-[#F7FAFE] border-b sm:border-b-0 sm:border-r border-slate-100 w-full sm:w-56 h-48 sm:h-auto shrink-0 overflow-hidden">
+        <div className="card-shine card-scan relative bg-[#F7FAFE] border-b sm:border-b-0 sm:border-r border-slate-100 w-full sm:w-56 h-48 sm:h-auto shrink-0 overflow-hidden">
           <a
             href={productHref}
             onClick={handleProductNav}
@@ -204,7 +216,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
           {badge && (
             <span
-              className={`pointer-events-none absolute top-3 left-3 text-[10px] font-mono font-bold tracking-[0.06em] px-2 py-0.5 rounded-md ${badge.cls}`}
+              className={`pointer-events-none absolute top-3 left-3 text-[10px] font-mono font-bold tracking-[0.06em] px-2 py-0.5 rounded-md transition-transform duration-200 group-hover:scale-105 ${badge.cls}`}
             >
               {badge.label}
             </span>
@@ -215,7 +227,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         <div className="flex-1 p-4 sm:p-5 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 min-w-0">
           <div className="flex-1 min-w-0 space-y-1.5">
             <div className="flex items-center gap-2 text-[11px] text-[#64748B]">
-              <span className="font-bold uppercase tracking-wider text-[#087BFF]">
+              <span className="font-bold uppercase tracking-wider text-[#087BFF] transition-transform duration-200 group-hover:translate-x-0.5">
                 <HighlightMatch
                   text={displayCategory}
                   query={highlightQuery}
@@ -223,7 +235,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                 />
               </span>
               <span aria-hidden="true">·</span>
-              <span className="font-mono">{product.sku}</span>
+              <span className="font-mono transition-colors group-hover:text-[#334155]">{product.sku}</span>
             </div>
 
             <a
@@ -231,7 +243,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               onClick={handleProductNav}
               className="block text-left focus-visible:outline-none focus-visible:underline"
             >
-              <h3 className="font-hero text-base sm:text-[17px] font-bold text-[#071A3D] group-hover:text-[#087BFF] transition-colors line-clamp-2">
+              <h3 className="font-hero text-base sm:text-[17px] font-bold text-[#071A3D] group-hover:text-[#087BFF] transition-all duration-200 group-hover:translate-x-0.5 line-clamp-2">
                 <HighlightMatch text={product.name} query={highlightQuery} />
               </h3>
             </a>
@@ -242,7 +254,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               {hasRatings && (
                 <>
                   <span className="inline-flex items-center gap-1">
-                    <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                    <Star className="icon-hover-twinkle w-3.5 h-3.5 text-amber-500 fill-amber-500" />
                     <strong className="text-[#071A3D] tabular-nums">
                       {product.rating.toFixed(1)}
                     </strong>
@@ -254,7 +266,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               {isOutOfStock ? (
                 <span className="text-red-600 font-semibold">Out of Stock</span>
               ) : isLowStock ? (
-                <span className="text-[#D97706] font-semibold tabular-nums">
+                <span className="animate-telemetry-led text-[#D97706] font-semibold tabular-nums">
                   Low Stock ({product.stock} left)
                 </span>
               ) : (
@@ -266,7 +278,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           <div className="flex sm:flex-col items-center sm:items-end justify-between gap-3 shrink-0 sm:pl-5 sm:border-l border-slate-100">
             <div className="text-left sm:text-right">
               <div className="flex items-baseline sm:justify-end gap-2">
-                <span className="font-mono text-lg sm:text-xl font-extrabold text-[#071A3D] tabular-nums">
+                <span className="font-mono text-lg sm:text-xl font-extrabold text-[#071A3D] group-hover:text-[#087BFF] transition-colors tabular-nums">
                   ৳{product.price.toLocaleString('en-IN')}
                 </span>
                 {hasDiscount && product.originalPrice && (
@@ -296,7 +308,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                       ? `Remove ${product.name} from comparison`
                       : `Compare ${product.name}`
                   }
-                  className={`h-9 px-2.5 rounded-xl border text-[11px] font-semibold inline-flex items-center gap-1.5 whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF] ${
+                  className={`motion-press h-9 px-2.5 rounded-xl border text-[11px] font-semibold inline-flex items-center gap-1.5 whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF] ${
                     isCompared
                       ? 'bg-[#087BFF] border-[#087BFF] text-white'
                       : compareLimitReached
@@ -305,7 +317,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                   }`}
                 >
                   {isCompared ? (
-                    <Check className="w-3.5 h-3.5 shrink-0" />
+                    <Check className="w-3.5 h-3.5 shrink-0 animate-icon-pop" />
                   ) : (
                     <GitCompareArrows className="w-3.5 h-3.5 shrink-0" />
                   )}
@@ -320,7 +332,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                   onToggleWishlist(product.id);
                 }}
                 aria-label={isWishlisted ? `Remove ${product.name} from wishlist` : `Save ${product.name} to wishlist`}
-                className={`relative w-9 h-9 rounded-xl flex items-center justify-center border active:scale-90 transition-all ${
+                className={`group/heart motion-press relative w-9 h-9 rounded-xl flex items-center justify-center border transition-all ${
                   isWishlisted
                     ? 'bg-[#071A3D] border-[#071A3D] text-white'
                     : 'bg-white border-slate-200 text-[#64748B] hover:text-[#087BFF] hover:border-[#087BFF]/45'
@@ -333,13 +345,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                     className="pointer-events-none absolute inset-0 rounded-xl border-2 border-[#087BFF] animate-heart-burst"
                   />
                 )}
-                <Heart className={`w-4 h-4 ${isWishlisted ? 'fill-current animate-icon-pop' : ''}`} />
+                <Heart className={`icon-hover-beat w-4 h-4 ${isWishlisted ? 'fill-current animate-icon-pop' : ''}`} />
               </button>
 
               <div className="flex items-center border border-slate-200 rounded-xl bg-[#F8FAFC] h-9">
                 <button
                   type="button"
-                  disabled={isOutOfStock || qty <= 1}
+                  disabled={isOutOfStock || isAtCartLimit || qty <= 1}
                   onClick={() => {
                     playStepTickSound(false);
                     setQty((prev) => Math.max(1, prev - 1));
@@ -349,15 +361,18 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                 >
                   <Minus className="w-3.5 h-3.5" />
                 </button>
-                <span className="w-6 text-center text-xs font-mono font-bold text-[#071A3D] tabular-nums">
-                  {isOutOfStock ? 0 : qty}
+                <span
+                  key={qty}
+                  className="animate-qty-pop w-6 text-center text-xs font-mono font-bold text-[#071A3D] tabular-nums"
+                >
+                  {isOutOfStock ? 0 : isAtCartLimit ? 0 : qty}
                 </span>
                 <button
                   type="button"
-                  disabled={isOutOfStock || qty >= product.stock}
+                  disabled={isOutOfStock || isAtCartLimit || qty >= maxSelectableQty}
                   onClick={() => {
                     playStepTickSound(true);
-                    setQty((prev) => Math.min(product.stock, prev + 1));
+                    setQty((prev) => Math.min(maxSelectableQty, prev + 1));
                   }}
                   aria-label="Increase quantity"
                   className="w-7 h-full flex items-center justify-center text-[#64748B] hover:text-[#071A3D] hover:bg-white active:scale-90 rounded-r-xl transition-all disabled:opacity-35"
@@ -400,9 +415,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                 <button
                   type="button"
                   onClick={handleAdd}
-                  className={`cta-sheen h-9 px-4 rounded-xl text-[11px] font-bold tracking-[0.04em] uppercase inline-flex items-center justify-center gap-1.5 whitespace-nowrap active:scale-[0.96] transition-all duration-200 ${
+                  className={`cta-sheen h-9 px-4 rounded-xl text-[11px] font-bold tracking-[0.04em] uppercase inline-flex items-center justify-center gap-1.5 whitespace-nowrap active:scale-[0.96] transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF] ${
                     justAdded
                       ? 'animate-spring-pop bg-[#071A3D] text-white'
+                      : isAtCartLimit
+                      ? 'bg-slate-100 hover:bg-slate-200 border border-slate-200 text-[#071A3D]'
                       : 'bg-[#087BFF] hover:bg-[#0669DB] text-white shadow-[0_6px_14px_-6px_rgba(8,123,255,0.45)]'
                   }`}
                 >
@@ -411,9 +428,14 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                       <Check className="w-3.5 h-3.5 shrink-0 animate-icon-pop text-[#00CFFF]" />
                       <span>Added</span>
                     </>
+                  ) : isAtCartLimit ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 shrink-0 text-[#087BFF]" />
+                      <span>Max in Cart ({inCartQty})</span>
+                    </>
                   ) : (
                     <>
-                      <ShoppingCart className="w-3.5 h-3.5 shrink-0" />
+                      <AnimatedCartIcon className="w-3.5 h-3.5 shrink-0" />
                       <span>Add to Cart</span>
                     </>
                   )}
@@ -427,9 +449,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   }
 
   return (
-    <article className="group bg-white rounded-2xl border border-slate-200/90 hover:border-[#087BFF]/75 shadow-[0_4px_16px_-8px_rgba(7,26,61,0.08)] hover:shadow-[0_18px_36px_-14px_rgba(8,123,255,0.16)] hover:-translate-y-1 transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] flex flex-col overflow-hidden h-full">
+    <article className="motion-card group bg-white rounded-2xl border border-slate-200/90 hover:border-[#087BFF]/75 shadow-[0_4px_16px_-8px_rgba(7,26,61,0.08)] hover:shadow-[0_18px_36px_-14px_rgba(8,123,255,0.16)] flex flex-col overflow-hidden h-full">
       {/* Consistent Clean Studio Product Image Area */}
-      <div className="card-shine relative bg-[#F7FAFE] border-b border-slate-100 h-[168px] sm:h-[200px] overflow-hidden shrink-0">
+      <div className="card-shine card-scan relative bg-[#F7FAFE] border-b border-slate-100 h-[168px] sm:h-[200px] overflow-hidden shrink-0">
         <a
           href={productHref}
           onClick={handleProductNav}
@@ -441,7 +463,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
         {badge && (
           <span
-            className={`pointer-events-none absolute top-2.5 left-2.5 text-[9.5px] sm:text-[10px] font-mono font-bold tracking-[0.06em] px-2 py-0.5 rounded-md ${badge.cls}`}
+            className={`pointer-events-none absolute top-2.5 left-2.5 text-[9.5px] sm:text-[10px] font-mono font-bold tracking-[0.06em] px-2 py-0.5 rounded-md transition-transform duration-200 group-hover:scale-105 ${badge.cls}`}
           >
             {badge.label}
           </span>
@@ -458,7 +480,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               ? `Remove ${product.name} from wishlist`
               : `Save ${product.name} to wishlist`
           }
-          className={`absolute top-2.5 right-2.5 w-8 h-8 rounded-full flex items-center justify-center border active:scale-90 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF] ${
+          className={`group/heart motion-press absolute top-2.5 right-2.5 w-8 h-8 rounded-full flex items-center justify-center border transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF] ${
             isWishlisted
               ? 'bg-[#071A3D] border-[#071A3D] text-white'
               : 'bg-white/95 border-slate-200 text-[#64748B] hover:text-[#087BFF] hover:border-[#087BFF]/50'
@@ -472,7 +494,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             />
           )}
           <Heart
-            className={`w-3.5 h-3.5 transition-transform ${
+            className={`icon-hover-beat w-3.5 h-3.5 transition-transform ${
               isWishlisted ? 'fill-current animate-icon-pop' : ''
             }`}
           />
@@ -491,7 +513,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                 ? `Remove ${product.name} from comparison`
                 : `Compare ${product.name}`
             }
-            className={`absolute bottom-2.5 right-2.5 h-7 px-2.5 rounded-lg border text-[10.5px] font-semibold inline-flex items-center gap-1 whitespace-nowrap shadow-[0_4px_10px_-4px_rgba(7,26,61,0.16)] transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF] ${
+            className={`motion-press absolute bottom-2.5 right-2.5 h-7 px-2.5 rounded-lg border text-[10.5px] font-semibold inline-flex items-center gap-1 whitespace-nowrap shadow-[0_4px_10px_-4px_rgba(7,26,61,0.16)] transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF] ${
               isCompared
                 ? 'bg-[#087BFF] border-[#087BFF] text-white'
                 : compareLimitReached
@@ -500,7 +522,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             }`}
           >
             {isCompared ? (
-              <Check className="w-3 h-3 shrink-0" />
+              <Check className="w-3 h-3 shrink-0 animate-icon-pop" />
             ) : (
               <GitCompareArrows className="w-3 h-3 shrink-0" />
             )}
@@ -513,14 +535,14 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       <div className="p-3.5 sm:p-4 flex flex-col flex-1 min-w-0">
         {/* 1. Category & 3. Model / SKU */}
         <div className="flex items-center justify-between gap-2 text-[10px] sm:text-[10.5px] mb-1">
-          <span className="truncate font-bold uppercase tracking-[0.06em] text-[#087BFF]">
+          <span className="truncate font-bold uppercase tracking-[0.06em] text-[#087BFF] transition-transform duration-200 group-hover:translate-x-0.5">
             <HighlightMatch
               text={displayCategory}
               query={highlightQuery}
               markClassName="bg-[#087BFF]/15 text-[#0656B8] rounded-[3px] px-0.5 font-extrabold ring-1 ring-inset ring-[#087BFF]/30"
             />
           </span>
-          <span className="hidden sm:inline font-mono text-[10px] text-[#64748B] shrink-0">
+          <span className="hidden sm:inline font-mono text-[10px] text-[#64748B] group-hover:text-[#334155] transition-colors shrink-0">
             {product.sku}
           </span>
         </div>
@@ -531,7 +553,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           onClick={handleProductNav}
           className="block text-left focus-visible:outline-none focus-visible:underline"
         >
-          <h3 className="font-hero text-[13.5px] sm:text-[15px] font-bold text-[#071A3D] leading-[1.35] line-clamp-2 group-hover:text-[#087BFF] transition-colors min-h-[2.3rem] sm:min-h-[2.55rem]">
+          <h3 className="font-hero text-[13.5px] sm:text-[15px] font-bold text-[#071A3D] leading-[1.35] line-clamp-2 group-hover:text-[#087BFF] transition-all duration-200 group-hover:translate-x-0.5 min-h-[2.3rem] sm:min-h-[2.55rem]">
             <HighlightMatch text={product.name} query={highlightQuery} />
           </h3>
         </a>
@@ -541,7 +563,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           {hasRatings && (
             <>
               <span className="inline-flex items-center gap-1">
-                <Star className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-500 fill-amber-500 shrink-0" />
+                <Star className="icon-hover-twinkle w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-500 fill-amber-500 shrink-0" />
                 <span className="font-bold text-[#071A3D] tabular-nums">
                   {product.rating.toFixed(1)}
                 </span>
@@ -556,7 +578,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           {isOutOfStock ? (
             <span className="text-red-600 font-semibold whitespace-nowrap">Out of Stock</span>
           ) : isLowStock ? (
-            <span className="text-[#D97706] font-semibold whitespace-nowrap tabular-nums">
+            <span className="animate-telemetry-led text-[#D97706] font-semibold whitespace-nowrap tabular-nums">
               {product.stock} left
             </span>
           ) : (
@@ -566,7 +588,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
         {/* 5. Prominent BDT Price + 6. Original Price + 7. Discount % */}
         <div className="mt-2.5 flex items-baseline gap-1.5 sm:gap-2 flex-wrap">
-          <span className="font-mono text-[15px] sm:text-[18px] font-extrabold text-[#071A3D] tabular-nums">
+          <span className="font-mono text-[15px] sm:text-[18px] font-extrabold text-[#071A3D] group-hover:text-[#087BFF] transition-colors tabular-nums">
             ৳{product.price.toLocaleString('en-IN')}
           </span>
           {hasDiscount && product.originalPrice && (
@@ -581,36 +603,46 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           )}
         </div>
 
-        {/* 9. Quantity Selector & 10. Electric Blue Add to Cart CTA */}
-        <div className="mt-auto pt-3.5 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-          <div className="flex items-center justify-between sm:justify-start border border-slate-200 rounded-xl bg-[#F8FAFC] h-9 shrink-0">
-            <button
-              type="button"
-              disabled={isOutOfStock || qty <= 1}
-              onClick={() => {
-                playStepTickSound(false);
-                setQty((prev) => Math.max(1, prev - 1));
-              }}
-              aria-label="Decrease quantity"
-              className="w-8 sm:w-7 h-full flex items-center justify-center text-[#475569] hover:text-[#071A3D] hover:bg-white active:scale-90 rounded-l-xl transition-all disabled:opacity-35 disabled:cursor-not-allowed"
-            >
-              <Minus className="w-3.5 h-3.5" />
-            </button>
-            <span className="w-6 text-center text-xs font-mono font-bold text-[#071A3D] tabular-nums">
-              {isOutOfStock ? 0 : qty}
-            </span>
-            <button
-              type="button"
-              disabled={isOutOfStock || qty >= product.stock}
-              onClick={() => {
-                playStepTickSound(true);
-                setQty((prev) => Math.min(product.stock, prev + 1));
-              }}
-              aria-label="Increase quantity"
-              className="w-8 sm:w-7 h-full flex items-center justify-center text-[#475569] hover:text-[#071A3D] hover:bg-white active:scale-90 rounded-r-xl transition-all disabled:opacity-35 disabled:cursor-not-allowed"
-            >
-              <Plus className="w-3.5 h-3.5" />
-            </button>
+        {/* 9. Quantity Selector & 10. Full-Width Electric Blue Add to Cart CTA */}
+        <div className="mt-auto pt-3.5 flex flex-col gap-2 min-w-0">
+          <div className="flex items-center justify-between gap-2 min-w-0">
+            <div className="flex items-center justify-between border border-slate-200 rounded-xl bg-[#F8FAFC] h-8.5 flex-1 min-w-0">
+              <button
+                type="button"
+                disabled={isOutOfStock || isAtCartLimit || qty <= 1}
+                onClick={() => {
+                  playStepTickSound(false);
+                  setQty((prev) => Math.max(1, prev - 1));
+                }}
+                aria-label="Decrease quantity"
+                className="w-8 h-full flex items-center justify-center text-[#475569] hover:text-[#071A3D] hover:bg-white active:scale-90 rounded-l-xl transition-all disabled:opacity-35 disabled:cursor-not-allowed shrink-0"
+              >
+                <Minus className="w-3.5 h-3.5" />
+              </button>
+              <span
+                key={qty}
+                className="animate-qty-pop flex-1 text-center text-xs font-mono font-bold text-[#071A3D] tabular-nums"
+              >
+                {isOutOfStock || isAtCartLimit ? 0 : qty}
+              </span>
+              <button
+                type="button"
+                disabled={isOutOfStock || isAtCartLimit || qty >= maxSelectableQty}
+                onClick={() => {
+                  playStepTickSound(true);
+                  setQty((prev) => Math.min(maxSelectableQty, prev + 1));
+                }}
+                aria-label="Increase quantity"
+                className="w-8 h-full flex items-center justify-center text-[#475569] hover:text-[#071A3D] hover:bg-white active:scale-90 rounded-r-xl transition-all disabled:opacity-35 disabled:cursor-not-allowed shrink-0"
+              >
+                <Plus className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            {inCartQty > 0 && !isOutOfStock && (
+              <span className="font-mono text-[10px] font-bold text-[#087BFF] bg-[#EFF6FF] border border-[#087BFF]/20 px-2 py-1 rounded-lg whitespace-nowrap shrink-0 tabular-nums">
+                {inCartQty} in cart
+              </span>
+            )}
           </div>
 
           {isOutOfStock ? (
@@ -625,7 +657,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                   onOpenDetail(product);
                 }
               }}
-              className={`w-full sm:flex-1 h-9 px-3 rounded-xl text-[11px] font-bold tracking-[0.04em] uppercase inline-flex items-center justify-center gap-1.5 whitespace-nowrap active:scale-[0.96] transition-all duration-200 border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF] ${
+              className={`w-full min-w-0 h-10 px-3 rounded-xl text-[11px] font-bold tracking-[0.04em] uppercase inline-flex items-center justify-center gap-1.5 whitespace-nowrap active:scale-[0.98] transition-all duration-200 border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF] ${
                 isRestockWatched
                   ? 'bg-emerald-50 border-emerald-300 text-emerald-800 hover:bg-emerald-100'
                   : 'bg-[#071A3D] border-[#071A3D] hover:bg-[#087BFF] hover:border-[#087BFF] text-white shadow-[0_8px_18px_-10px_rgba(7,26,61,0.45)]'
@@ -634,12 +666,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               {isRestockWatched ? (
                 <>
                   <BellRing className="w-3.5 h-3.5 shrink-0 text-emerald-600 animate-bell-ring" />
-                  <span>Alert Set</span>
+                  <span className="truncate">Alert Set</span>
                 </>
               ) : (
                 <>
                   <Bell className="w-3.5 h-3.5 shrink-0 text-[#00CFFF]" />
-                  <span>Notify Me</span>
+                  <span className="truncate">Notify Me</span>
                 </>
               )}
             </button>
@@ -647,21 +679,28 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             <button
               type="button"
               onClick={handleAdd}
-              className={`cta-sheen w-full sm:flex-1 h-9 px-3 rounded-xl text-[11px] font-bold tracking-[0.04em] uppercase inline-flex items-center justify-center gap-1.5 whitespace-nowrap active:scale-[0.96] transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF] ${
+              className={`cta-sheen w-full min-w-0 h-10 px-3 rounded-xl text-[11px] font-bold tracking-[0.04em] uppercase inline-flex items-center justify-center gap-1.5 whitespace-nowrap active:scale-[0.98] transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF] ${
                 justAdded
                   ? 'animate-spring-pop bg-[#071A3D] text-white'
+                  : isAtCartLimit
+                  ? 'bg-slate-100 hover:bg-slate-200 border border-slate-200 text-[#071A3D]'
                   : 'bg-[#087BFF] hover:bg-[#0669DB] text-white shadow-[0_8px_18px_-8px_rgba(8,123,255,0.5)]'
               }`}
             >
               {justAdded ? (
                 <>
                   <Check className="w-3.5 h-3.5 shrink-0 animate-icon-pop text-[#00CFFF]" />
-                  <span>Added</span>
+                  <span className="truncate">Added</span>
+                </>
+              ) : isAtCartLimit ? (
+                <>
+                  <Check className="w-3.5 h-3.5 shrink-0 text-[#087BFF]" />
+                  <span className="truncate">Max in Cart ({inCartQty})</span>
                 </>
               ) : (
                 <>
-                  <ShoppingCart className="w-3.5 h-3.5 shrink-0" />
-                  <span>Add to Cart</span>
+                  <AnimatedCartIcon className="w-3.5 h-3.5 shrink-0" />
+                  <span className="truncate">Add to Cart</span>
                 </>
               )}
             </button>

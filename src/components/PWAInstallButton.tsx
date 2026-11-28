@@ -61,7 +61,7 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({ variant = 'h
           }`}
         >
           <Smartphone className="w-4 h-4 text-[#0866F5] shrink-0" />
-          <span className="hidden md:inline">
+          <span className="hidden md:inline lg:hidden xl:inline">
             {isInstallable ? 'Install App' : 'Android App'}
           </span>
         </button>

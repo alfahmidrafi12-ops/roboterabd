@@ -64,8 +64,10 @@ export const Reveal: React.FC<RevealProps> = ({
     <div
       ref={ref}
       style={delayMs > 0 ? { transitionDelay: `${delayMs}ms` } : undefined}
-      className={`transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-[transform,opacity] ${
-        visible ? 'opacity-100 translate-x-0 translate-y-0 scale-100' : `opacity-0 ${hiddenTransform}`
+      className={`transition-[transform,opacity] duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+        visible
+          ? 'opacity-100 translate-x-0 translate-y-0 scale-100'
+          : `will-change-[transform,opacity] opacity-0 ${hiddenTransform}`
       } ${className}`}
     >
       {children}

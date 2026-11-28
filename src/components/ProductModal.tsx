@@ -1,7 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ArrowUpRight,
   Bell,
   BellRing,
+  Check,
   CheckCircle2,
   Cpu,
   ExternalLink,
@@ -20,6 +22,7 @@ import {
   Zap,
 } from 'lucide-react';
 import {
+  playAddToCartSound,
   playErrorSound,
   playModalOpenSound,
   playRestockBellSound,
@@ -28,12 +31,19 @@ import {
   playTapSound,
 } from '../lib/sound';
 import { resolveProductVideo } from '../lib/video';
-import { LocalPriceWatch, LocalRestockWatch, Product } from '../types/store';
+import {
+  AddToCartResult,
+  CartItem,
+  LocalPriceWatch,
+  LocalRestockWatch,
+  Product,
+} from '../types/store';
 import { HardwareArtwork } from './HardwareArtwork';
 
 interface ProductModalProps {
   product: Product | null;
   allProducts?: Product[];
+  cartItems?: CartItem[];
   categoryDisplayName?: string;
   isWishlisted: boolean;
   defaultEmail?: string | null;
@@ -42,7 +52,12 @@ interface ProductModalProps {
   zIndexClass?: string;
   onClose: () => void;
   onToggleWishlist: (productId: string) => void;
-  onAddToCart: (product: Product, quantity: number, variant?: string) => void;
+  onAddToCart: (
+    product: Product,
+    quantity: number,
+    variant?: string,
+    silentToast?: boolean
+  ) => AddToCartResult | void;
   onBuyNow?: (product: Product, quantity: number, variant?: string) => void;
   onSelectProduct?: (product: Product) => void;
   onSubscribePriceDrop?: (product: Product, email: string) => Promise<void>;
@@ -74,9 +89,25 @@ function getCompatibilitySummary(product: Product): string[] {
   return notes;
 }
 
+const SHORT_CATEGORY_LABELS: Record<string, string> = {
+  microcontrollers: 'Microcontrollers',
+  sensors: 'Sensors',
+  motors: 'Motors & Drivers',
+  power: 'Power & LiPo',
+  'robotics-kits': 'Robotics Kits',
+  '3d-printing': '3D Printing',
+  components: 'Components',
+  tools: 'Tools & Soldering',
+};
+
+function formatShortCategory(slug: string): string {
+  return SHORT_CATEGORY_LABELS[slug] ?? slug.replace(/-/g, ' ');
+}
+
 export const ProductModal: React.FC<ProductModalProps> = ({
   product,
   allProducts = [],
+  cartItems = [],
   categoryDisplayName,
   isWishlisted,
   defaultEmail,
@@ -105,6 +136,26 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   const [restockError, setRestockError] = useState('');
   const [restockSuccess, setRestockSuccess] = useState('');
   const [heartBurstKey, setHeartBurstKey] = useState(0);
+  const [addedPairIds, setAddedPairIds] = useState<Record<string, boolean>>({});
+  const [bundleAdded, setBundleAdded] = useState(false);
+  const timersRef = useRef<number[]>([]);
+
+  const scheduleTimer = (fn: () => void, ms: number) => {
+    const id = window.setTimeout(() => {
+      timersRef.current = timersRef.current.filter((t) => t !== id);
+      fn();
+    }, ms);
+    timersRef.current.push(id);
+  };
+
+  const clearScheduledTimers = () => {
+    timersRef.current.forEach((id) => window.clearTimeout(id));
+    timersRef.current = [];
+  };
+
+  useEffect(() => {
+    return () => clearScheduledTimers();
+  }, []);
 
   const resolvedVideo = useMemo(
     () => resolveProductVideo(product?.videoUrl),
@@ -112,6 +163,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   );
 
   useEffect(() => {
+    clearScheduledTimers();
     if (product) {
       playModalOpenSound();
       setQty(1);
@@ -123,6 +175,8 @@ export const ProductModal: React.FC<ProductModalProps> = ({
       setRestockOpen(product.stock <= 0);
       setRestockError('');
       setRestockSuccess('');
+      setAddedPairIds({});
+      setBundleAdded(false);
     }
   }, [product?.id]);
 
@@ -133,11 +187,26 @@ export const ProductModal: React.FC<ProductModalProps> = ({
     }
   }, [product?.id, defaultEmail, watchedAlert?.email, watchedRestock?.email]);
 
+  const activeVariant = selectedVariant ?? product?.variants?.[0];
+  const currentVariantInCartQty = useMemo(() => {
+    if (!product) return 0;
+    return (
+      cartItems.find(
+        (item) => item.product.id === product.id && item.variant === activeVariant
+      )?.quantity ?? 0
+    );
+  }, [cartItems, product, activeVariant]);
+
+  const remainingForModal = product
+    ? Math.max(0, product.stock - currentVariantInCartQty)
+    : 0;
+  const maxSelectableModalQty = remainingForModal > 0 ? remainingForModal : 1;
+
   useEffect(() => {
-    if (product && product.stock > 0 && qty > product.stock) {
-      setQty(product.stock);
+    if (product && product.stock > 0 && qty > maxSelectableModalQty) {
+      setQty(maxSelectableModalQty);
     }
-  }, [product?.stock, qty]);
+  }, [product?.stock, maxSelectableModalQty, qty]);
 
   const relatedAndPaired = useMemo(() => {
     if (!product || allProducts.length === 0) return { related: [] as Product[], paired: [] as Product[] };
@@ -155,6 +224,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   if (!product) return null;
 
   const isOutOfStock = product.stock <= 0;
+  const isAtCartLimit = !isOutOfStock && remainingForModal === 0;
   const hasDiscount = Boolean(product.originalPrice && product.originalPrice > product.price);
   const discountPct =
     hasDiscount && product.originalPrice
@@ -162,6 +232,42 @@ export const ProductModal: React.FC<ProductModalProps> = ({
       : null;
 
   const compatibilityNotes = getCompatibilitySummary(product);
+
+  const pairedTotal = relatedAndPaired.paired.reduce((sum, item) => sum + item.price, 0);
+
+  const handleAddPairedItem = (item: Product) => {
+    const res = onAddToCart(item, 1);
+    if (!res || res.addedQty > 0) {
+      setAddedPairIds((prev) => ({ ...prev, [item.id]: true }));
+      scheduleTimer(() => {
+        setAddedPairIds((prev) => ({ ...prev, [item.id]: false }));
+      }, 1400);
+    }
+  };
+
+  const handleAddAllPaired = () => {
+    if (relatedAndPaired.paired.length === 0) return;
+    const nextFlags: Record<string, boolean> = {};
+    let addedCount = 0;
+    relatedAndPaired.paired.forEach((item) => {
+      const res = onAddToCart(item, 1, undefined, true);
+      if (!res || res.addedQty > 0) {
+        nextFlags[item.id] = true;
+        addedCount += 1;
+      }
+    });
+    if (addedCount > 0) {
+      playAddToCartSound();
+      setAddedPairIds((prev) => ({ ...prev, ...nextFlags }));
+      setBundleAdded(true);
+      scheduleTimer(() => {
+        setBundleAdded(false);
+        setAddedPairIds({});
+      }, 1600);
+    } else {
+      playErrorSound();
+    }
+  };
 
   const handlePriceDropSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -355,7 +461,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                 </div>
               ) : (
                 <div
-                  className={`bg-[#F1F5F9] rounded-2xl border border-slate-200/80 ${
+                  className={`group card-scan bg-[#F1F5F9] rounded-2xl border border-slate-200/80 ${
                     product.imageUrl?.trim()
                       ? 'p-3 sm:p-4 min-h-[240px] sm:min-h-[280px]'
                       : 'p-6 aspect-square'
@@ -366,10 +472,14 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                     imageUrl={product.imageUrl}
                     alt={product.name}
                     fit="contain"
-                    className={product.imageUrl?.trim() ? 'w-full h-auto max-h-[360px]' : 'w-full h-full'}
+                    className={
+                      product.imageUrl?.trim()
+                        ? 'thumb-hover-zoom w-full h-auto max-h-[360px]'
+                        : 'thumb-hover-zoom w-full h-full'
+                    }
                   />
                   {discountPct && discountPct > 0 && !isOutOfStock && (
-                    <span className="absolute top-3 left-3 text-xs font-mono font-bold text-[#0866F5] bg-white px-2.5 py-0.5 rounded-md border border-blue-100 tabular-nums">
+                    <span className="absolute top-3 left-3 z-10 text-xs font-mono font-bold text-[#0866F5] bg-white px-2.5 py-0.5 rounded-md border border-blue-100 tabular-nums">
                       Save {discountPct}%
                     </span>
                   )}
@@ -380,9 +490,9 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                         playTapSound();
                         setMediaTab('video');
                       }}
-                      className="active:scale-95 absolute bottom-3 right-3 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#071A3B] hover:bg-[#087BFF] border border-white/20 hover:border-[#087BFF] text-white text-xs font-semibold shadow-lg transition-all"
+                      className="motion-press group/btn absolute bottom-3 right-3 z-10 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#071A3B] hover:bg-[#087BFF] border border-white/20 hover:border-[#087BFF] text-white text-xs font-semibold shadow-lg transition-all"
                     >
-                      <Play className="w-3.5 h-3.5 fill-current" />
+                      <Play className="motion-icon-tilt w-3.5 h-3.5 fill-current" />
                       <span>Watch Demo</span>
                     </button>
                   )}
@@ -404,7 +514,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                       playTapSound();
                       setMediaTab('image');
                     }}
-                    className={`flex items-center gap-2.5 p-2 rounded-xl border text-left transition-all ${
+                    className={`motion-press group flex items-center gap-2.5 p-2 rounded-xl border text-left transition-all ${
                       mediaTab === 'image'
                         ? 'bg-white border-[#087BFF] ring-2 ring-[#087BFF]/15'
                         : 'bg-[#F8FAFC] border-slate-200 hover:border-slate-300'
@@ -416,7 +526,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                         imageUrl={product.imageUrl}
                         alt={product.name}
                         fit="contain"
-                        className="w-full h-full"
+                        className="thumb-hover-zoom w-full h-full"
                       />
                     </div>
                     <div className="min-w-0">
@@ -433,14 +543,14 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                       playTapSound();
                       setMediaTab('video');
                     }}
-                    className={`flex items-center gap-2.5 p-2 rounded-xl border text-left transition-all ${
+                    className={`motion-press group flex items-center gap-2.5 p-2 rounded-xl border text-left transition-all ${
                       mediaTab === 'video'
                         ? 'bg-[#071A3B] border-[#087BFF] ring-2 ring-[#087BFF]/20 text-white'
                         : 'bg-[#071A3B]/95 border-[#071A3B] hover:border-[#087BFF] text-white/90'
                     }`}
                   >
                     <div className="w-11 h-11 rounded-lg bg-[#0F2754] border border-white/15 shrink-0 flex items-center justify-center text-[#00CFFF]">
-                      <Play className="w-4 h-4 fill-current ml-0.5" />
+                      <Play className="motion-icon-tilt w-4 h-4 fill-current ml-0.5" />
                     </div>
                     <div className="min-w-0">
                       <p className="text-[11px] font-bold text-white truncate">Demo Video</p>
@@ -454,15 +564,15 @@ export const ProductModal: React.FC<ProductModalProps> = ({
 
               {/* Shipping & Quality Assurance Box */}
               <div className="bg-[#F1F5F9] rounded-xl border border-slate-200/80 p-3.5 space-y-2 text-xs text-[#64748B]">
-                <div className="flex items-start gap-2">
-                  <Truck className="w-4 h-4 text-[#0866F5] shrink-0 mt-0.5" />
+                <div className="group flex items-start gap-2">
+                  <Truck className="motion-icon-tilt w-4 h-4 text-[#0866F5] shrink-0 mt-0.5" />
                   <span>
                     <strong className="text-[#101828]">Delivery:</strong> Inside Dhaka 2–3 days (৳80) ·
                     Outside Dhaka 2–4 days (৳150)
                   </span>
                 </div>
-                <div className="flex items-start gap-2">
-                  <ShieldCheck className="w-4 h-4 text-[#0D9488] shrink-0 mt-0.5" />
+                <div className="group flex items-start gap-2">
+                  <ShieldCheck className="motion-icon-tilt w-4 h-4 text-[#0D9488] shrink-0 mt-0.5" />
                   <span>
                     <strong className="text-[#101828]">Assurance:</strong> ESD-packed &amp; bench-tested
                     prior to dispatch · 7-day replacement
@@ -528,7 +638,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                             playTapSound();
                             setSelectedVariant(variant);
                           }}
-                          className={`active:scale-95 px-3.5 py-2 rounded-lg text-xs font-semibold border transition-all ${
+                          className={`motion-pill px-3.5 py-2 rounded-lg text-xs font-semibold border transition-all ${
                             active
                               ? 'bg-[#071A3B] border-[#071A3B] text-white'
                               : 'bg-white border-slate-200 text-[#101828] hover:border-slate-300'
@@ -548,28 +658,31 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                   <div className="flex items-center border border-slate-200 rounded-xl bg-[#F5F8FC] h-11 shrink-0">
                     <button
                       type="button"
-                      disabled={isOutOfStock || qty <= 1}
+                      disabled={isOutOfStock || isAtCartLimit || qty <= 1}
                       onClick={() => {
                         playStepTickSound(false);
                         setQty((prev) => Math.max(1, prev - 1));
                       }}
                       aria-label="Decrease quantity"
-                      className="w-9 h-full flex items-center justify-center text-[#64748B] hover:text-[#101828] disabled:opacity-35"
+                      className="motion-press w-9 h-full flex items-center justify-center text-[#64748B] hover:text-[#101828] disabled:opacity-35"
                     >
                       <Minus className="w-4 h-4" />
                     </button>
-                    <span className="w-7 sm:w-8 text-center font-mono text-sm font-semibold text-[#101828] tabular-nums">
-                      {isOutOfStock ? 0 : qty}
+                    <span
+                      key={qty}
+                      className="animate-qty-pop w-7 sm:w-8 text-center font-mono text-sm font-semibold text-[#101828] tabular-nums"
+                    >
+                      {isOutOfStock || isAtCartLimit ? 0 : qty}
                     </span>
                     <button
                       type="button"
-                      disabled={isOutOfStock || qty >= product.stock}
+                      disabled={isOutOfStock || isAtCartLimit || qty >= maxSelectableModalQty}
                       onClick={() => {
                         playStepTickSound(true);
-                        setQty((prev) => Math.min(product.stock, prev + 1));
+                        setQty((prev) => Math.min(maxSelectableModalQty, prev + 1));
                       }}
                       aria-label="Increase quantity"
-                      className="w-9 h-full flex items-center justify-center text-[#64748B] hover:text-[#101828] disabled:opacity-35"
+                      className="motion-press w-9 h-full flex items-center justify-center text-[#64748B] hover:text-[#101828] disabled:opacity-35"
                     >
                       <Plus className="w-4 h-4" />
                     </button>
@@ -580,13 +693,33 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                     disabled={isOutOfStock}
                     onClick={() => {
                       if (isOutOfStock) return;
-                      onAddToCart(product, Math.min(qty, product.stock), selectedVariant);
-                      onClose();
+                      const requested = isAtCartLimit
+                        ? 1
+                        : Math.min(qty, maxSelectableModalQty);
+                      const res = onAddToCart(product, requested, selectedVariant);
+                      if (!res || res.addedQty > 0) {
+                        onClose();
+                      }
                     }}
-                    className="cta-sheen active:scale-[0.98] flex-1 min-w-0 h-11 px-3 sm:px-4 rounded-xl bg-[#0866F5] hover:bg-[#0866F5]/90 border border-[#0866F5] hover:border-[#1685FF] text-white transition-all disabled:bg-slate-200 disabled:border-slate-200 disabled:text-slate-500 disabled:cursor-not-allowed text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap"
+                    className={`motion-press cta-sheen flex-1 min-w-0 h-11 px-3 sm:px-4 rounded-xl transition-all disabled:bg-slate-200 disabled:border-slate-200 disabled:text-slate-500 disabled:cursor-not-allowed text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap border ${
+                      isOutOfStock
+                        ? ''
+                        : isAtCartLimit
+                        ? 'bg-slate-100 hover:bg-slate-200 border-slate-200 text-[#071A3D]'
+                        : 'bg-[#0866F5] hover:bg-[#0866F5]/90 border-[#0866F5] hover:border-[#1685FF] text-white'
+                    }`}
                   >
-                    <ShoppingCart className="w-4 h-4 shrink-0" />
-                    <span className="truncate">{isOutOfStock ? 'Out of Stock' : 'Add to Cart'}</span>
+                    {isAtCartLimit ? (
+                      <>
+                        <Check className="w-4 h-4 shrink-0 text-[#0866F5]" />
+                        <span className="truncate">Max in Cart ({currentVariantInCartQty})</span>
+                      </>
+                    ) : (
+                      <>
+                        <ShoppingCart className="w-4 h-4 shrink-0" />
+                        <span className="truncate">{isOutOfStock ? 'Out of Stock' : 'Add to Cart'}</span>
+                      </>
+                    )}
                   </button>
 
                   <button
@@ -598,7 +731,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                       onToggleWishlist(product.id);
                     }}
                     aria-label={isWishlisted ? 'Remove from saved' : 'Save item'}
-                    className={`relative active:scale-90 w-11 h-11 rounded-xl border flex items-center justify-center transition-all shrink-0 ${
+                    className={`group/heart motion-press relative w-11 h-11 rounded-xl border flex items-center justify-center transition-all shrink-0 ${
                       isWishlisted
                         ? 'bg-[#071A3B] hover:bg-[#071A3B]/90 border-[#071A3B] text-white'
                         : 'bg-white border-slate-200 text-[#64748B] hover:text-[#0866F5] hover:bg-[#0866F5]/[0.06] hover:border-[#0866F5]/45'
@@ -611,7 +744,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                         className="animate-heart-burst pointer-events-none absolute inset-0 rounded-xl border-2 border-[#00CFFF]"
                       />
                     )}
-                    <Heart className={`w-4 h-4 ${isWishlisted ? 'fill-current animate-icon-pop' : ''}`} />
+                    <Heart className={`icon-hover-beat w-4 h-4 ${isWishlisted ? 'fill-current animate-icon-pop' : ''}`} />
                   </button>
                 </div>
 
@@ -620,10 +753,12 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                     type="button"
                     onClick={() => {
                       playTapSound();
-                      onBuyNow(product, Math.min(qty, product.stock), selectedVariant);
-                      onClose();
+                      const requested = isAtCartLimit
+                        ? 1
+                        : Math.min(qty, maxSelectableModalQty);
+                      onBuyNow(product, requested, selectedVariant);
                     }}
-                    className="cta-sheen active:scale-[0.98] w-full h-11 rounded-xl bg-[#071A3B] hover:bg-[#071A3B]/90 border border-[#071A3B] hover:border-[#EA580C]/65 text-white text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-2 transition-all"
+                    className="motion-press cta-sheen w-full h-11 rounded-xl bg-[#071A3B] hover:bg-[#071A3B]/90 border border-[#071A3B] hover:border-[#EA580C]/65 text-white text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-2 transition-all"
                   >
                     <Zap className="w-4 h-4 text-[#FB923C]" />
                     <span>Buy Now — Express Checkout</span>
@@ -837,7 +972,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                       {product.specs.map((spec, idx) => (
                         <tr
                           key={spec.label}
-                          className={idx % 2 === 0 ? 'bg-[#F5F8FC]' : 'bg-white'}
+                          className={`spec-row-hover ${idx % 2 === 0 ? 'bg-[#F5F8FC]' : 'bg-white'}`}
                         >
                           <th
                             scope="row"
@@ -863,7 +998,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
               </h3>
               <ul className="bg-[#F5F8FC] rounded-xl border border-slate-200 p-4 space-y-2.5 text-xs text-[#64748B]">
                 {compatibilityNotes.map((note, idx) => (
-                  <li key={idx} className="flex items-start gap-2">
+                  <li key={idx} className="motion-row rounded-lg px-1.5 py-1 flex items-start gap-2">
                     <CheckCircle2 className="w-3.5 h-3.5 text-[#0866F5] shrink-0 mt-0.5" />
                     <span className="leading-relaxed">{note}</span>
                   </li>
@@ -874,92 +1009,201 @@ export const ProductModal: React.FC<ProductModalProps> = ({
 
           {/* Frequently Bought Together & Related Hardware */}
           {(relatedAndPaired.paired.length > 0 || relatedAndPaired.related.length > 0) && (
-            <div className="pt-6 border-t border-slate-200 space-y-5">
+            <div className="pt-6 border-t border-slate-200 space-y-7">
               {relatedAndPaired.paired.length > 0 && (
-                <div>
-                  <h3 className="font-display text-sm font-bold text-[#071A3B] mb-3">
-                    Frequently Bought Together
-                  </h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    {relatedAndPaired.paired.map((item) => (
-                      <div
-                        key={`pair-${item.id}`}
-                        className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 bg-[#F5F8FC] hover:border-[#0866F5]/50 transition-colors"
+                <section aria-label="Frequently Bought Together">
+                  <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                    <div>
+                      <h3 className="font-display text-[15px] font-bold text-[#071A3B] tracking-tight">
+                        Frequently Bought Together
+                      </h3>
+                      <p className="text-xs text-[#64748B] mt-0.5">
+                        Verified build companions ready in Dhaka warehouse
+                      </p>
+                    </div>
+                    {relatedAndPaired.paired.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={handleAddAllPaired}
+                        className={`cta-sheen motion-press inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition-colors ${
+                          bundleAdded
+                            ? 'bg-emerald-600 text-white shadow-xs'
+                            : 'bg-[#071A3B] hover:bg-[#0866F5] text-white shadow-xs'
+                        }`}
                       >
-                        <button
-                          type="button"
-                          onClick={() => onSelectProduct?.(item)}
-                          className="w-12 h-12 rounded-lg bg-white border border-slate-200 p-1 shrink-0 flex items-center justify-center"
-                        >
-                          <HardwareArtwork
-                            kind={item.artwork}
-                            imageUrl={item.imageUrl}
-                            alt={item.name}
-                            fit="contain"
-                            className="w-full h-full"
-                          />
-                        </button>
-                        <div className="min-w-0 flex-1">
-                          <button
-                            type="button"
-                            onClick={() => onSelectProduct?.(item)}
-                            className="text-left w-full"
-                          >
-                            <p className="font-display text-xs font-semibold text-[#101828] hover:text-[#0866F5] line-clamp-1">
-                              {item.name}
-                            </p>
-                          </button>
-                          <p className="font-mono text-xs font-bold text-[#071A3B] mt-0.5 tabular-nums">
-                            ৳{item.price.toLocaleString('en-IN')}
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => onAddToCart(item, 1)}
-                          className="px-2.5 py-1.5 rounded-lg bg-[#0866F5] hover:bg-[#0654CC] text-white text-[11px] font-semibold shrink-0"
-                        >
-                          + Add
-                        </button>
-                      </div>
-                    ))}
+                        {bundleAdded ? (
+                          <>
+                            <Check className="w-3.5 h-3.5" />
+                            <span>Added All ({relatedAndPaired.paired.length})</span>
+                          </>
+                        ) : (
+                          <>
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>
+                              Add All {relatedAndPaired.paired.length} · ৳{pairedTotal.toLocaleString('en-IN')}
+                            </span>
+                          </>
+                        )}
+                      </button>
+                    )}
                   </div>
-                </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                    {relatedAndPaired.paired.map((item) => {
+                      const pairHasDiscount = Boolean(
+                        item.originalPrice && item.originalPrice > item.price
+                      );
+                      const pairDiscountPct =
+                        pairHasDiscount && item.originalPrice
+                          ? Math.round(
+                              ((item.originalPrice - item.price) / item.originalPrice) * 100
+                            )
+                          : null;
+                      const pairSpec = item.specs[0]
+                        ? `${item.specs[0].label}: ${item.specs[0].value}`
+                        : item.sku;
+                      const isItemAdded = Boolean(addedPairIds[item.id]);
+
+                      return (
+                        <div
+                          key={`pair-${item.id}`}
+                          className="group motion-card flex flex-col justify-between p-3.5 rounded-2xl border border-slate-200/90 bg-white hover:border-[#0866F5]/45 hover:shadow-[0_14px_28px_-18px_rgba(7,26,59,0.22)] transition-all"
+                        >
+                          <div className="flex items-start gap-3">
+                            <button
+                              type="button"
+                              onClick={() => onSelectProduct?.(item)}
+                              className="w-16 h-16 rounded-xl bg-[#F8FAFD] border border-slate-200/80 p-1.5 shrink-0 flex items-center justify-center overflow-hidden"
+                              aria-label={`View ${item.name}`}
+                            >
+                              <HardwareArtwork
+                                kind={item.artwork}
+                                imageUrl={item.imageUrl}
+                                alt={item.name}
+                                fit="contain"
+                                className="thumb-hover-zoom w-full h-full"
+                              />
+                            </button>
+
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5 text-[11px] leading-none">
+                                <span className="font-semibold text-[#0866F5] truncate">
+                                  {formatShortCategory(item.category)}
+                                </span>
+                                <span className="text-slate-300" aria-hidden="true">
+                                  ·
+                                </span>
+                                <span className="inline-flex items-center gap-0.5 text-[#64748B] font-mono shrink-0">
+                                  <Star className="w-2.5 h-2.5 fill-amber-400 text-amber-400" />
+                                  {item.rating.toFixed(1)}
+                                </span>
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={() => onSelectProduct?.(item)}
+                                className="text-left w-full mt-1"
+                              >
+                                <p className="font-display text-[13px] font-bold text-[#071A3B] group-hover:text-[#0866F5] leading-snug line-clamp-2 transition-colors">
+                                  {item.name}
+                                </p>
+                              </button>
+
+                              <p className="font-mono text-[10.5px] text-[#64748B] line-clamp-1 mt-1">
+                                {pairSpec}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between gap-2">
+                            <div className="flex items-baseline gap-1.5 min-w-0 flex-wrap">
+                              <span className="font-mono text-sm font-bold text-[#071A3B] tabular-nums">
+                                ৳{item.price.toLocaleString('en-IN')}
+                              </span>
+                              {pairHasDiscount && item.originalPrice && (
+                                <span className="font-mono text-[11px] text-slate-400 line-through tabular-nums">
+                                  ৳{item.originalPrice.toLocaleString('en-IN')}
+                                </span>
+                              )}
+                              {pairDiscountPct !== null && (
+                                <span className="font-mono text-[10.5px] font-semibold text-emerald-600 tabular-nums">
+                                  -{pairDiscountPct}%
+                                </span>
+                              )}
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => handleAddPairedItem(item)}
+                              className={`cta-sheen motion-press inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold shrink-0 transition-colors ${
+                                isItemAdded
+                                  ? 'bg-emerald-600 text-white'
+                                  : 'bg-[#0866F5] hover:bg-[#0654CC] text-white'
+                              }`}
+                            >
+                              {isItemAdded ? (
+                                <>
+                                  <Check className="w-3.5 h-3.5" />
+                                  <span>Added</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Plus className="w-3.5 h-3.5" />
+                                  <span>Add</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </section>
               )}
 
               {relatedAndPaired.related.length > 0 && (
-                <div>
-                  <h3 className="font-display text-sm font-bold text-[#071A3B] mb-3">
-                    Related Components
-                  </h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <section aria-label="Related Components">
+                  <div className="flex items-center justify-between gap-3 mb-3.5">
+                    <h3 className="font-display text-[15px] font-bold text-[#071A3B] tracking-tight">
+                      Related Components
+                    </h3>
+                    <span className="text-xs text-[#64748B]">Same category alternatives</span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
                     {relatedAndPaired.related.map((item) => (
                       <button
                         key={`rel-${item.id}`}
                         type="button"
                         onClick={() => onSelectProduct?.(item)}
-                        className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 bg-white hover:bg-[#F5F8FC] hover:border-[#0866F5]/50 text-left transition-colors"
+                        className="group motion-card flex items-center gap-3 p-3 rounded-2xl border border-slate-200/90 bg-white hover:border-[#0866F5]/45 hover:shadow-[0_12px_24px_-18px_rgba(7,26,59,0.2)] text-left transition-all"
                       >
-                        <div className="w-12 h-12 rounded-lg bg-[#F5F8FC] border border-slate-200 p-1 shrink-0 flex items-center justify-center">
+                        <div className="w-14 h-14 rounded-xl bg-[#F8FAFD] border border-slate-200/80 p-1.5 shrink-0 flex items-center justify-center overflow-hidden">
                           <HardwareArtwork
                             kind={item.artwork}
                             imageUrl={item.imageUrl}
                             alt={item.name}
                             fit="contain"
-                            className="w-full h-full"
+                            className="thumb-hover-zoom w-full h-full"
                           />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="font-display text-xs font-semibold text-[#101828] line-clamp-1">
+                          <p className="text-[10.5px] font-medium text-[#64748B] truncate">
+                            {formatShortCategory(item.category)} · ★ {item.rating.toFixed(1)}
+                          </p>
+                          <p className="font-display text-[13px] font-bold text-[#071A3B] group-hover:text-[#0866F5] transition-colors line-clamp-1 mt-0.5">
                             {item.name}
                           </p>
-                          <p className="font-mono text-xs font-bold text-[#0866F5] mt-0.5 tabular-nums">
-                            ৳{item.price.toLocaleString('en-IN')}
-                          </p>
+                          <div className="flex items-center justify-between mt-1">
+                            <p className="font-mono text-xs font-bold text-[#0866F5] tabular-nums">
+                              ৳{item.price.toLocaleString('en-IN')}
+                            </p>
+                            <ArrowUpRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-[#0866F5] group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
+                          </div>
                         </div>
                       </button>
                     ))}
                   </div>
-                </div>
+                </section>
               )}
             </div>
           )}

@@ -100,6 +100,7 @@ const BannerVisualStage: React.FC<BannerVisualStageProps> = ({ banner }) => {
           src={customImg}
           alt={banner.title || 'Featured Robotics Campaign'}
           referrerPolicy="no-referrer"
+          decoding="async"
           className="w-full h-full object-contain block transition-transform duration-500 ease-out group-hover:scale-[1.03]"
         />
       </div>
@@ -186,12 +187,12 @@ const CampaignCardSlot: React.FC<CampaignCardSlotProps> = ({
   const exitAnim = direction === 'next' ? 'animate-banner-out-left' : 'animate-banner-out-right';
   const resolvedLink = resolveBannerLink(activeBanner.linkUrl);
 
-  const sharedCardClassName = `group relative text-left w-full rounded-2xl bg-[#F3F7FC] border border-slate-200/90 hover:border-[#087BFF]/65 shadow-[0_6px_24px_-10px_rgba(7,26,61,0.1)] hover:shadow-[0_14px_34px_-12px_rgba(8,123,255,0.22)] transition-all duration-300 overflow-hidden flex flex-col focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF] focus-visible:ring-offset-2 ${className}`;
+  const sharedCardClassName = `motion-card group relative text-left w-full rounded-2xl bg-[#F3F7FC] border border-slate-200/90 hover:border-[#087BFF]/65 shadow-[0_6px_24px_-10px_rgba(7,26,61,0.1)] hover:shadow-[0_14px_34px_-12px_rgba(8,123,255,0.22)] overflow-hidden flex flex-col focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF] focus-visible:ring-offset-2 ${className}`;
 
   const cardInnerContent = (
     <>
       {/* Large 16:9 Uncropped Visual Artwork Viewport */}
-      <div className="relative w-full aspect-[16/9] bg-[#F8FAFC] overflow-hidden border-b border-slate-200/80">
+      <div className="card-scan relative w-full aspect-[16/9] bg-[#F8FAFC] overflow-hidden border-b border-slate-200/80">
         {outgoingBanner && (
           <div
             key={`out-${cycleKey}-${outgoingBanner.id}`}
@@ -215,7 +216,7 @@ const CampaignCardSlot: React.FC<CampaignCardSlotProps> = ({
           <p className="text-[11px] font-mono font-semibold text-[#087BFF] uppercase tracking-wider truncate">
             {activeBanner.kicker}
           </p>
-          <h3 className="font-display text-sm sm:text-base font-bold text-[#071A3B] group-hover:text-[#087BFF] transition-colors truncate mt-0.5">
+          <h3 className="font-display text-sm sm:text-base font-bold text-[#071A3B] group-hover:text-[#087BFF] transition-all duration-200 group-hover:translate-x-0.5 truncate mt-0.5">
             {activeBanner.title}
           </h3>
         </div>
@@ -352,7 +353,7 @@ export const ScrollingBannerSection: React.FC<ScrollingBannerSectionProps> = ({
     <section
       id="campaigns"
       aria-label="Featured campaigns"
-      className="scroll-mt-[108px] bg-white min-[1500px]:bg-transparent min-[1500px]:pointer-events-none"
+      className="cv-section scroll-mt-[108px] bg-white min-[1500px]:bg-transparent min-[1500px]:pointer-events-none"
     >
       <div className="relative z-20 pointer-events-auto w-full max-w-[1440px] mx-auto bg-white min-[1500px]:border-x min-[1500px]:border-slate-200/90 px-4 sm:px-6 lg:px-10 py-8 sm:py-11">
         <Reveal>
@@ -385,7 +386,7 @@ export const ScrollingBannerSection: React.FC<ScrollingBannerSectionProps> = ({
                     advanceTo(activeIndex - 1, 'prev');
                   }}
                   aria-label="Previous campaign"
-                  className="w-10 h-10 rounded-full bg-[#F3F7FC] hover:bg-[#087BFF] text-[#071A3B] hover:text-white border border-slate-200 hover:border-[#087BFF] active:scale-90 transition-all flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF]"
+                  className="motion-press w-10 h-10 rounded-full bg-[#F3F7FC] hover:bg-[#087BFF] text-[#071A3B] hover:text-white border border-slate-200 hover:border-[#087BFF] transition-colors flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF]"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
@@ -396,7 +397,7 @@ export const ScrollingBannerSection: React.FC<ScrollingBannerSectionProps> = ({
                     advanceTo(activeIndex + 1, 'next');
                   }}
                   aria-label="Next campaign"
-                  className="w-10 h-10 rounded-full bg-[#F3F7FC] hover:bg-[#087BFF] text-[#071A3B] hover:text-white border border-slate-200 hover:border-[#087BFF] active:scale-90 transition-all flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF]"
+                  className="motion-press w-10 h-10 rounded-full bg-[#F3F7FC] hover:bg-[#087BFF] text-[#071A3B] hover:text-white border border-slate-200 hover:border-[#087BFF] transition-colors flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF]"
                 >
                   <ChevronRight className="w-4 h-4" />
                 </button>
@@ -449,7 +450,7 @@ export const ScrollingBannerSection: React.FC<ScrollingBannerSectionProps> = ({
                     }}
                     aria-label={`View campaign ${idx + 1}: ${banner.title}`}
                     aria-current={isActive ? 'true' : undefined}
-                    className={`h-2 rounded-full transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF] ${
+                    className={`motion-press h-2 rounded-full transition-[width,background-color] duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF] ${
                       isActive
                         ? 'w-8 bg-gradient-to-r from-[#087BFF] to-[#00CFFF]'
                         : 'w-2 bg-slate-300 hover:bg-[#087BFF]/55'

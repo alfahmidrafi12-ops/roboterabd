@@ -107,6 +107,13 @@ export interface CartItem {
   variant?: string;
 }
 
+export interface AddToCartResult {
+  addedQty: number;
+  maxReached: boolean;
+  capped: boolean;
+  cartQty: number;
+}
+
 export interface OrderLineItem {
   productId: string;
   sku: string;
@@ -377,3 +384,34 @@ export interface RewardTransaction {
   createdAt: unknown;
   expiresAt?: unknown;
 }
+
+export type AiBlueprintDifficulty = 'Beginner' | 'Intermediate' | 'Advanced';
+
+export interface AiRequiredPart {
+  partName: string;
+  quantity: number;
+  purpose: string;
+  matchedProductId: string;
+  matchNote: string;
+}
+
+export interface AiBuildStep {
+  stepNumber: number;
+  title: string;
+  detail: string;
+  wiringConnections: string[];
+}
+
+export interface AiProjectBlueprint {
+  projectTitle: string;
+  summary: string;
+  difficulty: AiBlueprintDifficulty;
+  estimatedBuildTime: string;
+  powerArchitecture: string;
+  requiredParts: AiRequiredPart[];
+  buildSteps: AiBuildStep[];
+  safetyAndProTips: string[];
+  starterCodeLanguage: string;
+  starterCodeSketch: string;
+}
+

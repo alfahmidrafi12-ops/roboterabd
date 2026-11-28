@@ -60,6 +60,7 @@ export default defineConfig(() => {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
           globIgnores: ['**/google*.html', '**/assets/aistudio/*.html'],
           navigateFallbackDenylist: [
+            /^\/api\/.*/i,
             /^\/sitemap\.xml(\?.*)?$/i,
             /^\/robots\.txt(\?.*)?$/i,
             /^\/google[a-z0-9]+\.html(\?.*)?$/i,
@@ -67,6 +68,7 @@ export default defineConfig(() => {
           runtimeCaching: [
             {
               urlPattern: ({ url }) =>
+                url.pathname.startsWith('/api/') ||
                 url.pathname === '/sitemap.xml' ||
                 url.pathname === '/robots.txt' ||
                 /^\/google[a-z0-9]+\.html$/i.test(url.pathname),
@@ -126,6 +128,22 @@ export default defineConfig(() => {
         },
       },
     ],
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (!id.includes('node_modules')) return undefined;
+            if (id.includes('firebase')) return 'vendor-firebase';
+            if (id.includes('jspdf') || id.includes('qrcode') || id.includes('html2canvas')) {
+              return 'vendor-receipt';
+            }
+            if (id.includes('lucide-react')) return 'vendor-icons';
+            if (id.includes('react-dom') || id.includes('react')) return 'vendor-react';
+            return undefined;
+          },
+        },
+      },
+    },
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),

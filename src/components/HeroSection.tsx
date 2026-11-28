@@ -6,6 +6,7 @@ import {
   Cpu,
   Headphones,
   ShieldCheck,
+  Sparkles,
   Truck,
 } from 'lucide-react';
 import { BRAND_STUDIO_MEDIA } from '../data/brandMedia';
@@ -18,6 +19,7 @@ interface HeroSectionProps {
   products?: Product[];
   onShopNow: () => void;
   onExploreKits: () => void;
+  onOpenAiArchitect?: () => void;
   onSelectProduct?: (product: Product) => void;
 }
 
@@ -52,6 +54,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
   products = [],
   onShopNow,
   onExploreKits,
+  onOpenAiArchitect,
   onSelectProduct,
 }) => {
   const rawHeroUrl = siteSettings.heroImageUrl?.trim() || '';
@@ -350,7 +353,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                       playTapSound();
                       onShopNow();
                     }}
-                    className="cta-sheen group inline-flex items-center justify-center gap-2.5 px-6 h-12 rounded-xl bg-[#1677FF] hover:bg-[#2684FF] text-white text-[13.5px] font-semibold tracking-tight shadow-[0_12px_30px_-10px_rgba(22,119,255,0.65)] hover:shadow-[0_16px_36px_-8px_rgba(22,119,255,0.78)] hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] transition-all duration-200 whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00C8FF] focus-visible:ring-offset-2 focus-visible:ring-offset-[#050B18]"
+                    className="cta-sheen motion-press group inline-flex items-center justify-center gap-2.5 px-6 h-12 rounded-xl bg-[#1677FF] hover:bg-[#2684FF] text-white text-[13.5px] font-semibold tracking-tight shadow-[0_12px_30px_-10px_rgba(22,119,255,0.65)] hover:shadow-[0_16px_36px_-8px_rgba(22,119,255,0.78)] hover:-translate-y-0.5 transition-all duration-200 whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00C8FF] focus-visible:ring-offset-2 focus-visible:ring-offset-[#050B18]"
                   >
                     <span>Explore Hardware Catalog</span>
                     <ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" />
@@ -364,12 +367,36 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                       playTapSound();
                       onExploreKits();
                     }}
-                    className="group inline-flex items-center justify-center gap-2 px-6 h-12 rounded-xl bg-transparent hover:bg-[#101D33] text-[#F5F8FF] border border-[rgba(100,150,255,0.28)] hover:border-[#1677FF]/70 active:scale-[0.98] text-[13.5px] font-semibold tracking-tight transition-all duration-200 whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00C8FF] focus-visible:ring-offset-2 focus-visible:ring-offset-[#050B18]"
+                    className="motion-press group inline-flex items-center justify-center gap-2 px-6 h-12 rounded-xl bg-transparent hover:bg-[#101D33] text-[#F5F8FF] border border-[rgba(100,150,255,0.28)] hover:border-[#1677FF]/70 text-[13.5px] font-semibold tracking-tight transition-all duration-200 whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00C8FF] focus-visible:ring-offset-2 focus-visible:ring-offset-[#050B18]"
                   >
                     <span>Discover Robotics Kits</span>
-                    <ArrowRight className="w-4 h-4 text-[#A8B6CC] group-hover:text-[#00C8FF] transition-all duration-200 group-hover:translate-x-0.5" />
+                    <ArrowRight className="w-4 h-4 text-[#A8B6CC] group-hover:text-[#00C8FF] transition-all duration-200 group-hover:translate-x-1" />
                   </a>
                 </div>
+
+                {/* High-Visibility AI Project Architect Spotlight Launcher */}
+                {onOpenAiArchitect && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      playTapSound();
+                      onOpenAiArchitect();
+                    }}
+                    className="animate-hero-rise-delay-2 motion-press group mt-4 w-full sm:w-auto inline-flex items-center justify-between sm:justify-start gap-3 px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#0A1F44] via-[#0B2552] to-[#082040] hover:from-[#0E2B5C] hover:to-[#0A2B54] border border-[#00C8FF]/45 hover:border-[#00C8FF]/80 shadow-[0_10px_28px_-12px_rgba(0,200,255,0.45)] text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00C8FF]"
+                  >
+                    <span className="inline-flex items-center gap-2">
+                      <span className="relative flex h-2.5 w-2.5 shrink-0">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#00C8FF] opacity-75" />
+                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#00C8FF]" />
+                      </span>
+                      <Sparkles className="w-4 h-4 text-[#00C8FF] shrink-0" />
+                      <span className="text-xs sm:text-[13px] font-semibold text-white">
+                        Ask <span className="text-[#00C8FF]">AI Project Architect</span> — Get Parts, Dhaka Stock &amp; Wiring
+                      </span>
+                    </span>
+                    <ArrowRight className="w-3.5 h-3.5 text-[#00C8FF] shrink-0 transition-transform duration-200 group-hover:translate-x-1" />
+                  </button>
+                )}
 
                 {/* Quiet Inline Hardware Index (Zero Cards, Zero Pills — Pure Links & Real DB Prices) */}
                 {featuredLinks.length > 0 && (
@@ -405,7 +432,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                   ref={stageRef}
                   onMouseMove={handleStagePointerMove}
                   onMouseLeave={handleStagePointerLeave}
-                  className="animate-hero-image-reveal group/stage relative aspect-[16/10] w-full rounded-2xl overflow-hidden bg-[#050B18] border border-[rgba(100,150,255,0.16)] shadow-[0_36px_80px_-28px_rgba(0,0,0,0.95)]"
+                  className="animate-hero-image-reveal card-scan group group/stage relative aspect-[16/10] w-full rounded-2xl overflow-hidden bg-[#050B18] border border-[rgba(100,150,255,0.16)] shadow-[0_36px_80px_-28px_rgba(0,0,0,0.95)]"
                 >
                   <img
                     src={heroSrc}
@@ -425,6 +452,12 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                     }}
                     className="w-full h-full object-cover object-center block"
                   />
+
+                  {/* Precision Studio Alignment Corner Reticles */}
+                  <span aria-hidden="true" className="hud-bracket-breathe pointer-events-none absolute top-3 left-3 w-3.5 h-3.5 border-t border-l border-[#00C8FF]/55 rounded-tl-[2px] z-10" />
+                  <span aria-hidden="true" style={{ animationDelay: '0.8s' }} className="hud-bracket-breathe pointer-events-none absolute top-3 right-3 w-3.5 h-3.5 border-t border-r border-[#00C8FF]/55 rounded-tr-[2px] z-10" />
+                  <span aria-hidden="true" style={{ animationDelay: '1.6s' }} className="hud-bracket-breathe pointer-events-none absolute bottom-3 left-3 w-3.5 h-3.5 border-b border-l border-[#00C8FF]/55 rounded-bl-[2px] z-10" />
+                  <span aria-hidden="true" style={{ animationDelay: '2.4s' }} className="hud-bracket-breathe pointer-events-none absolute bottom-3 right-3 w-3.5 h-3.5 border-b border-r border-[#00C8FF]/55 rounded-br-[2px] z-10" />
 
                   {/* Subtle Interactive Rim Highlight Following Parallax */}
                   <div
@@ -492,12 +525,12 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                 <div
                   key={item.title}
                   style={{ animationDelay: `${idx * 65}ms` }}
-                  className={`animate-trust-enter group/trust flex items-center gap-3 py-0.5 ${
+                  className={`animate-trust-enter group group/trust flex items-center gap-3 py-0.5 ${
                     idx === 0 ? 'sm:pr-5' : 'sm:px-5'
                   } ${item.spanFullMobile ? 'col-span-2 sm:col-span-1' : ''}`}
                 >
                   <Icon
-                    className="w-4 h-4 text-[#F5F8FF]/90 group-hover/trust:text-[#00C8FF] group-hover/trust:scale-110 transition-all duration-200 shrink-0"
+                    className="motion-icon-tilt w-4 h-4 text-[#F5F8FF]/90 group-hover/trust:text-[#00C8FF] transition-all duration-200 shrink-0"
                     strokeWidth={1.75}
                   />
                   <div className="min-w-0">

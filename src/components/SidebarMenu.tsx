@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronRight, MessageCircle, PackageSearch, ShieldCheck, User as UserIcon, X } from 'lucide-react';
+import { ChevronRight, MessageCircle, PackageSearch, ShieldCheck, Sparkles, User as UserIcon, X } from 'lucide-react';
 import { CategoryId, CategoryItem } from '../types/store';
 import { BrandLogo } from './BrandLogo';
 import { PWAInstallButton } from './PWAInstallButton';
@@ -17,6 +17,7 @@ interface SidebarMenuProps {
   onOpenAuth: () => void;
   onOpenAdmin: () => void;
   onOpenTracking: () => void;
+  onOpenAiBuilder?: () => void;
 }
 
 export const SidebarMenu: React.FC<SidebarMenuProps> = ({
@@ -31,6 +32,7 @@ export const SidebarMenu: React.FC<SidebarMenuProps> = ({
   onOpenAuth,
   onOpenAdmin,
   onOpenTracking,
+  onOpenAiBuilder,
 }) => {
   if (!isOpen) return null;
 
@@ -44,14 +46,14 @@ export const SidebarMenu: React.FC<SidebarMenuProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex">
       <div
-        className="fixed inset-0 bg-[#071A3B]/50 backdrop-blur-[2px] transition-opacity"
+        className="animate-fade-in fixed inset-0 bg-[#071A3B]/50 backdrop-blur-[2px]"
         onClick={onClose}
         aria-hidden="true"
       />
-      <aside className="relative w-80 max-w-[85vw] bg-white h-full shadow-2xl flex flex-col z-10 border-r border-slate-200">
+      <aside className="animate-drawer-in-left relative w-80 max-w-[85vw] bg-white h-full shadow-2xl flex flex-col z-10 border-r border-slate-200">
         <div className="px-6 py-5 border-b border-slate-200 flex items-center justify-between">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <BrandLogo size="sm" />
+          <div className="group flex items-center gap-2.5 min-w-0">
+            <BrandLogo size="sm" className="motion-icon-tilt" />
             <div className="min-w-0">
               <p className="text-xs font-medium text-slate-500">Robotera BD</p>
               <h2 className="font-display text-lg font-bold text-[#071A3B] truncate">All Departments</h2>
@@ -61,7 +63,7 @@ export const SidebarMenu: React.FC<SidebarMenuProps> = ({
             type="button"
             onClick={onClose}
             aria-label="Close departments menu"
-            className="p-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+            className="motion-press p-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -71,24 +73,25 @@ export const SidebarMenu: React.FC<SidebarMenuProps> = ({
           <button
             type="button"
             onClick={() => handlePick('all')}
-            className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+            className={`motion-row group w-full flex items-center justify-between px-3.5 py-2.5 rounded-lg text-sm font-medium transition-colors ${
               activeCategory === 'all'
                 ? 'bg-[#0866F5] text-white'
                 : 'text-slate-700 hover:bg-[#F1F5F9]'
             }`}
           >
             <span>All Robotics &amp; Electronics</span>
-            <ChevronRight className="w-4 h-4 opacity-70" />
+            <ChevronRight className="w-4 h-4 opacity-70 transition-transform duration-200 group-hover:translate-x-0.5" />
           </button>
 
-          {visibleCategories.map((cat) => {
+          {visibleCategories.map((cat, idx) => {
             const isActive = activeCategory === cat.id;
             return (
               <button
                 key={cat.id}
                 type="button"
                 onClick={() => handlePick(cat.id)}
-                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                style={{ '--stagger-delay': `${Math.min(idx * 22, 220)}ms` } as React.CSSProperties}
+                className={`animate-form-stagger motion-row w-full flex items-center justify-between px-3.5 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                   isActive
                     ? 'bg-[#0866F5] text-white'
                     : 'text-slate-700 hover:bg-[#F1F5F9]'
@@ -110,15 +113,32 @@ export const SidebarMenu: React.FC<SidebarMenuProps> = ({
         <div className="p-4 border-t border-slate-200 bg-[#F1F5F9] space-y-2.5">
           <PWAInstallButton variant="sidebar" />
 
+          {onOpenAiBuilder && (
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                onOpenAiBuilder();
+              }}
+              className="cta-sheen motion-press group w-full flex items-center justify-between gap-2.5 px-3.5 py-2.5 rounded-lg bg-[#071A3B] hover:bg-[#0866F5] border border-[#00C8FF]/40 text-xs font-semibold text-white transition-colors"
+            >
+              <span className="inline-flex items-center gap-2.5">
+                <Sparkles className="motion-icon-tilt w-4 h-4 text-[#00C8FF] shrink-0" />
+                <span>AI Project Architect</span>
+              </span>
+              <ChevronRight className="w-3.5 h-3.5 text-[#00C8FF]" />
+            </button>
+          )}
+
           <button
             type="button"
             onClick={() => {
               onClose();
               onOpenTracking();
             }}
-            className="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg bg-white border border-slate-200 hover:border-[#0866F5]/60 text-xs font-semibold text-[#071A3B] transition-colors"
+            className="motion-press group w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg bg-white border border-slate-200 hover:border-[#0866F5]/60 text-xs font-semibold text-[#071A3B] transition-colors"
           >
-            <PackageSearch className="w-4 h-4 text-[#0D9488] shrink-0" />
+            <PackageSearch className="motion-icon-tilt w-4 h-4 text-[#0D9488] shrink-0" />
             <span>Track Your Order</span>
           </button>
 
@@ -128,9 +148,9 @@ export const SidebarMenu: React.FC<SidebarMenuProps> = ({
               onClose();
               onOpenAuth();
             }}
-            className="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg bg-white border border-slate-200 hover:border-[#0866F5]/60 text-xs font-semibold text-[#071A3B] transition-colors"
+            className="motion-press group w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg bg-white border border-slate-200 hover:border-[#0866F5]/60 text-xs font-semibold text-[#071A3B] transition-colors"
           >
-            <UserIcon className="w-4 h-4 text-[#0866F5] shrink-0" />
+            <UserIcon className="motion-icon-tilt w-4 h-4 text-[#0866F5] shrink-0" />
             <span className="truncate">
               {isSignedIn ? userEmail || userPhone || 'My Account' : 'Sign In / Create Account'}
             </span>
@@ -140,9 +160,9 @@ export const SidebarMenu: React.FC<SidebarMenuProps> = ({
             href={WHATSAPP_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg bg-[#16A34A] hover:bg-[#16A34A]/90 border border-emerald-400/40 text-white text-xs font-semibold transition-colors"
+            className="cta-sheen motion-press group w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg bg-[#16A34A] hover:bg-[#16A34A]/90 border border-emerald-400/40 text-white text-xs font-semibold transition-colors"
           >
-            <MessageCircle className="w-4 h-4 shrink-0" />
+            <MessageCircle className="motion-icon-tilt w-4 h-4 shrink-0" />
             <span>WhatsApp: +880 1624-987366</span>
           </a>
 
@@ -154,7 +174,7 @@ export const SidebarMenu: React.FC<SidebarMenuProps> = ({
                 onClose();
                 onOpenAdmin();
               }}
-              className="inline-flex items-center gap-1 font-semibold text-slate-700 hover:text-[#0866F5] whitespace-nowrap shrink-0"
+              className="motion-press inline-flex items-center gap-1 font-semibold text-slate-700 hover:text-[#0866F5] whitespace-nowrap shrink-0"
             >
               <ShieldCheck className="w-3.5 h-3.5" />
               <span>Admin Panel</span>

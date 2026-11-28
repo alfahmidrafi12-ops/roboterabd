@@ -8,19 +8,20 @@ import {
   Radio,
   RotateCcw,
   Search,
-  ShoppingBag,
+  Sparkles,
   User as UserIcon,
   X,
 } from 'lucide-react';
 import { DEFAULT_SITE_SETTINGS } from '../data/catalog';
 import { playTapSound } from '../lib/sound';
 import { AvailabilityFilter, CategoryId, CategoryItem, Product } from '../types/store';
+import { AnimatedCartIcon } from './AnimatedCartIcon';
 import { BrandLogo } from './BrandLogo';
 import { HardwareArtwork } from './HardwareArtwork';
 import { PWAInstallButton } from './PWAInstallButton';
 
 interface HeaderProps {
-  activePage?: 'shop' | 'track';
+  activePage?: 'shop' | 'track' | 'ai';
   categories?: CategoryItem[];
   cartCount: number;
   cartPulseKey?: number;
@@ -48,6 +49,7 @@ interface HeaderProps {
   onNavigateSection: (sectionId: string) => void;
   onGoHome: () => void;
   onOpenTracking: () => void;
+  onOpenAiBuilder?: () => void;
 }
 
 const TECH_KEYWORD_CHIPS = ['3.3V', '5V', 'USB-C', 'UART', 'I2C', 'SPI', 'LiDAR', 'Brushless', 'XT60'];
@@ -81,16 +83,17 @@ export const Header: React.FC<HeaderProps> = ({
   onNavigateSection,
   onGoHome,
   onOpenTracking,
+  onOpenAiBuilder,
 }) => {
   const [searchOpen, setSearchOpen] = useState(false);
   const [categoriesOpen, setCategoriesOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const [scrollProgress, setScrollProgress] = useState(0);
   const [cartPulsing, setCartPulsing] = useState(false);
   const [barHeight, setBarHeight] = useState<number | null>(null);
   const prevPulseKeyRef = useRef(cartPulseKey);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const barRef = useRef<HTMLDivElement>(null);
+  const progressBarRef = useRef<HTMLDivElement>(null);
 
   const visibleCategories = categories.filter((c) => c.active !== false);
   const resolvedTickerItems = (
@@ -127,21 +130,33 @@ export const Header: React.FC<HeaderProps> = ({
   }, [cartPulseKey]);
 
   useEffect(() => {
-    const handleScroll = () => {
+    let rafId = 0;
+    const updateScrollUi = () => {
+      rafId = 0;
       const y = window.scrollY;
-      setScrolled(y > 10);
-      const maxScroll = Math.max(
-        1,
-        document.documentElement.scrollHeight - window.innerHeight
-      );
-      setScrollProgress(Math.min(1, Math.max(0, y / maxScroll)));
+      const isNowScrolled = y > 10;
+      setScrolled((prev) => (prev === isNowScrolled ? prev : isNowScrolled));
+      if (progressBarRef.current) {
+        const maxScroll = Math.max(
+          1,
+          document.documentElement.scrollHeight - window.innerHeight
+        );
+        const progress = Math.min(1, Math.max(0, y / maxScroll));
+        progressBarRef.current.style.transform = `scaleX(${progress})`;
+      }
     };
-    handleScroll();
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    window.addEventListener('resize', handleScroll, { passive: true });
+    const onScrollOrResize = () => {
+      if (!rafId) {
+        rafId = window.requestAnimationFrame(updateScrollUi);
+      }
+    };
+    updateScrollUi();
+    window.addEventListener('scroll', onScrollOrResize, { passive: true });
+    window.addEventListener('resize', onScrollOrResize, { passive: true });
     return () => {
-      window.removeEventListener('scroll', handleScroll);
-      window.removeEventListener('resize', handleScroll);
+      if (rafId) window.cancelAnimationFrame(rafId);
+      window.removeEventListener('scroll', onScrollOrResize);
+      window.removeEventListener('resize', onScrollOrResize);
     };
   }, []);
 
@@ -243,16 +258,16 @@ export const Header: React.FC<HeaderProps> = ({
             scrolled ? 'border-slate-200/90' : 'border-slate-200/75'
           }`}
         >
-          <div className="max-w-[1440px] mx-auto px-2.5 sm:px-6 lg:px-10 h-14 sm:h-16 flex items-center justify-between gap-1.5 sm:gap-4 xl:gap-8">
+          <div className="max-w-[1440px] mx-auto px-2.5 sm:px-5 lg:px-6 xl:px-8 h-14 sm:h-16 flex items-center justify-between gap-1.5 sm:gap-3 xl:gap-5 2xl:gap-8">
         {/* Zone 1: Menu Trigger + Clean Architectural Robotera BD Brand Lockup */}
-        <div className="flex items-center gap-1 sm:gap-3 min-w-0">
+        <div className="flex items-center gap-1 sm:gap-2.5 shrink-0">
           <button
             type="button"
             onClick={onOpenSidebar}
             aria-label="Open department categories menu"
-            className="p-1.5 sm:p-2 -ml-0.5 sm:-ml-2 rounded-xl text-[#071A3D] hover:text-[#087BFF] hover:bg-[#F3F7FC] border border-transparent hover:border-slate-200/80 transition-colors shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF]"
+            className="motion-press group p-1.5 sm:p-2 -ml-0.5 sm:-ml-1.5 rounded-xl text-[#071A3D] hover:text-[#087BFF] hover:bg-[#F3F7FC] border border-transparent hover:border-slate-200/80 transition-colors shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF]"
           >
-            <Menu className="w-5 h-5" />
+            <Menu className="motion-icon-tilt w-5 h-5" />
           </button>
 
           <a
@@ -262,13 +277,13 @@ export const Header: React.FC<HeaderProps> = ({
               e.preventDefault();
               onGoHome();
             }}
-            className="font-hero text-[13.5px] min-[390px]:text-[15px] sm:text-[18px] font-extrabold tracking-tight text-[#071A3D] whitespace-nowrap shrink-0 flex items-center gap-1.5 sm:gap-2.5 group"
+            className="font-hero text-[13.5px] min-[390px]:text-[15px] sm:text-[17px] xl:text-[18px] font-extrabold tracking-tight text-[#071A3D] whitespace-nowrap shrink-0 flex items-center gap-1.5 sm:gap-2 group"
           >
             <BrandLogo
               size="sm"
-              className="!w-7 !h-7 sm:!w-8 sm:!h-8 shadow-[0_4px_12px_-4px_rgba(7,26,61,0.22)] group-hover:border-[#087BFF]/60 transition-colors"
+              className="motion-icon-tilt !w-7 !h-7 sm:!w-8 sm:!h-8 shadow-[0_4px_12px_-4px_rgba(7,26,61,0.22)] group-hover:border-[#087BFF]/60 transition-colors"
             />
-            <span className="flex items-baseline gap-0.5 sm:gap-1">
+            <span className="inline-flex items-baseline gap-1 whitespace-nowrap">
               <span>ROBOTERA</span>
               <span className="text-[#087BFF] font-mono text-[11px] min-[390px]:text-[12px] sm:text-[13px] font-bold tracking-wider">
                 BD
@@ -278,7 +293,7 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
         {/* Zone 2: Clean Single-Line Navigation Links + Interactive Categories Dropdown */}
-        <nav className="hidden lg:flex items-center gap-5 xl:gap-7 text-[13px] font-semibold text-[#334155]">
+        <nav className="hidden lg:flex items-center gap-3 xl:gap-5 2xl:gap-7 text-[12px] xl:text-[13px] font-semibold text-[#334155] shrink-0">
           <div ref={dropdownRef} className="relative">
             <button
               type="button"
@@ -318,7 +333,7 @@ export const Header: React.FC<HeaderProps> = ({
                 </div>
 
                 <div className="grid grid-cols-2 gap-2">
-                  {visibleCategories.map((cat) => (
+                  {visibleCategories.map((cat, idx) => (
                     <a
                       key={cat.id}
                       href={`/category/${encodeURIComponent(cat.id)}`}
@@ -332,15 +347,16 @@ export const Header: React.FC<HeaderProps> = ({
                           onNavigateSection('categories');
                         }
                       }}
-                      className="group flex items-center gap-3 p-2.5 rounded-xl hover:bg-[#F3F7FC] border border-transparent hover:border-slate-200/90 text-left transition-all"
+                      style={{ '--stagger-delay': `${Math.min(idx * 24, 220)}ms` } as React.CSSProperties}
+                      className="animate-form-stagger motion-row group flex items-center gap-3 p-2.5 rounded-xl hover:bg-[#F3F7FC] border border-transparent hover:border-slate-200/90 text-left transition-all"
                     >
-                      <div className="w-10 h-10 rounded-lg bg-[#F5F8FC] border border-slate-200/80 p-1 flex items-center justify-center shrink-0">
+                      <div className="w-10 h-10 rounded-lg bg-[#F5F8FC] border border-slate-200/80 p-1 flex items-center justify-center shrink-0 overflow-hidden">
                         <HardwareArtwork
                           kind={cat.artwork}
                           imageUrl={cat.imageUrl}
                           alt={cat.name}
                           fit="contain"
-                          className="w-full h-full"
+                          className="thumb-hover-zoom w-full h-full"
                         />
                       </div>
                       <div className="min-w-0">
@@ -359,11 +375,12 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
 
           {[
-            { label: 'Shop Hardware', href: '/shop', action: () => onNavigateSection('best-selling'), active: false },
-            { label: 'New Arrivals', href: '/just-arrived', action: () => onNavigateSection('just-arrived'), active: false },
-            { label: 'Robotics Kits', href: '/bundles', action: () => onNavigateSection('bundles'), active: false },
-            { label: 'Guides', href: '/guides', action: () => onNavigateSection('lab-guides'), active: false },
-            { label: 'Track Order', href: '/track-order', action: onOpenTracking, active: activePage === 'track' },
+            { label: 'Shop Hardware', href: '/shop', action: () => onNavigateSection('best-selling'), active: false, featured: false },
+            { label: 'New Arrivals', href: '/just-arrived', action: () => onNavigateSection('just-arrived'), active: false, featured: false },
+            { label: 'Robotics Kits', href: '/bundles', action: () => onNavigateSection('bundles'), active: false, featured: false },
+            { label: 'AI Builder', href: '/ai-builder', action: () => (onOpenAiBuilder ? onOpenAiBuilder() : onNavigateSection('ai-architect')), active: activePage === 'ai', featured: true },
+            { label: 'Guides', href: '/guides', action: () => onNavigateSection('lab-guides'), active: false, featured: false },
+            { label: 'Track Order', href: '/track-order', action: onOpenTracking, active: activePage === 'track', featured: false },
           ].map((navItem) => (
             <a
               key={navItem.label}
@@ -373,13 +390,24 @@ export const Header: React.FC<HeaderProps> = ({
                 e.preventDefault();
                 navItem.action();
               }}
-              className={`relative py-1.5 whitespace-nowrap shrink-0 transition-colors after:content-[''] after:absolute after:left-0 after:bottom-0 after:h-[2px] after:w-full after:rounded-full after:bg-[#087BFF] after:origin-left after:transition-transform after:duration-200 ${
-                navItem.active
-                  ? 'text-[#087BFF] font-semibold after:scale-x-100'
-                  : 'hover:text-[#071A3D] after:scale-x-0 hover:after:scale-x-100'
-              }`}
+              className={
+                navItem.featured
+                  ? `motion-press inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border font-bold whitespace-nowrap shrink-0 transition-all ${
+                      navItem.active
+                        ? 'bg-[#0866F5] border-[#0866F5] text-white shadow-[0_6px_18px_-6px_rgba(8,102,245,0.65)]'
+                        : 'bg-[#EFF6FF] hover:bg-[#DBEAFE] border-[#0866F5]/35 text-[#0866F5] shadow-[0_4px_14px_-6px_rgba(8,102,245,0.45)]'
+                    }`
+                  : `relative py-1.5 whitespace-nowrap shrink-0 transition-colors after:content-[''] after:absolute after:left-0 after:bottom-0 after:h-[2px] after:w-full after:rounded-full after:bg-[#087BFF] after:origin-left after:transition-transform after:duration-200 ${
+                      navItem.active
+                        ? 'text-[#087BFF] font-semibold after:scale-x-100'
+                        : 'hover:text-[#071A3D] after:scale-x-0 hover:after:scale-x-100'
+                    }`
+              }
             >
-              {navItem.label}
+              {navItem.featured && (
+                <Sparkles className={`w-3.5 h-3.5 ${navItem.active ? 'text-[#00C8FF]' : 'text-[#0866F5]'}`} />
+              )}
+              <span>{navItem.label}</span>
             </a>
           ))}
         </nav>
@@ -396,14 +424,17 @@ export const Header: React.FC<HeaderProps> = ({
             }}
             aria-label="Toggle product search"
             aria-expanded={searchOpen}
-            className={`h-8 sm:h-10 px-2 sm:px-3.5 rounded-xl inline-flex items-center gap-2 border transition-all duration-200 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF] ${
+            className={`motion-press group h-8 sm:h-10 px-2 sm:px-3.5 rounded-xl inline-flex items-center gap-2 border transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF] ${
               searchOpen || hasActiveSearchFilters
                 ? 'text-[#087BFF] bg-[#EFF6FF] border-[#087BFF]/45'
                 : 'bg-[#F3F7FC] hover:bg-[#E7EFFA] border-slate-200/90 text-[#071A3D]'
             }`}
           >
-            {searchOpen ? <X className="w-4 h-4 sm:w-[18px] sm:h-[18px]" /> : <Search className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />}
-            <span className="hidden xl:inline text-xs font-medium text-[#475569]">
+            {searchOpen ? <X className="w-4 h-4 sm:w-[18px] sm:h-[18px]" /> : <Search className="motion-icon-tilt w-4 h-4 sm:w-[18px] sm:h-[18px]" />}
+            <span className="hidden xl:inline 2xl:hidden text-xs font-medium text-[#475569]">
+              Search
+            </span>
+            <span className="hidden 2xl:inline text-xs font-medium text-[#475569]">
               Search ESP32, LiDAR...
             </span>
           </button>
@@ -415,9 +446,9 @@ export const Header: React.FC<HeaderProps> = ({
               onOpenWishlist();
             }}
             aria-label={`Saved items (${wishlistCount})`}
-            className="relative p-1.5 sm:p-2.5 rounded-xl text-[#071A3D] hover:text-[#087BFF] hover:bg-[#F3F7FC] transition-all duration-200 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF]"
+            className="group/heart motion-press relative p-1.5 sm:p-2.5 rounded-xl text-[#071A3D] hover:text-[#087BFF] hover:bg-[#F3F7FC] transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF]"
           >
-            <Heart className="w-[18px] h-[18px] sm:w-5 sm:h-5" />
+            <Heart className="icon-hover-beat w-[18px] h-[18px] sm:w-5 sm:h-5" />
             {wishlistCount > 0 && (
               <span
                 key={wishlistCount}
@@ -435,13 +466,13 @@ export const Header: React.FC<HeaderProps> = ({
               onOpenAuth();
             }}
             aria-label={isSignedIn ? 'Open account settings' : 'Sign in to Robotera BD'}
-            className={`p-1.5 sm:p-2.5 rounded-xl transition-all duration-200 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF] ${
+            className={`group motion-press p-1.5 sm:p-2.5 rounded-xl transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF] ${
               isSignedIn
                 ? 'text-[#087BFF] bg-[#EFF6FF] hover:bg-blue-100/80'
                 : 'text-[#071A3D] hover:text-[#087BFF] hover:bg-[#F3F7FC]'
             }`}
           >
-            <UserIcon className="w-[18px] h-[18px] sm:w-5 sm:h-5" />
+            <UserIcon className="motion-icon-tilt w-[18px] h-[18px] sm:w-5 sm:h-5" />
           </button>
 
           <button
@@ -451,33 +482,44 @@ export const Header: React.FC<HeaderProps> = ({
               onOpenCart();
             }}
             aria-label={`Open shopping cart (${cartCount} items)`}
-            className={`cta-sheen inline-flex items-center gap-1 sm:gap-2 px-2.5 sm:px-4 h-8 sm:h-10 rounded-xl bg-[#071A3D] hover:bg-[#0D2554] active:scale-[0.97] border text-white text-xs sm:text-sm font-semibold transition-all duration-300 whitespace-nowrap shrink-0 shadow-[0_6px_16px_-6px_rgba(7,26,61,0.35)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF] focus-visible:ring-offset-2 ${
+            className={`cta-sheen motion-press group/cart relative inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 h-8 sm:h-10 rounded-xl bg-gradient-to-r from-[#071A3D] via-[#0B2350] to-[#0E2E68] hover:from-[#0A224F] hover:to-[#113A82] border text-white text-xs sm:text-sm font-semibold transition-all duration-300 whitespace-nowrap shrink-0 shadow-[0_8px_20px_-8px_rgba(7,26,61,0.45)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF] focus-visible:ring-offset-2 ${
               cartPulsing
-                ? 'border-[#00CFFF]/85 shadow-[0_0_18px_rgba(0,207,255,0.32)]'
-                : 'border-[#071A3D] hover:border-[#087BFF]/60'
+                ? 'border-[#00CFFF] shadow-[0_0_22px_rgba(0,207,255,0.4)]'
+                : 'border-[#16366E] hover:border-[#00CFFF]/60'
             }`}
           >
-            <span className="relative inline-flex items-center justify-center">
+            <span className="relative inline-flex items-center justify-center transition-transform duration-200 group-hover/cart:scale-110 group-hover/cart:-rotate-6">
               {cartPulsing && (
                 <span
                   aria-hidden="true"
-                  className="pointer-events-none absolute -inset-1.5 rounded-full bg-[#00CFFF]/30 ring-1 ring-[#00CFFF]/60 animate-cart-pulse-ring"
+                  className="pointer-events-none absolute -inset-2 rounded-full bg-[#00CFFF]/30 ring-1 ring-[#00CFFF]/70 animate-cart-pulse-ring"
                 />
               )}
-              <ShoppingBag
-                className={`w-3.5 h-3.5 sm:w-4 sm:h-4 transition-colors duration-200 ${
-                  cartPulsing ? 'animate-cart-pulse text-[#00CFFF]' : ''
-                }`}
+              <AnimatedCartIcon
+                className="w-4 h-4 sm:w-[18px] sm:h-[18px] transition-colors duration-200"
+                pulsing={cartPulsing}
+                hasItems={cartCount > 0}
+                accentColor="#00CFFF"
               />
             </span>
-            <span className="hidden sm:inline">Cart</span>
-            <span
-              key={cartCount}
-              className={`animate-badge-bounce font-mono text-[11px] px-1.5 py-0.5 rounded-md tabular-nums ${
-                cartCount > 0 ? 'bg-[#087BFF] text-white' : 'bg-white/15 text-white'
-              }`}
-            >
-              {cartCount}
+            <span className="hidden sm:inline tracking-tight">Cart</span>
+            <span className="relative inline-flex items-center justify-center">
+              {cartCount > 0 && (
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-0 rounded-md bg-[#00CFFF]/45 animate-badge-beacon"
+                />
+              )}
+              <span
+                key={cartCount}
+                className={`relative animate-badge-bounce font-mono text-[11px] px-1.5 py-0.5 rounded-md tabular-nums font-bold ${
+                  cartCount > 0
+                    ? 'bg-gradient-to-r from-[#087BFF] to-[#00B8F4] text-white shadow-[0_2px_8px_rgba(0,207,255,0.35)]'
+                    : 'bg-white/15 text-white'
+                }`}
+              >
+                {cartCount}
+              </span>
             </span>
           </button>
         </div>
@@ -489,8 +531,9 @@ export const Header: React.FC<HeaderProps> = ({
         className="pointer-events-none w-full h-[2px] bg-transparent overflow-hidden"
       >
         <div
-          className="h-full w-full origin-left bg-gradient-to-r from-[#1677FF] via-[#00C8FF] to-[#1677FF] transition-transform duration-75 ease-out"
-          style={{ transform: `scaleX(${scrollProgress})` }}
+          ref={progressBarRef}
+          className="h-full w-full origin-left bg-gradient-to-r from-[#1677FF] via-[#00C8FF] to-[#1677FF] will-change-transform"
+          style={{ transform: 'scaleX(0)' }}
         />
       </div>
 
@@ -502,7 +545,13 @@ export const Header: React.FC<HeaderProps> = ({
         >
           <div className="max-w-[1440px] mx-auto h-full flex items-center relative">
             <div className="relative z-10 h-full px-3 sm:px-4 bg-[#0A1428] border-r border-[rgba(100,150,255,0.22)] flex items-center gap-1.5 shrink-0">
-              <Radio className="w-3 h-3 text-[#00C8FF] shrink-0" aria-hidden="true" />
+              <span className="relative inline-flex items-center justify-center">
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute -inset-1 rounded-full bg-[#00C8FF]/35 animate-radar-ping"
+                />
+                <Radio className="relative w-3 h-3 text-[#00C8FF] shrink-0" aria-hidden="true" />
+              </span>
               <span className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[#00C8FF] whitespace-nowrap">
                 Updates
               </span>
@@ -639,7 +688,7 @@ export const Header: React.FC<HeaderProps> = ({
                       key={kw}
                       type="button"
                       onClick={() => handleKeywordChip(kw)}
-                      className={`px-2.5 py-1 rounded-lg text-[11px] font-mono font-semibold border transition-colors whitespace-nowrap shrink-0 ${
+                      className={`motion-pill px-2.5 py-1 rounded-lg text-[11px] font-mono font-semibold border transition-colors whitespace-nowrap shrink-0 ${
                         active
                           ? 'bg-[#087BFF] border-[#087BFF] text-white'
                           : 'bg-[#F5F8FC] border-slate-200 text-[#071A3D] hover:border-[#087BFF]/60'
@@ -694,7 +743,7 @@ export const Header: React.FC<HeaderProps> = ({
                   </div>
                 ) : (
                   <div className="divide-y divide-slate-100 max-h-72 overflow-y-auto">
-                    {liveResults.slice(0, 6).map((product) => {
+                    {liveResults.slice(0, 6).map((product, idx) => {
                       const specSnippet = getMatchedSpecBadge(product);
                       const isOut = product.stock <= 0;
                       return (
@@ -705,14 +754,15 @@ export const Header: React.FC<HeaderProps> = ({
                             setSearchOpen(false);
                             onSelectProduct(product);
                           }}
-                          className="w-full px-4 py-2.5 flex items-center gap-3 hover:bg-[#F5F8FC] transition-colors text-left"
+                          style={{ '--stagger-delay': `${idx * 30}ms` } as React.CSSProperties}
+                          className="animate-form-stagger motion-row group w-full px-4 py-2.5 flex items-center gap-3 hover:bg-[#F5F8FC] transition-colors text-left"
                         >
-                          <div className="w-11 h-11 rounded-lg bg-[#F3F7FC] border border-slate-200/70 p-1 flex items-center justify-center shrink-0">
+                          <div className="w-11 h-11 rounded-lg bg-[#F3F7FC] border border-slate-200/70 p-1 flex items-center justify-center shrink-0 overflow-hidden">
                             <HardwareArtwork
                               kind={product.artwork}
                               imageUrl={product.imageUrl}
                               alt={product.name}
-                              className="w-full h-full"
+                              className="thumb-hover-zoom w-full h-full"
                             />
                           </div>
                           <div className="flex-1 min-w-0">

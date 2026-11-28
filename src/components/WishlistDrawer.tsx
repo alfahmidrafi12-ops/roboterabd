@@ -122,8 +122,8 @@ export const WishlistDrawer: React.FC<WishlistDrawerProps> = ({
         </div>
 
         {products.length === 0 ? (
-          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
-            <div className="w-14 h-14 rounded-2xl bg-[#F1F5F9] border border-slate-200 flex items-center justify-center text-slate-400 mb-4">
+          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center animate-pop-in">
+            <div className="animate-float-slow w-14 h-14 rounded-2xl bg-[#F1F5F9] border border-slate-200 flex items-center justify-center text-[#087BFF] mb-4 shadow-xs">
               <Heart className="w-6 h-6" />
             </div>
             <h3 className="font-display text-base font-bold text-[#071A3B]">No saved components</h3>
@@ -133,7 +133,7 @@ export const WishlistDrawer: React.FC<WishlistDrawerProps> = ({
           </div>
         ) : (
           <div className="flex-1 overflow-y-auto p-5 space-y-4">
-            {products.map((product) => {
+            {products.map((product, idx) => {
               const outOfStock = product.stock <= 0;
               const isJustRestocked = !outOfStock && justRestockedIds.includes(product.id);
               const existingWatch = restockWatches.find((w) => w.productId === product.id);
@@ -142,7 +142,8 @@ export const WishlistDrawer: React.FC<WishlistDrawerProps> = ({
               return (
                 <div
                   key={product.id}
-                  className={`pb-4 border-b border-slate-100 space-y-2.5 ${
+                  style={{ animationDelay: `${Math.min(idx * 35, 240)}ms` }}
+                  className={`animate-cart-enter group/row pb-4 border-b border-slate-100 space-y-2.5 ${
                     isJustRestocked ? 'rounded-xl bg-emerald-50/50 p-3 border border-emerald-200' : ''
                   }`}
                 >
@@ -162,7 +163,7 @@ export const WishlistDrawer: React.FC<WishlistDrawerProps> = ({
                         kind={product.artwork}
                         imageUrl={product.imageUrl}
                         alt={product.name}
-                        className="w-full h-full"
+                        className="thumb-hover-zoom w-full h-full"
                       />
                     </button>
                     <div className="flex-1 min-w-0">
@@ -176,7 +177,7 @@ export const WishlistDrawer: React.FC<WishlistDrawerProps> = ({
                         }}
                         className="text-left w-full"
                       >
-                        <h3 className="font-display text-sm font-semibold text-[#071A3B] hover:text-[#0866F5] line-clamp-1">
+                        <h3 className="font-display text-sm font-semibold text-[#071A3B] hover:text-[#0866F5] transition-colors line-clamp-1">
                           {product.name}
                         </h3>
                       </button>
@@ -202,7 +203,7 @@ export const WishlistDrawer: React.FC<WishlistDrawerProps> = ({
                           <button
                             type="button"
                             onClick={() => handleOpenAlertForm(product.id, existingWatch?.email)}
-                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors ${
+                            className={`motion-press inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors ${
                               existingWatch
                                 ? 'bg-emerald-50 border-emerald-300 text-emerald-800 hover:bg-emerald-100'
                                 : 'bg-[#071A3D] border-[#071A3D] hover:bg-[#087BFF] hover:border-[#087BFF] text-white'
@@ -225,7 +226,7 @@ export const WishlistDrawer: React.FC<WishlistDrawerProps> = ({
                             type="button"
                             disabled={outOfStock}
                             onClick={() => onMoveToCart(product)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0866F5] hover:bg-[#0866F5]/90 border border-[#0866F5] hover:border-[#1685FF] text-white transition-colors disabled:bg-slate-200 disabled:border-slate-200 disabled:text-slate-500 disabled:cursor-not-allowed text-xs font-semibold"
+                            className="cta-sheen motion-press inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0866F5] hover:bg-[#0866F5]/90 border border-[#0866F5] hover:border-[#1685FF] text-white transition-colors disabled:bg-slate-200 disabled:border-slate-200 disabled:text-slate-500 disabled:cursor-not-allowed text-xs font-semibold"
                           >
                             <ShoppingCart className="w-3 h-3" />
                             <span>{outOfStock ? 'Out of Stock' : 'Add to Cart'}</span>
@@ -235,9 +236,9 @@ export const WishlistDrawer: React.FC<WishlistDrawerProps> = ({
                           type="button"
                           onClick={() => onRemove(product.id)}
                           aria-label={`Remove ${product.name}`}
-                          className="p-1.5 rounded-md text-slate-400 hover:text-red-600"
+                          className="group/del motion-press p-1.5 rounded-md text-slate-400 hover:text-red-600 transition-colors"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Trash2 className="animate-trash-nudge w-3.5 h-3.5" />
                         </button>
                       </div>
                     </div>

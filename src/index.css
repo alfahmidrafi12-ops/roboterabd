@@ -1013,6 +1013,339 @@
   animation: typeCursorBlink 0.78s steps(2, start) infinite;
 }
 
+@keyframes staggerUp {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 16px, 0);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.animate-stagger-up {
+  animation: staggerUp 0.42s cubic-bezier(0.16, 1, 0.3, 1) var(--stagger-delay, 0ms) both;
+}
+
+@keyframes staggerScale {
+  0% {
+    opacity: 0;
+    transform: scale(0.94) translate3d(0, 8px, 0);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translate3d(0, 0, 0);
+  }
+}
+
+.animate-stagger-scale {
+  animation: staggerScale 0.36s cubic-bezier(0.16, 1, 0.3, 1) var(--stagger-delay, 0ms) both;
+}
+
+@keyframes qtyPop {
+  0% {
+    transform: scale(0.76);
+  }
+  55% {
+    transform: scale(1.22);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.animate-qty-pop {
+  animation: qtyPop 0.24s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes badgeBeacon {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+  50% {
+    transform: scale(1.24);
+    opacity: 0;
+  }
+}
+
+.animate-badge-beacon {
+  animation: badgeBeacon 2.4s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+
+@keyframes cartWheel {
+  0% {
+    transform: rotate(0deg) scale(1);
+  }
+  50% {
+    transform: rotate(180deg) scale(1.12);
+  }
+  100% {
+    transform: rotate(360deg) scale(1);
+  }
+}
+
+.animate-cart-wheel {
+  animation: cartWheel 0.48s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes trashNudge {
+  0%, 100% {
+    transform: rotate(0deg);
+  }
+  30% {
+    transform: rotate(-11deg);
+  }
+  65% {
+    transform: rotate(9deg);
+  }
+}
+
+.group\/del:hover .animate-trash-nudge {
+  animation: trashNudge 0.38s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes pcbNodePulse {
+  0%, 100% {
+    opacity: 0.35;
+    transform: scale(0.92);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.22);
+  }
+}
+
+.animate-pcb-node {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: pcbNodePulse 3.4s ease-in-out infinite;
+}
+
+@keyframes radarPing {
+  0% {
+    transform: scale(0.8);
+    opacity: 0.8;
+  }
+  75% {
+    transform: scale(1.9);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1.9);
+    opacity: 0;
+  }
+}
+
+.animate-radar-ping {
+  animation: radarPing 2.2s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+
+@keyframes telemetryLed {
+  0%, 100% {
+    opacity: 0.65;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.animate-telemetry-led {
+  animation: telemetryLed 2.1s ease-in-out infinite;
+}
+
+@keyframes waveformPulse {
+  0%, 100% {
+    transform: scaleY(0.6);
+    opacity: 0.6;
+  }
+  50% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
+
+.animate-waveform-pulse {
+  transform-origin: bottom center;
+  animation: waveformPulse 1.4s ease-in-out infinite;
+}
+
+@keyframes chevronBob {
+  0%, 100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, 2.5px, 0);
+  }
+}
+
+.animate-chevron-bob {
+  animation: chevronBob 1.9s ease-in-out infinite;
+}
+
+@keyframes progressGlowSlide {
+  0% {
+    transform: translate3d(-100%, 0, 0);
+  }
+  100% {
+    transform: translate3d(260%, 0, 0);
+  }
+}
+
+.animate-progress-glow {
+  animation: progressGlowSlide 2.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+/* High-FPS GPU-only Interactive Primitives */
+.motion-card {
+  transition:
+    transform 260ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 220ms ease,
+    box-shadow 260ms cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform;
+}
+
+.motion-card:hover {
+  transform: translate3d(0, -4px, 0);
+}
+
+.motion-card:active {
+  transform: translate3d(0, -1px, 0) scale(0.99);
+}
+
+.motion-pill {
+  transition:
+    transform 200ms cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease;
+}
+
+.motion-pill:hover {
+  transform: translate3d(0, -1.5px, 0);
+}
+
+.motion-pill:active {
+  transform: scale(0.96);
+}
+
+.motion-press {
+  transition:
+    transform 180ms cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease,
+    box-shadow 220ms ease;
+}
+
+.motion-press:active {
+  transform: scale(0.96);
+}
+
+.group:hover .motion-icon-tilt {
+  transform: rotate(-8deg) scale(1.08);
+}
+
+.motion-icon-tilt {
+  transition: transform 240ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Clean neutral image stage wrapper (no colored tint wash on hover) */
+.card-scan {
+  position: relative;
+  overflow: hidden;
+}
+
+/* Geometric HUD alignment brackets subtle breathing */
+@keyframes hudBracketBreathe {
+  0%, 100% {
+    opacity: 0.45;
+    transform: scale(0.96);
+  }
+  50% {
+    opacity: 0.95;
+    transform: scale(1.04);
+  }
+}
+
+.hud-bracket-breathe {
+  animation: hudBracketBreathe 3.2s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
+/* Subtle horizontal nudge for sidebar categories, filters, spec rows & footer links */
+.motion-row {
+  transition:
+    transform 200ms cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease;
+}
+
+.motion-row:hover {
+  transform: translate3d(3px, 0, 0);
+}
+
+.motion-row:active {
+  transform: translate3d(1px, 0, 0) scale(0.99);
+}
+
+.motion-link {
+  position: relative;
+  transition:
+    transform 200ms cubic-bezier(0.16, 1, 0.3, 1),
+    color 180ms ease;
+}
+
+.motion-link:hover {
+  transform: translate3d(3px, 0, 0);
+}
+
+/* Tactile micro-twinkle & heart beat on hover */
+.icon-hover-twinkle {
+  transition: transform 260ms cubic-bezier(0.16, 1, 0.3, 1), color 180ms ease;
+}
+
+.group:hover .icon-hover-twinkle {
+  transform: rotate(12deg) scale(1.12);
+}
+
+.icon-hover-beat {
+  transition: transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1), color 180ms ease;
+}
+
+.icon-hover-beat:hover,
+.group\/heart:hover .icon-hover-beat {
+  transform: scale(1.16);
+}
+
+/* Smooth thumbnail scale inside dropdowns, drawers & spec tiles */
+.thumb-hover-zoom {
+  transition: transform 280ms cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform;
+}
+
+.group:hover .thumb-hover-zoom,
+.group\/row:hover .thumb-hover-zoom {
+  transform: scale(1.07);
+}
+
+/* Spec & comparison table row lift */
+.spec-row-hover {
+  transition: background-color 180ms ease, transform 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.spec-row-hover:hover {
+  background-color: rgba(8, 123, 255, 0.055);
+}
+
+/* Skip offscreen layout & paint work for 60/120fps scrolling */
+.cv-section {
+  content-visibility: auto;
+  contain-intrinsic-size: 1px 640px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-hero-rise,
   .animate-hero-rise-delay-1,
@@ -1073,12 +1406,38 @@
   .animate-otp-pop,
   .animate-whatsapp-halo,
   .animate-whatsapp-bob,
-  .animate-type-cursor {
+  .animate-type-cursor,
+  .animate-stagger-up,
+  .animate-stagger-scale,
+  .animate-qty-pop,
+  .animate-badge-beacon,
+  .animate-cart-wheel,
+  .animate-pcb-node,
+  .animate-radar-ping,
+  .animate-telemetry-led,
+  .animate-waveform-pulse,
+  .animate-chevron-bob,
+  .animate-progress-glow,
+  .hud-bracket-breathe {
     animation: none !important;
   }
   .cta-sheen:hover::after,
-  .group:hover .card-shine::after {
+  .group:hover .card-shine::after,
+  .group\/del:hover .animate-trash-nudge {
     animation: none !important;
+  }
+  .motion-card:hover,
+  .motion-pill:hover,
+  .motion-press:active,
+  .motion-row:hover,
+  .motion-link:hover,
+  .group:hover .motion-icon-tilt,
+  .group:hover .icon-hover-twinkle,
+  .icon-hover-beat:hover,
+  .group\/heart:hover .icon-hover-beat,
+  .group:hover .thumb-hover-zoom,
+  .group\/row:hover .thumb-hover-zoom {
+    transform: none !important;
   }
   .animate-check-draw,
   .animate-circle-draw {

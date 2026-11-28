@@ -12,6 +12,7 @@ import {
   X,
 } from 'lucide-react';
 import {
+  AddToCartResult,
   AvailabilityFilter,
   CategoryId,
   CategoryItem,
@@ -37,6 +38,7 @@ interface BestSellingSectionProps {
   wishlistIds: string[];
   restockWatchedIds?: string[];
   compareIds?: string[];
+  cartQtyByProductId?: Record<string, number>;
   onSelectCategory: (id: CategoryId) => void;
   onSearchChange: (value: string) => void;
   onMinPriceChange: (value: string) => void;
@@ -46,7 +48,7 @@ interface BestSellingSectionProps {
   onClearFilters: () => void;
   onToggleWishlist: (productId: string) => void;
   onToggleCompare?: (productId: string) => void;
-  onAddToCart: (product: Product, quantity: number) => void;
+  onAddToCart: (product: Product, quantity: number) => AddToCartResult | void;
   onOpenDetail: (product: Product) => void;
   onRequestRestockAlert?: (product: Product) => void;
 }
@@ -95,6 +97,7 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
   wishlistIds,
   restockWatchedIds = [],
   compareIds = [],
+  cartQtyByProductId = {},
   onSelectCategory,
   onSearchChange,
   onMinPriceChange,
@@ -275,7 +278,7 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
       <div>
         {renderSectionToggle('Categories', 'categories')}
         {openSections.categories && (
-          <div className="mt-2.5 space-y-1">
+          <div className="animate-accordion-reveal mt-2.5 space-y-1">
             <a
               href="/shop"
               onClick={(e) => {
@@ -283,7 +286,7 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
                 e.preventDefault();
                 onSelectCategory('all');
               }}
-              className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-medium transition-colors ${
+              className={`motion-row w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-medium transition-colors ${
                 activeCategory === 'all'
                   ? 'bg-[#F3F7FC] text-[#087BFF] font-bold'
                   : 'text-[#334155] hover:bg-[#F8FAFC]'
@@ -318,7 +321,7 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
                     e.preventDefault();
                     onSelectCategory(selected ? 'all' : cat.id);
                   }}
-                  className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-medium transition-colors text-left ${
+                  className={`motion-row w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-medium transition-colors text-left ${
                     selected
                       ? 'bg-[#F3F7FC] text-[#087BFF] font-bold'
                       : 'text-[#334155] hover:bg-[#F8FAFC]'
@@ -353,11 +356,11 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
         <div className="pt-4 border-t border-slate-100">
           {renderSectionToggle('Brand & Ecosystem', 'brand')}
           {openSections.brand && (
-            <div className="mt-2.5 flex flex-wrap gap-1.5">
+            <div className="animate-accordion-reveal mt-2.5 flex flex-wrap gap-1.5">
               <button
                 type="button"
                 onClick={() => setSelectedBrand('all')}
-                className={`px-2.5 py-1.5 rounded-lg text-[11px] font-semibold border transition-colors ${
+                className={`motion-pill px-2.5 py-1.5 rounded-lg text-[11px] font-semibold border transition-colors ${
                   selectedBrand === 'all'
                     ? 'bg-[#071A3D] border-[#071A3D] text-white'
                     : 'bg-[#F8FAFC] border-slate-200 text-[#334155] hover:border-[#087BFF]/55'
@@ -372,7 +375,7 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
                     key={brand}
                     type="button"
                     onClick={() => setSelectedBrand(active ? 'all' : brand)}
-                    className={`px-2.5 py-1.5 rounded-lg text-[11px] font-semibold border transition-colors ${
+                    className={`motion-pill px-2.5 py-1.5 rounded-lg text-[11px] font-semibold border transition-colors ${
                       active
                         ? 'bg-[#087BFF] border-[#087BFF] text-white'
                         : 'bg-[#F8FAFC] border-slate-200 text-[#334155] hover:border-[#087BFF]/55'
@@ -391,7 +394,7 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
       <div className="pt-4 border-t border-slate-100">
         {renderSectionToggle('Price Range (BDT)', 'price')}
         {openSections.price && (
-          <div className="mt-2.5 space-y-2.5">
+          <div className="animate-accordion-reveal mt-2.5 space-y-2.5">
             <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-1.5">
               <div className="flex items-center gap-1 bg-[#F8FAFC] border border-slate-200 focus-within:border-[#087BFF] focus-within:bg-white rounded-xl px-2.5 h-9 min-w-0 transition-colors">
                 <span className="text-xs text-[#64748B]">৳</span>
@@ -435,7 +438,7 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
                         ? applyPricePreset('', '')
                         : applyPricePreset(preset.min, preset.max)
                     }
-                    className={`px-2.5 py-1 rounded-lg text-[11px] font-mono font-semibold border transition-colors ${
+                    className={`motion-pill px-2.5 py-1 rounded-lg text-[11px] font-mono font-semibold border transition-colors ${
                       active
                         ? 'bg-[#087BFF] border-[#087BFF] text-white'
                         : 'bg-[#F8FAFC] border-slate-200 text-[#334155] hover:border-[#087BFF]'
@@ -454,7 +457,7 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
       <div className="pt-4 border-t border-slate-100">
         {renderSectionToggle('Availability', 'availability')}
         {openSections.availability && (
-          <div className="mt-2.5 grid grid-cols-2 gap-1.5">
+          <div className="animate-accordion-reveal mt-2.5 grid grid-cols-2 gap-1.5">
             {(
               [
                 { id: 'all', label: 'All Stock' },
@@ -467,7 +470,7 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
                 key={opt.id}
                 type="button"
                 onClick={() => onAvailabilityChange(opt.id)}
-                className={`px-2.5 py-2 rounded-xl text-[11px] font-semibold border transition-colors text-center ${
+                className={`motion-pill px-2.5 py-2 rounded-xl text-[11px] font-semibold border transition-colors text-center ${
                   availabilityFilter === opt.id
                     ? 'bg-[#071A3D] border-[#071A3D] text-white'
                     : 'bg-[#F8FAFC] border-slate-200 text-[#334155] hover:border-[#087BFF]/55'
@@ -488,7 +491,7 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
           <Cpu className="w-3.5 h-3.5 text-[#087BFF]" />
         )}
         {openSections.specs && (
-          <div className="mt-2.5 flex flex-wrap gap-1.5">
+          <div className="animate-accordion-reveal mt-2.5 flex flex-wrap gap-1.5">
             {TECH_FILTER_KEYWORDS.map((kw) => {
               const active = searchQuery
                 .toLowerCase()
@@ -499,7 +502,7 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
                   key={kw}
                   type="button"
                   onClick={() => handleToggleTechKeyword(kw)}
-                  className={`px-2.5 py-1 rounded-lg text-[11px] font-mono font-semibold border transition-colors ${
+                  className={`motion-pill px-2.5 py-1 rounded-lg text-[11px] font-mono font-semibold border transition-colors ${
                     active
                       ? 'bg-[#087BFF] border-[#087BFF] text-white'
                       : 'bg-[#F8FAFC] border-slate-200 text-[#334155] hover:border-[#087BFF]'
@@ -517,7 +520,7 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
       <div className="pt-4 border-t border-slate-100">
         {renderSectionToggle('Sorting Options', 'sort')}
         {openSections.sort && (
-          <div className="mt-2.5 space-y-1">
+          <div className="animate-accordion-reveal mt-2.5 space-y-1">
             {(
               [
                 { id: 'featured', label: 'Best Selling' },
@@ -533,7 +536,7 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
                   key={opt.id}
                   type="button"
                   onClick={() => onSortChange(opt.id)}
-                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
+                  className={`motion-row w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
                     active
                       ? 'bg-[#F3F7FC] text-[#087BFF] font-bold'
                       : 'text-[#475569] hover:bg-[#F8FAFC] hover:text-[#071A3D]'
@@ -553,7 +556,7 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
   return (
     <section
       id="best-selling"
-      className="scroll-mt-[108px] bg-[#F3F7FC] min-[1500px]:bg-transparent min-[1500px]:pointer-events-none"
+      className="cv-section scroll-mt-[108px] bg-[#F3F7FC] min-[1500px]:bg-transparent min-[1500px]:pointer-events-none"
     >
       <div className="relative z-20 pointer-events-auto w-full max-w-[1440px] mx-auto bg-gradient-to-b from-white via-[#F3F7FC] to-white min-[1500px]:border-x min-[1500px]:border-slate-200/90 px-4 sm:px-6 lg:px-10 py-11 sm:py-14 lg:py-16">
         {/* Catalog Header */}
@@ -610,7 +613,7 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
                   playTapSound();
                   setMobileFiltersOpen(true);
                 }}
-                className={`active:scale-95 lg:hidden h-10 px-3.5 rounded-xl border text-xs font-semibold inline-flex items-center gap-2 transition-all whitespace-nowrap shrink-0 ${
+                className={`motion-press lg:hidden h-10 px-3.5 rounded-xl border text-xs font-semibold inline-flex items-center gap-2 transition-colors whitespace-nowrap shrink-0 ${
                   activeAdvancedCount > 0
                     ? 'bg-[#071A3D] border-[#071A3D] text-white'
                     : 'bg-white border-slate-200 text-[#071A3D]'
@@ -619,8 +622,12 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
                 <SlidersHorizontal className="w-3.5 h-3.5" />
                 <span>Filters</span>
                 {activeAdvancedCount > 0 && (
-                  <span className="px-1.5 py-0.5 rounded-md bg-[#087BFF] text-white text-[10px] font-mono tabular-nums">
-                    {activeAdvancedCount}
+                  <span className="relative px-1.5 py-0.5 rounded-md bg-[#087BFF] text-white text-[10px] font-mono tabular-nums">
+                    <span
+                      aria-hidden="true"
+                      className="animate-badge-beacon absolute inset-0 rounded-md bg-[#00CFFF]"
+                    />
+                    <span className="relative">{activeAdvancedCount}</span>
                   </span>
                 )}
               </button>
@@ -713,7 +720,7 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
                     playTapSound();
                     setDiscoveryTab(tab.id);
                   }}
-                  className={`active:scale-[0.98] px-4 py-2 rounded-xl border text-xs font-semibold transition-all duration-200 whitespace-nowrap shrink-0 ${
+                  className={`motion-pill px-4 py-2 rounded-xl border text-xs font-semibold transition-colors duration-200 whitespace-nowrap shrink-0 ${
                     active
                       ? 'bg-[#071A3D] border-[#071A3D] text-white shadow-[0_6px_14px_-6px_rgba(7,26,61,0.35)]'
                       : 'bg-white hover:bg-[#F8FAFC] text-[#334155] border-slate-200 hover:border-[#087BFF]/55 hover:text-[#071A3D]'
@@ -731,7 +738,7 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
                 <button
                   type="button"
                   onClick={() => onSearchChange('')}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#087BFF]/10 border border-[#087BFF]/25 text-[#071A3D] font-medium hover:border-[#087BFF]"
+                  className="animate-pop-in motion-pill inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#087BFF]/10 border border-[#087BFF]/25 text-[#071A3D] font-medium hover:border-[#087BFF]"
                 >
                   <Search className="w-3 h-3 text-[#087BFF]" />
                   <span>&ldquo;{searchQuery.trim()}&rdquo;</span>
@@ -742,7 +749,7 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
                 <button
                   type="button"
                   onClick={() => onSelectCategory('all')}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-[#071A3D] font-medium hover:border-[#087BFF]"
+                  className="animate-pop-in motion-pill inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-[#071A3D] font-medium hover:border-[#087BFF]"
                 >
                   <span>{activeCategoryName}</span>
                   <X className="w-3 h-3 text-[#64748B]" />
@@ -752,7 +759,7 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
                 <button
                   type="button"
                   onClick={() => setSelectedBrand('all')}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-[#071A3D] font-medium hover:border-[#087BFF]"
+                  className="animate-pop-in motion-pill inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-[#071A3D] font-medium hover:border-[#087BFF]"
                 >
                   <span>{selectedBrand}</span>
                   <X className="w-3 h-3 text-[#64748B]" />
@@ -762,7 +769,7 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
                 <button
                   type="button"
                   onClick={() => onAvailabilityChange('all')}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-[#071A3D] font-medium hover:border-[#087BFF]"
+                  className="animate-pop-in motion-pill inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-[#071A3D] font-medium hover:border-[#087BFF]"
                 >
                   <span className="capitalize">{availabilityFilter.replace('-', ' ')}</span>
                   <X className="w-3 h-3 text-[#64748B]" />
@@ -772,7 +779,7 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
                 <button
                   type="button"
                   onClick={() => applyPricePreset('', '')}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-[#071A3D] font-mono text-[11px] hover:border-[#087BFF]"
+                  className="animate-pop-in motion-pill inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-[#071A3D] font-mono text-[11px] hover:border-[#087BFF]"
                 >
                   <span>
                     ৳{minPrice || '0'}–{maxPrice ? `৳${maxPrice}` : 'Any'}
@@ -783,7 +790,7 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
               <button
                 type="button"
                 onClick={handleResetAll}
-                className="inline-flex items-center gap-1 px-2 py-1 text-[#087BFF] font-semibold hover:underline"
+                className="motion-press inline-flex items-center gap-1 px-2 py-1 text-[#087BFF] font-semibold hover:underline"
               >
                 <RotateCcw className="w-3 h-3" />
                 <span>Reset All</span>
@@ -820,8 +827,8 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
                 {paginatedProducts.map((product, idx) => (
                   <div
                     key={product.id}
-                    style={{ animationDelay: `${Math.min(idx * 30, 180)}ms` }}
-                    className="animate-cart-enter"
+                    style={{ ['--stagger-delay' as string]: `${Math.min(idx * 24, 168)}ms` }}
+                    className="animate-stagger-up"
                   >
                     <ProductCard
                       product={product}
@@ -832,6 +839,7 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
                       isRestockWatched={restockWatchedIds.includes(product.id)}
                       isCompared={compareIds.includes(product.id)}
                       compareLimitReached={compareIds.length >= 3}
+                      inCartQty={cartQtyByProductId[product.id] ?? 0}
                       onToggleWishlist={onToggleWishlist}
                       onToggleCompare={onToggleCompare}
                       onAddToCart={onAddToCart}
@@ -847,7 +855,11 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
                 className="animate-tab-enter grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3.5 sm:gap-5"
               >
                 {paginatedProducts.map((product, idx) => (
-                  <Reveal key={product.id} delayMs={Math.min(idx * 20, 160)} className="h-full">
+                  <div
+                    key={product.id}
+                    style={{ ['--stagger-delay' as string]: `${Math.min(idx * 20, 180)}ms` }}
+                    className="animate-stagger-up h-full"
+                  >
                     <ProductCard
                       product={product}
                       layout="grid"
@@ -857,13 +869,14 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
                       isRestockWatched={restockWatchedIds.includes(product.id)}
                       isCompared={compareIds.includes(product.id)}
                       compareLimitReached={compareIds.length >= 3}
+                      inCartQty={cartQtyByProductId[product.id] ?? 0}
                       onToggleWishlist={onToggleWishlist}
                       onToggleCompare={onToggleCompare}
                       onAddToCart={onAddToCart}
                       onOpenDetail={onOpenDetail}
                       onRequestRestockAlert={onRequestRestockAlert}
                     />
-                  </Reveal>
+                  </div>
                 ))}
               </div>
             )}
@@ -882,7 +895,7 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
                         playTapSound();
                         setVisibleCount((prev) => prev + PAGE_INCREMENT);
                       }}
-                      className="active:scale-[0.98] px-5 py-2.5 rounded-xl bg-white hover:bg-[#071A3D] border border-slate-200 hover:border-[#071A3D] text-xs font-bold tracking-[0.04em] uppercase text-[#071A3D] hover:text-white shadow-[0_6px_16px_-8px_rgba(7,26,61,0.12)] transition-all duration-200"
+                      className="motion-press px-5 py-2.5 rounded-xl bg-white hover:bg-[#071A3D] border border-slate-200 hover:border-[#071A3D] text-xs font-bold tracking-[0.04em] uppercase text-[#071A3D] hover:text-white shadow-[0_6px_16px_-8px_rgba(7,26,61,0.12)] transition-[background-color,border-color,color] duration-200"
                     >
                       Load More (+{Math.min(PAGE_INCREMENT, remainingProductsCount)})
                     </button>
@@ -893,7 +906,7 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
                           playTapSound();
                           setVisibleCount(displayedProducts.length);
                         }}
-                        className="px-4 py-2.5 rounded-xl text-xs font-semibold text-[#087BFF] hover:underline"
+                        className="motion-press px-4 py-2.5 rounded-xl text-xs font-semibold text-[#087BFF] hover:underline"
                       >
                         Show All
                       </button>
@@ -906,7 +919,7 @@ export const BestSellingSection: React.FC<BestSellingSectionProps> = ({
                       playTapSound();
                       setVisibleCount(INITIAL_PAGE_SIZE);
                     }}
-                    className="active:scale-[0.98] px-4 py-2 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-[#475569] hover:text-[#071A3D] transition-all"
+                    className="motion-press px-4 py-2 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-[#475569] hover:text-[#071A3D] transition-colors"
                   >
                     Show First {INITIAL_PAGE_SIZE}
                   </button>

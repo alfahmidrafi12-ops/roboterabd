@@ -91,7 +91,7 @@ export const PromoBanners: React.FC<PromoBannersProps> = ({
   return (
     <section
       id="bundles"
-      className="scroll-mt-[108px] bg-[#050B18] min-[1500px]:bg-transparent min-[1500px]:pointer-events-none"
+      className="cv-section scroll-mt-[108px] bg-[#050B18] min-[1500px]:bg-transparent min-[1500px]:pointer-events-none"
     >
       <div className="relative z-20 pointer-events-auto w-full max-w-[1440px] mx-auto overflow-hidden bg-[#050B18] text-[#F5F8FF] min-[1500px]:border-x min-[1500px]:border-[#1E3A6E]/60 px-5 sm:px-8 lg:px-12 py-12 sm:py-16 lg:py-20">
         {/* Ultra-Subtle Architectural Grid */}
@@ -144,7 +144,7 @@ export const PromoBanners: React.FC<PromoBannersProps> = ({
                   onMouseLeave={handleMainPointerLeave}
                   className="group lg:col-span-7 bg-[#0A1428] flex flex-col justify-between"
                 >
-                  <div className="relative h-[260px] sm:h-[330px] lg:h-[370px] w-full overflow-hidden bg-[#060E1F]">
+                  <div className="card-scan relative h-[260px] sm:h-[330px] lg:h-[370px] w-full overflow-hidden bg-[#060E1F]">
                     {/* Single Quiet Studio Keylight Behind Hardware */}
                     <div
                       aria-hidden="true"
@@ -155,12 +155,16 @@ export const PromoBanners: React.FC<PromoBannersProps> = ({
                       src={resolvedLeftImg}
                       alt="6-DOF CNC Aluminum Robotic Arm Studio Showcase"
                       referrerPolicy="no-referrer"
+                      decoding="async"
                       style={{
                         transform: `translate3d(${parallax.x}px, ${parallax.y}px, 0) scale(1.03)`,
                         transition: 'transform 280ms cubic-bezier(0.16, 1, 0.3, 1)',
                       }}
                       className="w-full h-full object-contain sm:object-cover object-center block"
                     />
+
+                    <span aria-hidden="true" className="hud-bracket-breathe pointer-events-none absolute top-3 left-3 w-3 h-3 border-t border-l border-[#00C8FF]/55 rounded-tl-[2px] z-10" />
+                    <span aria-hidden="true" style={{ animationDelay: '1.2s' }} className="hud-bracket-breathe pointer-events-none absolute top-3 right-3 w-3 h-3 border-t border-r border-[#00C8FF]/55 rounded-tr-[2px] z-10" />
 
                     {/* Edge & Bottom Studio Vignette Melting Smoothly Into Deck */}
                     <div
@@ -195,7 +199,7 @@ export const PromoBanners: React.FC<PromoBannersProps> = ({
                           playTapSound();
                           onSelectCategory('robotics-kits');
                         }}
-                        className="cta-sheen group/btn inline-flex items-center justify-center gap-2.5 px-6 h-11 rounded-xl bg-[#1677FF] hover:bg-[#2684FF] text-white text-xs sm:text-[13px] font-semibold tracking-tight shadow-[0_12px_28px_-10px_rgba(22,119,255,0.65)] hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] transition-all duration-200 whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00C8FF]"
+                        className="motion-press cta-sheen group/btn inline-flex items-center justify-center gap-2.5 px-6 h-11 rounded-xl bg-[#1677FF] hover:bg-[#2684FF] text-white text-xs sm:text-[13px] font-semibold tracking-tight shadow-[0_12px_28px_-10px_rgba(22,119,255,0.65)] hover:-translate-y-0.5 transition-[background-color,transform,box-shadow] duration-200 whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00C8FF]"
                       >
                         <span>Explore Robotics Kits</span>
                         <ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover/btn:translate-x-1" />
@@ -241,7 +245,7 @@ export const PromoBanners: React.FC<PromoBannersProps> = ({
                             playTapSound();
                             onSelectCategory('microcontrollers');
                           }}
-                          className="inline-flex items-center gap-2 px-4 h-9 rounded-lg bg-[#101D33] hover:bg-[#1677FF] text-[#F5F8FF] border border-[rgba(100,150,255,0.22)] hover:border-[#1677FF] active:scale-[0.97] text-xs font-semibold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00C8FF]"
+                          className="motion-press inline-flex items-center gap-2 px-4 h-9 rounded-lg bg-[#101D33] hover:bg-[#1677FF] text-[#F5F8FF] border border-[rgba(100,150,255,0.22)] hover:border-[#1677FF] text-xs font-semibold transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00C8FF]"
                         >
                           <span>Explore Boards</span>
                           <ArrowRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
@@ -249,12 +253,13 @@ export const PromoBanners: React.FC<PromoBannersProps> = ({
                       </div>
                     </div>
 
-                    <div className="relative w-full h-44 sm:h-auto sm:w-[46%] shrink-0 overflow-hidden bg-[#060E1F] order-1 sm:order-2">
+                    <div className="card-scan relative w-full h-44 sm:h-auto sm:w-[46%] shrink-0 overflow-hidden bg-[#060E1F] order-1 sm:order-2">
                       <img
                         src={resolvedTopRightImg}
                         alt="Raspberry Pi 5 and ESP32-S3 Embedded Development Boards"
                         referrerPolicy="no-referrer"
                         loading="lazy"
+                        decoding="async"
                         className="w-full h-full object-cover object-center transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-[1.05]"
                       />
                       <div
@@ -291,7 +296,7 @@ export const PromoBanners: React.FC<PromoBannersProps> = ({
                             playTapSound();
                             onSelectCategory('sensors');
                           }}
-                          className="inline-flex items-center gap-2 px-4 h-9 rounded-lg bg-[#101D33] hover:bg-[#1677FF] text-[#F5F8FF] border border-[rgba(100,150,255,0.22)] hover:border-[#1677FF] active:scale-[0.97] text-xs font-semibold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00C8FF]"
+                          className="motion-press inline-flex items-center gap-2 px-4 h-9 rounded-lg bg-[#101D33] hover:bg-[#1677FF] text-[#F5F8FF] border border-[rgba(100,150,255,0.22)] hover:border-[#1677FF] text-xs font-semibold transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00C8FF]"
                         >
                           <span>Explore Sensors</span>
                           <ArrowRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
@@ -299,12 +304,13 @@ export const PromoBanners: React.FC<PromoBannersProps> = ({
                       </div>
                     </div>
 
-                    <div className="relative w-full h-44 sm:h-auto sm:w-[46%] shrink-0 overflow-hidden bg-[#060E1F] order-1 sm:order-2">
+                    <div className="card-scan relative w-full h-44 sm:h-auto sm:w-[46%] shrink-0 overflow-hidden bg-[#060E1F] order-1 sm:order-2">
                       <img
                         src={resolvedBottomRightImg}
                         alt="360 Degree Optical LiDAR Scanner and 9-Axis IMU Telemetry Module"
                         referrerPolicy="no-referrer"
                         loading="lazy"
+                        decoding="async"
                         className="w-full h-full object-cover object-center transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-[1.05]"
                       />
                       <div
@@ -332,12 +338,12 @@ export const PromoBanners: React.FC<PromoBannersProps> = ({
                         playTapSound();
                         onSelectCategory(cap.cat);
                       }}
-                      className="group text-left bg-[#071022] hover:bg-[#0D1930] px-6 py-5 sm:py-6 transition-colors duration-200 flex flex-col justify-between gap-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#00C8FF]"
+                      className="motion-press group text-left bg-[#071022] hover:bg-[#0D1930] px-6 py-5 sm:py-6 transition-colors duration-200 flex flex-col justify-between gap-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#00C8FF]"
                     >
                       <div className="flex items-center justify-between w-full">
                         <div className="flex items-center gap-2.5">
                           <Icon
-                            className="w-4 h-4 text-[#00C8FF] shrink-0 transition-colors"
+                            className="motion-icon-tilt w-4 h-4 text-[#00C8FF] shrink-0 transition-colors"
                             strokeWidth={1.75}
                           />
                           <span className="font-mono text-[11px] font-medium text-[#7D94BA] tabular-nums">

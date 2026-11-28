@@ -93,7 +93,7 @@ export const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
   return (
     <section
       id="categories"
-      className="scroll-mt-[108px] bg-[#F3F7FC] min-[1500px]:bg-transparent min-[1500px]:pointer-events-none"
+      className="cv-section scroll-mt-[108px] bg-[#F3F7FC] min-[1500px]:bg-transparent min-[1500px]:pointer-events-none"
     >
       <div className="relative z-20 pointer-events-auto w-full max-w-[1440px] mx-auto bg-gradient-to-b from-[#F5F8FC] via-[#F3F7FC] to-[#F5F8FC] min-[1500px]:border-x min-[1500px]:border-slate-200/90 px-4 sm:px-6 lg:px-10 py-9 sm:py-12">
         <Reveal>
@@ -163,34 +163,35 @@ export const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
                     playTapSound();
                     onSelectCategory(isSelected ? 'all' : category.id);
                   }}
-                  style={{ animationDelay: `${Math.min(idx * 35, 220)}ms` }}
-                  className={`animate-cart-enter group h-full flex-col text-left overflow-hidden rounded-2xl border active:scale-[0.98] transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F3F7FC] ${visibilityClass} ${
+                  style={{ ['--stagger-delay' as string]: `${Math.min(idx * 32, 224)}ms` }}
+                  className={`animate-stagger-scale motion-card group h-full flex-col text-left overflow-hidden rounded-2xl border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F3F7FC] ${visibilityClass} ${
                     isSelected
                       ? 'bg-[#071A3D] border-[#087BFF] text-white shadow-[0_14px_30px_-12px_rgba(8,123,255,0.32)] -translate-y-0.5'
                       : isFeaturedDept
-                      ? 'bg-white border-slate-200/95 hover:border-[#087BFF] text-[#071A3D] shadow-[0_6px_20px_-10px_rgba(8,123,255,0.14)] hover:shadow-[0_16px_32px_-12px_rgba(8,123,255,0.20)] hover:-translate-y-1'
-                      : 'bg-white border-slate-200/90 hover:border-[#087BFF] text-[#071A3D] shadow-[0_4px_16px_-8px_rgba(7,26,61,0.08)] hover:shadow-[0_16px_32px_-12px_rgba(8,123,255,0.18)] hover:-translate-y-1'
+                      ? 'bg-white border-slate-200/95 hover:border-[#087BFF] text-[#071A3D] shadow-[0_6px_20px_-10px_rgba(8,123,255,0.14)] hover:shadow-[0_16px_32px_-12px_rgba(8,123,255,0.20)]'
+                      : 'bg-white border-slate-200/90 hover:border-[#087BFF] text-[#071A3D] shadow-[0_4px_16px_-8px_rgba(7,26,61,0.08)] hover:shadow-[0_16px_32px_-12px_rgba(8,123,255,0.18)]'
                   }`}
                 >
                   {/* Uniform Studio Image Frame */}
-                  <div className="card-shine relative w-full aspect-[4/3] bg-[#F7FAFE] overflow-hidden border-b border-slate-100/90 shrink-0 flex items-center justify-center">
+                  <div className="card-shine card-scan relative w-full aspect-[4/3] bg-[#F7FAFE] overflow-hidden border-b border-slate-100/90 shrink-0 flex items-center justify-center">
                     {imgSrc ? (
                       <img
                         src={imgSrc}
                         alt={`${category.name} components in Bangladesh — Robotera BD`}
                         referrerPolicy="no-referrer"
                         loading={idx < 4 ? 'eager' : 'lazy'}
+                        decoding="async"
                         onError={() => {
                           if (!brokenIds[category.id]) {
                             setBrokenIds((prev) => ({ ...prev, [category.id]: true }));
                           }
                         }}
-                        className="w-full h-full object-contain object-center block transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-[1.04]"
+                        className="w-full h-full object-contain object-center block transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-[1.06]"
                       />
                     ) : (
                       <div className="flex flex-col items-center justify-center gap-1.5 text-slate-400 px-3 text-center">
                         <div className="w-11 h-11 rounded-xl bg-white border border-slate-200/90 flex items-center justify-center">
-                          <ImageIcon className="w-5 h-5 text-slate-400" strokeWidth={1.6} />
+                          <ImageIcon className="motion-icon-tilt w-5 h-5 text-slate-400" strokeWidth={1.6} />
                         </div>
                         <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-slate-500">
                           {category.name}
@@ -204,7 +205,7 @@ export const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
                     <div>
                       <div className="flex items-start justify-between gap-2">
                         <h3
-                          className={`font-hero text-[13.5px] sm:text-[15.5px] font-bold leading-snug tracking-[-0.01em] line-clamp-2 transition-colors ${
+                          className={`font-hero text-[13.5px] sm:text-[15.5px] font-bold leading-snug tracking-[-0.01em] line-clamp-2 transition-all duration-200 group-hover:translate-x-0.5 ${
                             isSelected ? 'text-white' : 'text-[#071A3D] group-hover:text-[#087BFF]'
                           }`}
                         >
@@ -238,7 +239,7 @@ export const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
                       </span>
 
                       <span
-                        className={`inline-flex items-center justify-center w-7 h-7 rounded-full transition-all duration-300 ${
+                        className={`inline-flex items-center justify-center w-7 h-7 rounded-full transition-all duration-300 group-hover:scale-110 ${
                           isSelected
                             ? 'bg-white/15 text-[#00CFFF]'
                             : 'bg-[#F3F7FC] text-[#071A3D] group-hover:bg-[#087BFF] group-hover:text-white'
@@ -268,7 +269,7 @@ export const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
                   setShowAll((prev) => !prev);
                 }}
                 aria-expanded={showAll}
-                className="group inline-flex items-center justify-center gap-2.5 px-5 py-3 rounded-xl bg-white hover:bg-[#071A3D] border border-slate-200 hover:border-[#071A3D] text-xs font-bold tracking-[0.04em] uppercase text-[#071A3D] hover:text-white active:scale-[0.97] shadow-[0_6px_18px_-8px_rgba(7,26,61,0.10)] transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF]"
+                className="motion-press group inline-flex items-center justify-center gap-2.5 px-5 py-3 rounded-xl bg-white hover:bg-[#071A3D] border border-slate-200 hover:border-[#071A3D] text-xs font-bold tracking-[0.04em] uppercase text-[#071A3D] hover:text-white shadow-[0_6px_18px_-8px_rgba(7,26,61,0.10)] transition-[background-color,border-color,color] duration-250 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF]"
               >
                 {showAll ? (
                   <span>Show Less Categories</span>
@@ -284,7 +285,7 @@ export const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
                 )}
                 <ChevronDown
                   className={`w-4 h-4 text-[#087BFF] group-hover:text-[#00CFFF] transition-transform duration-200 ${
-                    showAll ? 'rotate-180' : ''
+                    showAll ? 'rotate-180' : 'animate-chevron-bob'
                   }`}
                 />
               </button>

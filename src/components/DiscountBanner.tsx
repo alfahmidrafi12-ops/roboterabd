@@ -130,7 +130,7 @@ export const DiscountBanner: React.FC<DiscountBannerProps> = ({
   };
 
   return (
-    <section id="first-order" className="scroll-mt-[108px] bg-white min-[1500px]:bg-transparent min-[1500px]:pointer-events-none">
+    <section id="first-order" className="cv-section scroll-mt-[108px] bg-white min-[1500px]:bg-transparent min-[1500px]:pointer-events-none">
       <div className="relative z-20 pointer-events-auto w-full max-w-[1440px] mx-auto bg-white min-[1500px]:border-x min-[1500px]:border-slate-200/90 px-4 sm:px-6 lg:px-10 py-11 sm:py-14">
         <Reveal direction="up">
           {/* Flagship First-Order Engineering Benefit Card */}
@@ -152,6 +152,8 @@ export const DiscountBanner: React.FC<DiscountBannerProps> = ({
                   src={bannerImageUrl.trim()}
                   alt="Promotional Lab Discount Banner"
                   referrerPolicy="no-referrer"
+                  loading="lazy"
+                  decoding="async"
                   className="w-full h-auto max-h-[360px] object-contain block mx-auto"
                 />
               </div>
@@ -193,7 +195,7 @@ export const DiscountBanner: React.FC<DiscountBannerProps> = ({
                         playTapSound();
                         onOpenAuth();
                       }}
-                      className="cta-sheen active:scale-[0.98] w-full h-11 rounded-xl bg-white hover:bg-[#F3F7FC] text-[#071A3D] text-sm font-bold inline-flex items-center justify-center gap-2 shadow-[0_8px_20px_-6px_rgba(255,255,255,0.25)] transition-all"
+                      className="motion-press cta-sheen w-full h-11 rounded-xl bg-white hover:bg-[#F3F7FC] text-[#071A3D] text-sm font-bold inline-flex items-center justify-center gap-2 shadow-[0_8px_20px_-6px_rgba(255,255,255,0.25)] transition-colors"
                     >
                       <LogIn className="w-4 h-4 text-[#087BFF]" />
                       <span>Sign In to Claim {promoLabel} Off</span>
@@ -238,7 +240,7 @@ export const DiscountBanner: React.FC<DiscountBannerProps> = ({
                           <button
                             type="button"
                             onClick={handleCopy}
-                            className="cta-sheen active:scale-95 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#087BFF] hover:bg-[#0066DB] text-white text-xs font-semibold shadow-[0_8px_20px_-6px_rgba(8,123,255,0.5)] transition-all"
+                            className="motion-press cta-sheen inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#087BFF] hover:bg-[#0066DB] text-white text-xs font-semibold shadow-[0_8px_20px_-6px_rgba(8,123,255,0.5)] transition-colors"
                           >
                             <Copy className="w-3.5 h-3.5" />
                             <span>{copied ? 'Copied' : 'Copy Code'}</span>
@@ -306,7 +308,7 @@ export const DiscountBanner: React.FC<DiscountBannerProps> = ({
                     <button
                       type="submit"
                       disabled={checking}
-                      className="cta-sheen active:scale-[0.98] w-full h-11 rounded-xl bg-[#087BFF] hover:bg-[#0066DB] disabled:opacity-60 text-white text-sm font-semibold shadow-[0_12px_28px_-8px_rgba(8,123,255,0.55)] transition-all"
+                      className="motion-press cta-sheen w-full h-11 rounded-xl bg-[#087BFF] hover:bg-[#0066DB] disabled:opacity-60 text-white text-sm font-semibold shadow-[0_12px_28px_-8px_rgba(8,123,255,0.55)] transition-colors"
                     >
                       {checking ? 'Verifying Eligibility...' : `Claim ${promoLabel} First-Order Discount`}
                     </button>

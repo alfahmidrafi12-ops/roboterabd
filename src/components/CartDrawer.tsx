@@ -24,7 +24,7 @@ import {
   Printer,
   Radio,
   ShieldCheck,
-  ShoppingBag,
+  Star,
   Trash2,
   Truck,
   X,
@@ -71,6 +71,7 @@ import {
   PromoCode,
   StoredOrder,
 } from '../types/store';
+import { AnimatedCartIcon } from './AnimatedCartIcon';
 import { BrandLogo } from './BrandLogo';
 import { DigitalGiftCard } from './DigitalGiftCard';
 import { HardwareArtwork } from './HardwareArtwork';
@@ -94,6 +95,7 @@ interface CartDrawerProps {
   onUpdateQty: (productId: string, variant: string | undefined, delta: number) => void;
   onRemoveItem: (productId: string, variant: string | undefined) => void;
   onQuickAdd?: (product: Product) => void;
+  onSelectProduct?: (product: Product) => void;
   onApplyCoupon: (code: string | null) => void;
   onClearCart: () => void;
   onOrderCreated?: (orderId: string) => void;
@@ -134,6 +136,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   onUpdateQty,
   onRemoveItem,
   onQuickAdd,
+  onSelectProduct,
   onApplyCoupon,
   onClearCart,
   onOrderCreated,
@@ -739,7 +742,14 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     copiedGiftTimerRef.current = window.setTimeout(() => setCopiedGiftCode(false), 1800);
   };
 
-  const emptyRecommendations = recommendedProducts.filter((p) => p.stock > 0).slice(0, 3);
+  const emptyRecommendations = recommendedProducts.filter((p) => p.stock > 0).slice(0, 4);
+  const cartProductIds = new Set(items.map((item) => item.product.id));
+  const pairableRecommendations = recommendedProducts
+    .filter((p) => p.stock > 0 && !cartProductIds.has(p.id))
+    .slice(0, 4);
+  const totalUnitCount = items.reduce((sum, item) => sum + item.quantity, 0);
+  const milestoneTarget = giftCardPreview.eligible ? MIN_ORDER_FOR_REWARD_BDT : MIN_GIFT_CARD_SPEND;
+  const milestoneProgress = Math.min(1, Math.max(0.05, discountedSubtotal / milestoneTarget));
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
@@ -755,9 +765,9 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
         className="animate-drawer-in relative z-10 w-full max-w-md bg-white h-dvh shadow-2xl flex flex-col border-l border-slate-200 overflow-hidden"
       >
         {/* Drawer Header */}
-        <div className="bg-[#F1F5F9] border-b border-slate-200 shrink-0">
-          <div className="px-6 py-4 flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
+        <div className="bg-gradient-to-r from-[#F1F5F9] via-[#F5F8FC] to-[#EEF4FF] border-b border-slate-200 shrink-0">
+          <div className="px-5 sm:px-6 py-4 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2.5 min-w-0">
               {step === 'checkout' && !submitting && (
                 <button
                   type="button"
@@ -766,51 +776,92 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                     setStep('cart');
                   }}
                   aria-label="Back to cart"
-                  className="p-1.5 -ml-2 rounded-lg text-[#64748B] hover:text-[#101828] hover:bg-white transition-colors"
+                  className="motion-press p-1.5 -ml-1.5 rounded-lg text-[#64748B] hover:text-[#101828] hover:bg-white transition-colors"
                 >
                   <ArrowLeft className="w-4 h-4" />
                 </button>
               )}
               {step === 'cart' && (
                 <span
-                  className={`relative w-8 h-8 rounded-lg flex items-center justify-center border transition-colors duration-200 ${
+                  className={`relative w-9 h-9 rounded-xl flex items-center justify-center border transition-all duration-200 shadow-sm shrink-0 ${
                     cartPulsing
-                      ? 'bg-[#071A3B] border-[#00CFFF]/70 text-[#00CFFF]'
-                      : 'bg-white border-slate-200 text-[#071A3B]'
+                      ? 'bg-[#071A3B] border-[#00CFFF] text-[#00CFFF] shadow-[0_0_16px_rgba(0,207,255,0.4)]'
+                      : 'bg-gradient-to-br from-[#071A3D] to-[#0E326E] border-[#16366E] text-white'
                   }`}
                 >
                   {cartPulsing && (
                     <span
                       aria-hidden="true"
-                      className="pointer-events-none absolute -inset-1 rounded-lg bg-[#00CFFF]/25 ring-1 ring-[#00CFFF]/55 animate-cart-pulse-ring"
+                      className="pointer-events-none absolute -inset-1.5 rounded-xl bg-[#00CFFF]/25 ring-1 ring-[#00CFFF]/55 animate-cart-pulse-ring"
                     />
                   )}
-                  <ShoppingBag
-                    className={`w-4 h-4 ${cartPulsing ? 'animate-cart-pulse' : ''}`}
+                  <AnimatedCartIcon
+                    className="w-[18px] h-[18px]"
+                    pulsing={cartPulsing}
+                    hasItems={totalUnitCount > 0}
+                    accentColor="#00CFFF"
                   />
                 </span>
               )}
-              <h2 className="font-display text-lg font-bold text-[#071A3B]">
-                {step === 'cart' && 'Your Hardware Cart'}
-                {step === 'checkout' && 'Delivery & Payment'}
-                {step === 'receipt' && 'Order Confirmed'}
-              </h2>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <h2 className="font-display text-base sm:text-lg font-bold text-[#071A3B] truncate">
+                    {step === 'cart' && 'Your Hardware Cart'}
+                    {step === 'checkout' && 'Delivery & Payment'}
+                    {step === 'receipt' && 'Order Confirmed'}
+                  </h2>
+                  {step === 'cart' && totalUnitCount > 0 && (
+                    <span
+                      key={totalUnitCount}
+                      className="animate-badge-bounce px-2 py-0.5 rounded-md bg-[#087BFF]/12 border border-[#087BFF]/25 text-[#0866F5] font-mono text-[10.5px] font-bold tabular-nums shrink-0"
+                    >
+                      {totalUnitCount} {totalUnitCount === 1 ? 'unit' : 'units'}
+                    </span>
+                  )}
+                </div>
+                {step === 'cart' && (
+                  <p className="text-[11px] font-mono text-[#475569] tabular-nums">
+                    {items.length > 0 ? (
+                      <>
+                        Subtotal ৳{subtotal.toLocaleString('en-IN')} · {items.length}{' '}
+                        {items.length === 1 ? 'SKU' : 'SKUs'}
+                      </>
+                    ) : (
+                      'Dhaka Lab Dispatch · Ready to Load'
+                    )}
+                  </p>
+                )}
+              </div>
             </div>
 
-            <button
-              type="button"
-              onClick={handleResetAndClose}
-              disabled={submitting}
-              aria-label="Close cart drawer"
-              className="p-1.5 rounded-lg text-[#64748B] hover:text-[#101828] hover:bg-white transition-colors disabled:opacity-40"
-            >
-              <X className="w-5 h-5" />
-            </button>
+            <div className="flex items-center gap-1.5 shrink-0">
+              {step === 'cart' && items.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    playTapSound();
+                    onClearCart();
+                  }}
+                  className="motion-press px-2.5 py-1 rounded-lg text-[11px] font-semibold text-[#64748B] hover:text-red-600 hover:bg-red-50 border border-transparent hover:border-red-200 transition-colors"
+                >
+                  Clear
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={handleResetAndClose}
+                disabled={submitting}
+                aria-label="Close cart drawer"
+                className="motion-press p-1.5 rounded-lg text-[#64748B] hover:text-[#101828] hover:bg-white transition-colors disabled:opacity-40"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
           </div>
 
           {/* 3-Step Animated Order Journey Bar */}
           {(items.length > 0 || step === 'receipt') && (
-            <div className="px-6 pb-3 space-y-1.5">
+            <div className="px-5 sm:px-6 pb-3 space-y-1.5">
               <div className="flex items-center justify-between text-[10px] font-mono font-bold uppercase tracking-wider">
                 {['01 Cart', '02 Checkout', '03 Confirmed'].map((label, idx) => (
                   <span
@@ -827,10 +878,10 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   </span>
                 ))}
               </div>
-              <div className="h-1 w-full rounded-full bg-slate-200 overflow-hidden">
+              <div className="h-1.5 w-full rounded-full bg-slate-200 overflow-hidden">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-[#0866F5] to-[#0F766E] transition-all duration-500 ease-out"
-                  style={{ width: `${stepBarPct}%` }}
+                  className="h-full w-full origin-left rounded-full bg-gradient-to-r from-[#0866F5] via-[#00B8F4] to-[#0F766E] transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform"
+                  style={{ transform: `scaleX(${stepBarPct / 100})` }}
                 />
               </div>
             </div>
@@ -1168,194 +1219,478 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
             </button>
           </div>
         ) : items.length === 0 ? (
-          <div className="flex-1 overflow-y-auto p-6 flex flex-col justify-between gap-6">
-            <div className="flex-1 flex flex-col items-center justify-center text-center py-6">
-              {/* Custom Engineering Cart Illustration with Smooth Hover Float */}
-              <div className="animate-float-slow w-24 h-24 rounded-3xl bg-[#F5F8FC] border border-slate-200 flex items-center justify-center mb-5">
-                <svg viewBox="0 0 80 80" className="w-14 h-14" fill="none" aria-hidden="true">
-                  <rect x="14" y="20" width="52" height="36" rx="6" fill="#FFFFFF" stroke="#0866F5" strokeWidth="2.5" />
-                  <path d="M24 38H56M32 28V48M48 28V48" stroke="#DBEAFE" strokeWidth="2" strokeLinecap="round" />
-                  <circle cx="40" cy="38" r="7" fill="#EFF6FF" stroke="#0866F5" strokeWidth="2" />
-                  <circle cx="40" cy="38" r="2.5" fill="#071A3B" />
-                  <circle cx="28" cy="64" r="4.5" fill="#071A3B" />
-                  <circle cx="52" cy="64" r="4.5" fill="#071A3B" />
-                </svg>
+          <div className="flex-1 overflow-y-auto px-5 sm:px-6 py-6 flex flex-col justify-between gap-6 bg-gradient-to-b from-white via-[#FAFBFD] to-[#F5F8FC]">
+            <div className="flex-1 flex flex-col items-center justify-center text-center py-4 sm:py-6">
+              {/* Architectural Precision Cart Showcase */}
+              <div className="relative mb-6 flex items-center justify-center">
+                {/* Soft Studio Pedestal Ring */}
+                <div
+                  aria-hidden="true"
+                  className="w-32 h-32 rounded-full bg-gradient-to-b from-[#EFF6FF] via-[#F8FAFC] to-white border border-slate-200/90 shadow-[0_18px_38px_-18px_rgba(7,26,61,0.18),inset_0_2px_8px_rgba(255,255,255,0.9)]"
+                />
+                {/* Outer Hairline Orbit */}
+                <div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute -inset-2 rounded-full border border-dashed border-[#0866F5]/20 animate-spin-slow"
+                />
+
+                {/* Precision Engineering Cart Vector */}
+                <div className="animate-float-slow absolute inset-0 flex items-center justify-center">
+                  <svg
+                    viewBox="0 0 96 96"
+                    className="w-20 h-20 drop-shadow-[0_10px_18px_rgba(7,26,61,0.12)]"
+                    fill="none"
+                    aria-hidden="true"
+                  >
+                    {/* Soft Ground Shadow */}
+                    <ellipse cx="49" cy="79" rx="22" ry="3.2" fill="#071A3B" fillOpacity="0.09" />
+
+                    {/* Basket Inner Surface */}
+                    <path
+                      d="M27.5 31.5H74.5L68.8 55.2C68.2 57.7 66 59.5 63.4 59.5H36.6C33.9 59.5 31.7 57.6 31.2 55L27.5 31.5Z"
+                      fill="#FFFFFF"
+                    />
+                    <path
+                      d="M27.5 31.5H74.5L68.8 55.2C68.2 57.7 66 59.5 63.4 59.5H36.6C33.9 59.5 31.7 57.6 31.2 55L27.5 31.5Z"
+                      fill="url(#emptyCartTint)"
+                    />
+
+                    {/* Precision Tray Wireframe Grid */}
+                    <path
+                      d="M39.5 34.5L41.5 56.5M51 34.5V56.5M62.5 34.5L60.5 56.5M31 44.5H70.5"
+                      stroke="#CBD5E1"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                    />
+
+                    {/* Handle & Main Structural Frame */}
+                    <path
+                      d="M14 20.5H23.2C24.8 20.5 26.2 21.6 26.5 23.2L31.4 54.4C31.9 57.3 34.4 59.5 37.3 59.5H63.5C66.2 59.5 68.5 57.7 69.2 55.1L74.8 33.4C75.3 31.4 73.8 29.5 71.7 29.5H27.8"
+                      stroke="#071A3B"
+                      strokeWidth="2.8"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+
+                    {/* Lower Chassis Support Bar */}
+                    <path
+                      d="M35.5 65.5H64.5"
+                      stroke="#0866F5"
+                      strokeWidth="2.4"
+                      strokeLinecap="round"
+                    />
+
+                    {/* Dual Precision Hub Wheels */}
+                    <circle cx="38" cy="70.5" r="5.5" fill="#FFFFFF" stroke="#071A3B" strokeWidth="2.6" />
+                    <circle cx="38" cy="70.5" r="1.9" fill="#0866F5" />
+                    <circle cx="62" cy="70.5" r="5.5" fill="#FFFFFF" stroke="#071A3B" strokeWidth="2.6" />
+                    <circle cx="62" cy="70.5" r="1.9" fill="#0866F5" />
+
+                    {/* Subtle Floating Hardware Slot Indicator */}
+                    <rect
+                      x="43"
+                      y="17"
+                      width="16"
+                      height="10"
+                      rx="2.5"
+                      fill="#EFF6FF"
+                      stroke="#0866F5"
+                      strokeWidth="1.75"
+                      strokeDasharray="3 2.5"
+                    />
+                    <path
+                      d="M51 20V24M49 22H53"
+                      stroke="#0866F5"
+                      strokeWidth="1.6"
+                      strokeLinecap="round"
+                    />
+
+                    <defs>
+                      <linearGradient id="emptyCartTint" x1="28" y1="31.5" x2="74" y2="59.5" gradientUnits="userSpaceOnUse">
+                        <stop offset="0%" stopColor="#EFF6FF" stopOpacity="0.9" />
+                        <stop offset="100%" stopColor="#DBEAFE" stopOpacity="0.45" />
+                      </linearGradient>
+                    </defs>
+                  </svg>
+                </div>
               </div>
-              <h3 className="font-display text-lg font-bold text-[#071A3B]">
+
+              <h3 className="font-display text-xl font-bold tracking-[-0.02em] text-[#071A3B] [text-wrap:balance]">
                 Your Hardware Cart is Empty
               </h3>
-              <p className="text-xs sm:text-sm text-[#64748B] mt-1.5 max-w-xs leading-relaxed">
-                Start assembling your next prototype with microcontrollers, SLAM LiDAR, servos, or power packs.
+              <p className="text-[13px] text-[#475569] mt-2 max-w-[28ch] leading-relaxed">
+                Explore bench-tested microcontrollers, sensors, actuators, and robotics kits ready for Dhaka dispatch.
               </p>
+
               <button
                 type="button"
                 onClick={handleResetAndClose}
-                className="mt-5 px-6 py-2.5 rounded-xl bg-[#0866F5] hover:bg-[#0654CC] border border-[#0866F5] text-white text-sm font-semibold transition-colors"
+                className="cta-sheen motion-press group mt-5 h-11 px-6 rounded-xl bg-[#071A3B] hover:bg-[#0866F5] text-white text-sm font-semibold inline-flex items-center justify-center gap-2 shadow-[0_10px_24px_-12px_rgba(7,26,61,0.45)] transition-colors"
               >
-                Browse Hardware
+                <span>Browse Hardware Catalog</span>
+                <ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-0.5" />
               </button>
+
+              <p className="mt-4 text-[11px] font-medium text-[#64748B]">
+                Same-day Dhaka QC <span aria-hidden="true">·</span> 7-day replacement <span aria-hidden="true">·</span> 64 districts
+              </p>
             </div>
 
             {emptyRecommendations.length > 0 && (
-              <div className="pt-5 border-t border-slate-200 space-y-3">
-                <p className="text-xs font-mono font-semibold uppercase tracking-wider text-[#64748B]">
-                  Recommended for Makers
-                </p>
+              <div className="pt-5 border-t border-slate-200/90 space-y-3.5">
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <h4 className="font-display text-sm font-bold text-[#071A3B] tracking-tight">
+                      Recommended Components
+                    </h4>
+                    <p className="text-[11px] text-[#64748B] mt-0.5">
+                      Bench-tested essentials in Dhaka stock
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleResetAndClose}
+                    className="motion-link text-[11px] font-semibold text-[#0866F5] inline-flex items-center gap-1 shrink-0 whitespace-nowrap"
+                  >
+                    <span>View All</span>
+                    <ArrowRight className="w-3 h-3" />
+                  </button>
+                </div>
+
                 <div className="space-y-2.5">
-                  {emptyRecommendations.map((prod, idx) => (
-                    <div
-                      key={prod.id}
-                      style={{ animationDelay: `${idx * 65}ms` }}
-                      className="animate-cart-enter flex items-center gap-3 p-2.5 rounded-xl border border-slate-200 bg-[#F5F8FC] hover:border-[#0866F5]/50 transition-colors"
-                    >
-                      <div className="w-11 h-11 rounded-lg bg-white border border-slate-200 p-1 shrink-0 flex items-center justify-center">
-                        <HardwareArtwork
-                          kind={prod.artwork}
-                          imageUrl={prod.imageUrl}
-                          alt={prod.name}
-                          fit="contain"
-                          className="w-full h-full"
-                        />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-display text-xs font-semibold text-[#101828] truncate">
-                          {prod.name}
-                        </p>
-                        <p className="font-mono text-xs font-bold text-[#0866F5] tabular-nums">
-                          ৳{prod.price.toLocaleString('en-IN')}
-                        </p>
-                      </div>
-                      {onQuickAdd && (
+                  {emptyRecommendations.map((prod, idx) => {
+                    const hasDiscount = Boolean(prod.originalPrice && prod.originalPrice > prod.price);
+                    const discountPct =
+                      hasDiscount && prod.originalPrice
+                        ? Math.round(((prod.originalPrice - prod.price) / prod.originalPrice) * 100)
+                        : null;
+                    const keySpec = prod.specs[0]
+                      ? `${prod.specs[0].label}: ${prod.specs[0].value}`
+                      : prod.sku;
+
+                    return (
+                      <div
+                        key={prod.id}
+                        style={{ animationDelay: `${idx * 65}ms` }}
+                        className="animate-cart-enter motion-card group flex items-center gap-3.5 p-3 rounded-2xl border border-slate-200/90 bg-white hover:border-[#0866F5]/45 shadow-[0_4px_14px_-10px_rgba(7,26,61,0.1)] transition-all"
+                      >
                         <button
                           type="button"
-                          onClick={() => onQuickAdd(prod)}
-                          className="px-3 py-1.5 rounded-lg bg-[#071A3B] hover:bg-[#0866F5] text-white text-[11px] font-semibold transition-colors shrink-0"
+                          onClick={() => {
+                            if (onSelectProduct) {
+                              playTapSound();
+                              onSelectProduct(prod);
+                            }
+                          }}
+                          aria-label={`View ${prod.name}`}
+                          className="card-scan relative w-14 h-14 rounded-xl bg-[#F5F8FC] border border-slate-200/80 p-1.5 shrink-0 flex items-center justify-center overflow-hidden"
                         >
-                          Add
+                          <HardwareArtwork
+                            kind={prod.artwork}
+                            imageUrl={prod.imageUrl}
+                            alt={prod.name}
+                            fit="contain"
+                            className="thumb-hover-zoom w-full h-full"
+                          />
                         </button>
-                      )}
-                    </div>
-                  ))}
+
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 text-[10.5px] text-[#64748B] truncate">
+                            <span className="font-semibold text-[#0866F5] truncate">
+                              {prod.categoryLabel}
+                            </span>
+                            {prod.reviews > 0 && prod.rating > 0 && (
+                              <>
+                                <span aria-hidden="true">·</span>
+                                <span className="inline-flex items-center gap-0.5 font-mono font-semibold text-[#071A3B] tabular-nums shrink-0">
+                                  <Star className="w-2.5 h-2.5 text-amber-500 fill-amber-500" />
+                                  {prod.rating.toFixed(1)}
+                                </span>
+                              </>
+                            )}
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (onSelectProduct) {
+                                playTapSound();
+                                onSelectProduct(prod);
+                              }
+                            }}
+                            className="text-left w-full block"
+                          >
+                            <p className="font-display text-[13px] font-bold text-[#071A3B] group-hover:text-[#0866F5] transition-colors truncate mt-0.5">
+                              {prod.name}
+                            </p>
+                          </button>
+
+                          <p className="text-[10.5px] font-mono text-[#64748B] truncate mt-0.5">
+                            {keySpec}
+                          </p>
+
+                          <div className="flex items-baseline gap-1.5 mt-1">
+                            <span className="font-mono text-xs font-extrabold text-[#071A3B] tabular-nums">
+                              ৳{prod.price.toLocaleString('en-IN')}
+                            </span>
+                            {hasDiscount && prod.originalPrice && (
+                              <span className="font-mono text-[10px] text-slate-400 line-through tabular-nums">
+                                ৳{prod.originalPrice.toLocaleString('en-IN')}
+                              </span>
+                            )}
+                            {discountPct && discountPct > 0 && (
+                              <span className="font-mono text-[10px] font-bold text-[#0866F5] tabular-nums">
+                                -{discountPct}%
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {onQuickAdd && (
+                          <button
+                            type="button"
+                            onClick={() => onQuickAdd(prod)}
+                            aria-label={`Add ${prod.name} to cart`}
+                            className="cta-sheen motion-press h-9 px-3.5 rounded-xl bg-[#071A3B] hover:bg-[#0866F5] text-white text-xs font-semibold inline-flex items-center gap-1 shadow-[0_6px_14px_-8px_rgba(7,26,61,0.45)] transition-colors shrink-0 whitespace-nowrap"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>Add</span>
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
           </div>
         ) : step === 'cart' ? (
           <>
-            <div className="flex-1 overflow-y-auto p-5 space-y-4">
-              {/* Courier Rates + Gift Card Eligibility Progress */}
-              <div className="rounded-xl bg-[#F5F8FC] border border-slate-200 px-4 py-3 text-xs text-[#101828] space-y-2">
-                <div className="flex flex-wrap items-center justify-between gap-1.5 text-[11px] text-[#334155]">
-                  <span className="font-semibold text-[#071A3B] inline-flex items-center gap-1.5">
-                    <Truck className="w-3.5 h-3.5 text-[#0866F5] shrink-0" />
-                    <span>Courier Dispatch Rates</span>
+            <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3.5 bg-[#F8FAFC]/65">
+              {/* Courier Rates + Animated Gift Card / Reward Milestone Progress */}
+              <div className="rounded-2xl bg-gradient-to-br from-[#071A3B] via-[#0B2350] to-[#0E2F6B] text-white border border-[#1B3E78] p-4 text-xs space-y-2.5 shadow-[0_12px_28px_-14px_rgba(7,26,61,0.45)]">
+                <div className="flex flex-wrap items-center justify-between gap-1.5 text-[11px]">
+                  <span className="font-semibold text-white inline-flex items-center gap-1.5">
+                    <Truck className="w-3.5 h-3.5 text-[#00CFFF] shrink-0" />
+                    <span>Nationwide Courier</span>
                   </span>
-                  <span className="font-mono tabular-nums text-[#0F172A]">
-                    Dhaka <strong className="text-[#0866F5]">৳80</strong> · Outside{' '}
-                    <strong className="text-[#0866F5]">৳150</strong>
+                  <span className="font-mono tabular-nums text-slate-200">
+                    Dhaka <strong className="text-[#00CFFF]">৳80</strong> · Outside{' '}
+                    <strong className="text-[#00CFFF]">৳150</strong>
                   </span>
                 </div>
 
-                <div className="pt-1.5 border-t border-slate-200/80 flex items-center justify-between gap-2 text-[11px]">
-                  <span className="inline-flex items-center gap-1.5 text-[#334155] min-w-0">
-                    <Gift className="w-3.5 h-3.5 text-[#0866F5] shrink-0" />
-                    {giftCardPreview.eligible ? (
-                      <span className="truncate">
-                        Earns a{' '}
-                        <strong className="font-mono text-[#0F766E] tabular-nums">
-                          ৳{giftCardPreview.value} Gift Card
-                        </strong>{' '}
-                        (৳3/৳100)
-                      </span>
-                    ) : (
-                      <span className="truncate">
-                        Spend{' '}
-                        <strong className="font-mono text-[#071A3B] tabular-nums">
-                          ৳{giftCardPreview.remainingToUnlock.toLocaleString('en-IN')}
-                        </strong>{' '}
-                        more (min ৳{MIN_GIFT_CARD_SPEND}) for Gift Card
-                      </span>
-                    )}
-                  </span>
-                  <span className="font-mono text-[10px] font-bold text-[#0866F5] shrink-0 tabular-nums">
-                    ৳3 / ৳100
-                  </span>
+                <div className="space-y-1.5 pt-2 border-t border-white/12">
+                  <div className="flex items-center justify-between gap-2 text-[11px]">
+                    <span className="inline-flex items-center gap-1.5 text-slate-200 min-w-0">
+                      <Gift className="w-3.5 h-3.5 text-[#00CFFF] shrink-0" />
+                      {giftCardPreview.eligible ? (
+                        earnedPointsPreview > 0 ? (
+                          <span className="truncate">
+                            Unlocked{' '}
+                            <strong className="font-mono text-[#2DD4BF] tabular-nums">
+                              ৳{giftCardPreview.value} Gift Card
+                            </strong>{' '}
+                            + <strong className="font-mono text-[#00CFFF]">+{earnedPointsPreview} pts</strong>
+                          </span>
+                        ) : (
+                          <span className="truncate">
+                            Unlocked{' '}
+                            <strong className="font-mono text-[#2DD4BF] tabular-nums">
+                              ৳{giftCardPreview.value} Gift Card
+                            </strong>{' '}
+                            · Add <strong className="font-mono text-white">৳{remainingForReward.toLocaleString('en-IN')}</strong> for +100 pts
+                          </span>
+                        )
+                      ) : (
+                        <span className="truncate">
+                          Add{' '}
+                          <strong className="font-mono text-[#00CFFF] tabular-nums">
+                            ৳{giftCardPreview.remainingToUnlock.toLocaleString('en-IN')}
+                          </strong>{' '}
+                          more for a <strong className="text-white">Digital Gift Card</strong>
+                        </span>
+                      )}
+                    </span>
+                    <span className="font-mono text-[10px] font-bold text-[#00CFFF] shrink-0 tabular-nums">
+                      {Math.round(milestoneProgress * 100)}%
+                    </span>
+                  </div>
+                  <div className="relative h-1.5 w-full rounded-full bg-white/15 overflow-hidden">
+                    <div
+                      className="relative h-full w-full origin-left rounded-full bg-gradient-to-r from-[#087BFF] via-[#00CFFF] to-[#2DD4BF] transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform overflow-hidden"
+                      style={{ transform: `scaleX(${milestoneProgress})` }}
+                    >
+                      <span className="animate-progress-glow absolute inset-y-0 w-12 bg-gradient-to-r from-transparent via-white/70 to-transparent" />
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              {items.map((item, idx) => {
-                const outOfStock = item.product.stock <= 0;
-                const atStockLimit = item.quantity >= item.product.stock;
-                return (
-                  <div
-                    key={`${item.product.id}-${item.variant ?? ''}`}
-                    style={{ animationDelay: `${Math.min(idx * 50, 220)}ms` }}
-                    className="animate-cart-enter flex gap-3.5 pb-4 border-b border-slate-100"
-                  >
-                    <div className="w-20 h-20 rounded-xl bg-[#F5F8FC] border border-slate-200 p-1.5 shrink-0 flex items-center justify-center overflow-hidden">
-                      <HardwareArtwork
-                        kind={item.product.artwork}
-                        imageUrl={item.product.imageUrl}
-                        alt={item.product.name}
-                        fit="contain"
-                        className="w-full h-full"
-                      />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2">
-                        <h3 className="font-display text-sm font-semibold text-[#101828] leading-snug line-clamp-2">
-                          {item.product.name}
-                        </h3>
-                        <button
-                          type="button"
-                          onClick={() => onRemoveItem(item.product.id, item.variant)}
-                          aria-label={`Remove ${item.product.name}`}
-                          className="text-slate-400 hover:text-red-600 p-1 shrink-0 transition-colors"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+              <div className="space-y-2.5">
+                {items.map((item, idx) => {
+                  const outOfStock = item.product.stock <= 0;
+                  const atStockLimit = item.quantity >= item.product.stock;
+                  return (
+                    <div
+                      key={`${item.product.id}-${item.variant ?? ''}`}
+                      style={{ animationDelay: `${Math.min(idx * 45, 220)}ms` }}
+                      className="animate-cart-enter group rounded-2xl border border-slate-200/90 hover:border-[#087BFF]/45 bg-white p-3.5 shadow-[0_4px_14px_-8px_rgba(7,26,61,0.08)] hover:shadow-[0_12px_24px_-12px_rgba(8,123,255,0.16)] transition-all duration-200 flex gap-3.5"
+                    >
+                      <div className="w-[74px] h-[74px] rounded-xl bg-[#F5F8FC] border border-slate-200/80 p-1.5 shrink-0 flex items-center justify-center overflow-hidden">
+                        <HardwareArtwork
+                          kind={item.product.artwork}
+                          imageUrl={item.product.imageUrl}
+                          alt={item.product.name}
+                          fit="contain"
+                          className="w-full h-full transition-transform duration-300 group-hover:scale-105"
+                        />
                       </div>
-                      {item.variant && (
-                        <p className="text-[11px] text-[#64748B] mt-0.5">{item.variant}</p>
-                      )}
-                      {outOfStock && (
-                        <p className="text-[11px] text-red-600 font-semibold mt-0.5">
-                          Currently out of stock — remove to checkout
-                        </p>
-                      )}
-
-                      <div className="mt-2.5 flex items-center justify-between">
-                        <div className="flex items-center border border-slate-200 rounded-lg bg-[#F5F8FC] h-8">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="font-mono text-[10px] font-semibold uppercase tracking-wider text-[#087BFF]">
+                              {item.product.sku}
+                            </p>
+                            <h3 className="font-display text-[13.5px] font-bold text-[#071A3B] leading-snug line-clamp-2 mt-0.5">
+                              {item.product.name}
+                            </h3>
+                          </div>
                           <button
                             type="button"
-                            onClick={() => onUpdateQty(item.product.id, item.variant, -1)}
-                            aria-label="Decrease item quantity"
-                            className="w-7 h-full flex items-center justify-center text-[#64748B] hover:text-[#101828]"
+                            onClick={() => onRemoveItem(item.product.id, item.variant)}
+                            aria-label={`Remove ${item.product.name}`}
+                            className="group/del motion-press text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg p-1.5 shrink-0 transition-colors"
                           >
-                            <Minus className="w-3 h-3" />
-                          </button>
-                          <span className="w-6 text-center text-xs font-mono font-semibold text-[#101828] tabular-nums">
-                            {item.quantity}
-                          </span>
-                          <button
-                            type="button"
-                            disabled={atStockLimit}
-                            onClick={() => onUpdateQty(item.product.id, item.variant, 1)}
-                            aria-label="Increase item quantity"
-                            className="w-7 h-full flex items-center justify-center text-[#64748B] hover:text-[#101828] disabled:opacity-35 disabled:cursor-not-allowed"
-                          >
-                            <Plus className="w-3 h-3" />
+                            <Trash2 className="w-4 h-4 animate-trash-nudge" />
                           </button>
                         </div>
+                        {item.variant && (
+                          <p className="text-[11px] text-[#64748B] mt-0.5">{item.variant}</p>
+                        )}
+                        {outOfStock && (
+                          <p className="text-[11px] text-red-600 font-semibold mt-0.5">
+                            Currently out of stock — remove to checkout
+                          </p>
+                        )}
 
-                        <span className="font-mono text-sm font-bold text-[#071A3B] tabular-nums">
-                          ৳{(item.product.price * item.quantity).toLocaleString('en-IN')}
-                        </span>
+                        <div className="mt-2.5 flex items-center justify-between gap-2">
+                          <div className="flex items-center border border-slate-200 rounded-xl bg-[#F5F8FC] h-8 overflow-hidden">
+                            <button
+                              type="button"
+                              onClick={() => onUpdateQty(item.product.id, item.variant, -1)}
+                              aria-label="Decrease item quantity"
+                              className="motion-press w-7 h-full flex items-center justify-center text-[#475569] hover:text-[#071A3D] hover:bg-white transition-colors"
+                            >
+                              <Minus className="w-3 h-3" />
+                            </button>
+                            <span
+                              key={item.quantity}
+                              className="animate-qty-pop w-7 text-center text-xs font-mono font-bold text-[#071A3D] tabular-nums"
+                            >
+                              {item.quantity}
+                            </span>
+                            <button
+                              type="button"
+                              disabled={atStockLimit}
+                              onClick={() => onUpdateQty(item.product.id, item.variant, 1)}
+                              aria-label="Increase item quantity"
+                              className="motion-press w-7 h-full flex items-center justify-center text-[#475569] hover:text-[#071A3D] hover:bg-white transition-colors disabled:opacity-35 disabled:cursor-not-allowed"
+                            >
+                              <Plus className="w-3 h-3" />
+                            </button>
+                          </div>
+
+                          <div className="text-right">
+                            <span className="font-mono text-sm font-extrabold text-[#071A3B] tabular-nums block leading-tight">
+                              ৳{(item.product.price * item.quantity).toLocaleString('en-IN')}
+                            </span>
+                            {item.quantity > 1 && (
+                              <span className="font-mono text-[10px] text-[#64748B] tabular-nums">
+                                ৳{item.product.price.toLocaleString('en-IN')} each
+                              </span>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     </div>
+                  );
+                })}
+              </div>
+
+              {/* Frequently Paired Add-Ons */}
+              {pairableRecommendations.length > 0 && onQuickAdd && (
+                <div className="pt-1.5 space-y-2.5">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <p className="font-display text-xs font-bold text-[#071A3B]">
+                      Pair With Your Build
+                    </p>
+                    <span className="text-[10.5px] font-mono text-[#64748B]">
+                      Compatible Add-ons
+                    </span>
                   </div>
-                );
-              })}
+                  <div className="flex gap-2.5 overflow-x-auto no-scrollbar pb-1">
+                    {pairableRecommendations.map((prod) => (
+                      <div
+                        key={prod.id}
+                        className="motion-card group shrink-0 w-[212px] rounded-xl border border-slate-200/90 bg-white p-2.5 flex items-center gap-2.5 hover:border-[#087BFF]/55 shadow-[0_4px_12px_-10px_rgba(7,26,61,0.12)] transition-all"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (onSelectProduct) {
+                              playTapSound();
+                              onSelectProduct(prod);
+                            }
+                          }}
+                          aria-label={`View ${prod.name}`}
+                          className="card-scan relative w-11 h-11 rounded-lg bg-[#F5F8FC] border border-slate-200/80 p-1 shrink-0 flex items-center justify-center overflow-hidden"
+                        >
+                          <HardwareArtwork
+                            kind={prod.artwork}
+                            imageUrl={prod.imageUrl}
+                            alt={prod.name}
+                            fit="contain"
+                            className="thumb-hover-zoom w-full h-full"
+                          />
+                        </button>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[9.5px] font-mono text-[#64748B] truncate">
+                            {prod.categoryLabel}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (onSelectProduct) {
+                                playTapSound();
+                                onSelectProduct(prod);
+                              }
+                            }}
+                            className="text-left w-full block"
+                          >
+                            <p className="text-[11.5px] font-bold text-[#071A3D] group-hover:text-[#0866F5] transition-colors truncate">
+                              {prod.name}
+                            </p>
+                          </button>
+                          <div className="mt-1 flex items-center justify-between gap-1.5">
+                            <span className="font-mono text-[11px] font-extrabold text-[#0866F5] tabular-nums">
+                              ৳{prod.price.toLocaleString('en-IN')}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => onQuickAdd(prod)}
+                              className="cta-sheen motion-press px-2.5 py-1 rounded-lg bg-[#071A3D] hover:bg-[#087BFF] text-white text-[10px] font-bold inline-flex items-center gap-0.5 transition-colors shrink-0"
+                            >
+                              <Plus className="w-2.5 h-2.5" />
+                              <span>Add</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Promo Code Input */}
               <div className="pt-1">

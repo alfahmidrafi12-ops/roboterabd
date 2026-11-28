@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Home, LayoutGrid, PackageSearch, ShoppingBag, User as UserIcon } from 'lucide-react';
+import { Home, LayoutGrid, PackageSearch, User as UserIcon } from 'lucide-react';
+import { AnimatedCartIcon } from './AnimatedCartIcon';
 
 interface MobileBottomNavProps {
-  activePage?: 'shop' | 'track';
+  activePage?: 'shop' | 'track' | 'ai';
   cartCount: number;
   cartPulseKey?: number;
   isSignedIn: boolean;
@@ -60,55 +61,68 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
         <button
           type="button"
           onClick={onGoHome}
-          className={`flex flex-col items-center justify-center gap-1 transition-colors ${
+          className={`group motion-press relative flex flex-col items-center justify-center gap-1 transition-colors ${
             activePage === 'shop' ? 'text-[#0866F5]' : 'text-slate-600 hover:text-[#0866F5]'
           }`}
         >
-          <Home className="w-5 h-5" />
+          {activePage === 'shop' && (
+            <span className="animate-spring-pop absolute top-0 w-7 h-[2.5px] rounded-b-full bg-[#0866F5]" aria-hidden="true" />
+          )}
+          <Home className="motion-icon-tilt w-5 h-5" />
           <span className="text-[10px] font-semibold">Shop</span>
         </button>
 
         <button
           type="button"
           onClick={onOpenDepartments}
-          className="flex flex-col items-center justify-center gap-1 text-slate-600 hover:text-[#0866F5] active:text-[#0866F5] transition-colors"
+          className="group motion-press flex flex-col items-center justify-center gap-1 text-slate-600 hover:text-[#0866F5] active:text-[#0866F5] transition-colors"
         >
-          <LayoutGrid className="w-5 h-5" />
+          <LayoutGrid className="motion-icon-tilt w-5 h-5" />
           <span className="text-[10px] font-semibold">Depts</span>
         </button>
 
         <button
           type="button"
           onClick={onTrackOrder}
-          className={`flex flex-col items-center justify-center gap-1 transition-colors ${
+          className={`group motion-press relative flex flex-col items-center justify-center gap-1 transition-colors ${
             activePage === 'track' ? 'text-[#0866F5]' : 'text-slate-600 hover:text-[#0866F5]'
           }`}
         >
-          <PackageSearch className="w-5 h-5" />
+          {activePage === 'track' && (
+            <span className="animate-spring-pop absolute top-0 w-7 h-[2.5px] rounded-b-full bg-[#0866F5]" aria-hidden="true" />
+          )}
+          <PackageSearch className="motion-icon-tilt w-5 h-5" />
           <span className="text-[10px] font-semibold">Track</span>
         </button>
 
         <button
           type="button"
           onClick={onOpenCart}
-          className={`relative flex flex-col items-center justify-center gap-1 transition-colors ${
-            cartPulsing ? 'text-[#087BFF]' : 'text-slate-600 hover:text-[#0866F5] active:text-[#0866F5]'
+          className={`group motion-press relative flex flex-col items-center justify-center gap-1 transition-colors ${
+            cartPulsing
+              ? 'text-[#087BFF]'
+              : cartCount > 0
+              ? 'text-[#071A3D]'
+              : 'text-slate-600 hover:text-[#0866F5] active:text-[#0866F5]'
           }`}
         >
-          <div className="relative">
+          <div className="relative transition-transform duration-200 group-hover:scale-105">
             {cartPulsing && (
               <span
                 aria-hidden="true"
-                className="pointer-events-none absolute -inset-1.5 rounded-full bg-[#087BFF]/25 ring-1 ring-[#087BFF]/50 animate-cart-pulse-ring"
+                className="pointer-events-none absolute -inset-2 rounded-full bg-[#087BFF]/25 ring-1 ring-[#087BFF]/50 animate-cart-pulse-ring"
               />
             )}
-            <ShoppingBag
-              className={`w-5 h-5 ${cartPulsing ? 'animate-cart-pulse text-[#087BFF]' : ''}`}
+            <AnimatedCartIcon
+              className="w-5 h-5"
+              pulsing={cartPulsing}
+              hasItems={cartCount > 0}
+              accentColor="#087BFF"
             />
             {cartCount > 0 && (
               <span
                 key={cartCount}
-                className="animate-badge-bounce absolute -top-1.5 -right-2 min-w-[16px] h-4 px-1 rounded-full bg-[#EA580C] text-white text-[9px] font-mono font-bold flex items-center justify-center tabular-nums"
+                className="animate-badge-bounce absolute -top-1.5 -right-2.5 min-w-[17px] h-[17px] px-1 rounded-full bg-gradient-to-r from-[#087BFF] to-[#00B8F4] text-white text-[9px] font-mono font-bold flex items-center justify-center tabular-nums shadow-[0_2px_6px_rgba(8,123,255,0.45)]"
               >
                 {cartCount}
               </span>
@@ -120,11 +134,11 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
         <button
           type="button"
           onClick={onOpenAuth}
-          className={`flex flex-col items-center justify-center gap-1 transition-colors ${
+          className={`group motion-press flex flex-col items-center justify-center gap-1 transition-colors ${
             isSignedIn ? 'text-[#0D9488]' : 'text-slate-600 hover:text-[#0866F5]'
           }`}
         >
-          <UserIcon className="w-5 h-5" />
+          <UserIcon className="motion-icon-tilt w-5 h-5" />
           <span className="text-[10px] font-semibold">
             {isSignedIn ? 'Orders' : 'Account'}
           </span>

@@ -8,7 +8,7 @@ interface FuturisticBootLoaderProps {
 }
 
 const BOOT_SESSION_KEY = 'roboterabd_intro_seen_v2';
-const INTRO_DURATION_MS = 1950;
+const INTRO_DURATION_MS = 1450;
 
 const INIT_STEPS = [
   { threshold: 18, label: 'Core MCU & SBC Registry' },
@@ -98,8 +98,8 @@ export const FuturisticBootLoader: React.FC<FuturisticBootLoaderProps> = ({ onCo
     <div
       role="status"
       aria-label="Initializing Robotera BD"
-      className={`fixed inset-0 z-[100] bg-[#040F24] text-white flex flex-col items-center justify-center overflow-hidden touch-none overscroll-none transition-all duration-[440ms] ease-[cubic-bezier(0.16,1,0.3,1)] ${
-        exiting ? 'opacity-0 scale-[1.035] blur-[2px] pointer-events-none' : 'opacity-100 scale-100'
+      className={`fixed inset-0 z-[100] bg-[#040F24] text-white flex flex-col items-center justify-center overflow-hidden touch-none overscroll-none transition-[transform,opacity] duration-[400ms] ease-[cubic-bezier(0.16,1,0.3,1)] ${
+        exiting ? 'opacity-0 scale-[1.03] pointer-events-none' : 'opacity-100 scale-100'
       }`}
     >
       {/* Architectural Deep Navy Gradient + Lab Coordinate Grid */}
@@ -211,20 +211,29 @@ export const FuturisticBootLoader: React.FC<FuturisticBootLoaderProps> = ({ onCo
             />
           </svg>
 
-          {/* Crisp Brand Emblem Core */}
-          <div className="relative w-20 h-20 sm:w-[84px] sm:h-[84px] flex items-center justify-center">
+          {/* Circular Aerospace Brand Emblem Core Matched to LiDAR Dial */}
+          <div className="relative flex items-center justify-center">
             <span
               aria-hidden="true"
-              className="pointer-events-none z-10 -top-1.5 -left-1.5 absolute w-3 h-3 border-t-2 border-l-2 border-[#00CFFF] rounded-tl-sm"
+              className="pointer-events-none absolute -inset-2.5 rounded-full border border-[#00CFFF]/25"
             />
             <span
               aria-hidden="true"
-              className="pointer-events-none z-10 -bottom-1.5 -right-1.5 absolute w-3 h-3 border-b-2 border-r-2 border-[#00CFFF] rounded-br-sm"
+              className="pointer-events-none absolute -top-3.5 left-1/2 -translate-x-1/2 w-[1.5px] h-2 bg-[#00CFFF]/80 rounded-full"
             />
-            <BrandLogo
-              size="xl"
-              className="!w-full !h-full !border-[#00CFFF]/60 shadow-[0_0_40px_-8px_rgba(8,123,255,0.85),0_10px_28px_-8px_rgba(0,0,0,0.65)]"
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute -bottom-3.5 left-1/2 -translate-x-1/2 w-[1.5px] h-2 bg-[#00CFFF]/80 rounded-full"
             />
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute -left-3.5 top-1/2 -translate-y-1/2 w-2 h-[1.5px] bg-[#087BFF]/80 rounded-full"
+            />
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute -right-3.5 top-1/2 -translate-y-1/2 w-2 h-[1.5px] bg-[#087BFF]/80 rounded-full"
+            />
+            <BrandLogo variant="dark-hud" size="xl" />
           </div>
         </div>
 

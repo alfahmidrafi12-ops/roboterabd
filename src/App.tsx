@@ -1,14 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
 import { User } from 'firebase/auth';
-import { BellRing, CheckCircle2, MapPin, ShoppingBag, X } from 'lucide-react';
-import { AdminPanel } from './components/AdminPanel';
+import { AlertTriangle, BellRing, CheckCircle2, MapPin, X } from 'lucide-react';
+import { AnimatedCartIcon } from './components/AnimatedCartIcon';
 import { ArchitecturalSideRails } from './components/ArchitecturalSideRails';
-import { AuthModal } from './components/AuthModal';
 import { BestSellingSection } from './components/BestSellingSection';
 import { BlogSection } from './components/BlogSection';
-import { CartDrawer } from './components/CartDrawer';
+import { BrandPartnersStrip } from './components/BrandPartnersStrip';
 import { CategoryCarousel } from './components/CategoryCarousel';
-import { CompareDock, CompareModal } from './components/CompareModal';
 import { DiscountBanner } from './components/DiscountBanner';
 import { FeaturedCarousel } from './components/FeaturedCarousel';
 import { FooterSection } from './components/FooterSection';
@@ -17,14 +15,45 @@ import { Header } from './components/Header';
 import { HeroSection } from './components/HeroSection';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { OfflineIndicator } from './components/OfflineIndicator';
-import { OrderTrackingSection } from './components/OrderTrackingSection';
-import { ProductModal } from './components/ProductModal';
 import { PromoBanners } from './components/PromoBanners';
 import { ScrollingBannerSection } from './components/ScrollingBannerSection';
 import { SectionDivider } from './components/SectionDivider';
-import { SidebarMenu } from './components/SidebarMenu';
 import { WhatsAppButton } from './components/WhatsAppButton';
-import { WishlistDrawer } from './components/WishlistDrawer';
+
+const AIProjectArchitectSection = lazy(() =>
+  import('./components/AIProjectArchitectSection').then((m) => ({
+    default: m.AIProjectArchitectSection,
+  }))
+);
+const AdminPanel = lazy(() =>
+  import('./components/AdminPanel').then((m) => ({ default: m.AdminPanel }))
+);
+const AuthModal = lazy(() =>
+  import('./components/AuthModal').then((m) => ({ default: m.AuthModal }))
+);
+const CartDrawer = lazy(() =>
+  import('./components/CartDrawer').then((m) => ({ default: m.CartDrawer }))
+);
+const CompareDock = lazy(() =>
+  import('./components/CompareModal').then((m) => ({ default: m.CompareDock }))
+);
+const CompareModal = lazy(() =>
+  import('./components/CompareModal').then((m) => ({ default: m.CompareModal }))
+);
+const OrderTrackingSection = lazy(() =>
+  import('./components/OrderTrackingSection').then((m) => ({
+    default: m.OrderTrackingSection,
+  }))
+);
+const ProductModal = lazy(() =>
+  import('./components/ProductModal').then((m) => ({ default: m.ProductModal }))
+);
+const SidebarMenu = lazy(() =>
+  import('./components/SidebarMenu').then((m) => ({ default: m.SidebarMenu }))
+);
+const WishlistDrawer = lazy(() =>
+  import('./components/WishlistDrawer').then((m) => ({ default: m.WishlistDrawer }))
+);
 import {
   CATEGORIES,
   DEFAULT_BANNERS,
@@ -63,6 +92,7 @@ import {
 } from './lib/seo';
 import {
   playAddToCartSound,
+  playErrorSound,
   playRestockBellSound,
   playStepTickSound,
   playTapSound,
@@ -75,6 +105,7 @@ import {
   trackVisitorVisit,
 } from './lib/visitorTracker';
 import {
+  AddToCartResult,
   AvailabilityFilter,
   BannerItem,
   BlogPost,
@@ -113,6 +144,7 @@ function parseTrackingHash(): { isTrack: boolean; orderId: string | null } {
 type PublicRouteTarget =
   | { type: 'home' }
   | { type: 'track' }
+  | { type: 'ai' }
   | { type: 'section'; sectionId: string }
   | { type: 'category'; categoryId: string }
   | { type: 'product'; productId: string }
@@ -122,6 +154,7 @@ function parsePublicPathname(): PublicRouteTarget {
   if (typeof window === 'undefined') return { type: 'home' };
   const path = window.location.pathname.replace(/\/+$/, '') || '/';
   if (path === '/track-order') return { type: 'track' };
+  if (path === '/ai-builder') return { type: 'ai' };
   if (path === '/shop') return { type: 'section', sectionId: 'best-selling' };
   if (path === '/just-arrived') return { type: 'section', sectionId: 'just-arrived' };
   if (path === '/bundles') return { type: 'section', sectionId: 'bundles' };
@@ -149,8 +182,12 @@ function getInitialSearchQueryParam(): string {
 export default function App() {
   const initialTrack = parseTrackingHash();
   const initialPathRoute = parsePublicPathname();
-  const [activePage, setActivePage] = useState<'shop' | 'track'>(
-    initialTrack.isTrack || initialPathRoute.type === 'track' ? 'track' : 'shop'
+  const [activePage, setActivePage] = useState<'shop' | 'track' | 'ai'>(
+    initialTrack.isTrack || initialPathRoute.type === 'track'
+      ? 'track'
+      : initialPathRoute.type === 'ai'
+      ? 'ai'
+      : 'shop'
   );
   const [activeCategory, setActiveCategory] = useState<CategoryId>(
     initialPathRoute.type === 'category' ? (initialPathRoute.categoryId as CategoryId) : 'all'
@@ -162,6 +199,7 @@ export default function App() {
   const [sortBy, setSortBy] = useState<SortOption>('featured');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
+  const [cartEverOpened, setCartEverOpened] = useState(false);
   const [startInCheckout, setStartInCheckout] = useState(false);
   const [wishlistOpen, setWishlistOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -209,9 +247,39 @@ export default function App() {
   const [autoTrackOrderId, setAutoTrackOrderId] = useState<string | null>(initialTrack.orderId);
 
   // Add-to-cart toast & header pulse feedback
-  const [toastProduct, setToastProduct] = useState<{ name: string; qty: number } | null>(null);
+  const [toastProduct, setToastProduct] = useState<{
+    name: string;
+    qty: number;
+    status: 'added' | 'capped' | 'max-stock';
+    stockLimit?: number;
+  } | null>(null);
   const [cartPulseTick, setCartPulseTick] = useState(0);
   const toastTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (cartOpen) {
+      setCartEverOpened(true);
+    }
+  }, [cartOpen]);
+
+  // Idle-prefetch CartDrawer & ProductModal chunks after initial paint so first interaction is instant
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const prefetch = () => {
+      void import('./components/CartDrawer');
+      void import('./components/ProductModal');
+    };
+    const w = window as Window & {
+      requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
+      cancelIdleCallback?: (id: number) => void;
+    };
+    if (typeof w.requestIdleCallback === 'function') {
+      const id = w.requestIdleCallback(prefetch, { timeout: 2200 });
+      return () => w.cancelIdleCallback?.(id);
+    }
+    const timer = window.setTimeout(prefetch, 1400);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   // Side-by-side product comparison state (max 3 products)
   const [compareIds, setCompareIds] = useState<string[]>([]);
@@ -267,6 +335,10 @@ export default function App() {
       return [];
     }
   });
+  const cartItemsRef = useRef<CartItem[]>(cartItems);
+  useEffect(() => {
+    cartItemsRef.current = cartItems;
+  }, [cartItems]);
 
   const [wishlistIds, setWishlistIds] = useState<string[]>(() => {
     try {
@@ -454,7 +526,11 @@ export default function App() {
         }
         return item;
       });
-      return changed ? next : prev;
+      if (changed) {
+        cartItemsRef.current = next;
+        return next;
+      }
+      return prev;
     });
   }, [products]);
 
@@ -538,7 +614,7 @@ export default function App() {
       }
 
       const urlSearchQuery = searchParams.get('q')?.trim() || '';
-      if (urlSearchQuery) {
+      if (!hashIsAdmin) {
         setSearchQuery(urlSearchQuery);
       }
 
@@ -553,6 +629,12 @@ export default function App() {
         if (trackState.orderId) {
           setAutoTrackOrderId(trackState.orderId);
         }
+        return;
+      }
+
+      if (pathRoute.type === 'ai') {
+        setSelectedProduct(null);
+        setActivePage('ai');
         return;
       }
 
@@ -643,7 +725,7 @@ export default function App() {
       } else if (authModalOpen) {
         setAuthModalOpen(false);
       } else if (selectedProduct) {
-        setSelectedProduct(null);
+        closeProductDetail();
       } else if (compareModalOpen) {
         setCompareModalOpen(false);
       } else if (cartOpen) {
@@ -745,6 +827,26 @@ export default function App() {
     syncPublicUrl(`/product/${encodeURIComponent(product.id)}`);
   };
 
+  const closeProductDetail = () => {
+    setSelectedProduct(null);
+    if (typeof window !== 'undefined' && window.location.pathname.startsWith('/product/')) {
+      if (activePage === 'ai') {
+        syncPublicUrl('/ai-builder');
+      } else if (activePage === 'track') {
+        syncPublicUrl('/track-order');
+      } else if (activeCategory !== 'all') {
+        syncPublicUrl(`/category/${encodeURIComponent(activeCategory)}`);
+      } else if (searchQuery.trim()) {
+        window.history.pushState(null, '', `/shop?q=${encodeURIComponent(searchQuery.trim())}`);
+        setActiveSectionPath('/shop');
+      } else if (['/shop', '/just-arrived', '/bundles', '/guides'].includes(activeSectionPath)) {
+        syncPublicUrl(activeSectionPath);
+      } else {
+        syncPublicUrl('/');
+      }
+    }
+  };
+
   const openTrackingPage = (orderId?: string) => {
     playTapSound();
     setActivePage('track');
@@ -759,9 +861,20 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const openAiBuilderPage = () => {
+    playTapSound();
+    setActivePage('ai');
+    syncPublicUrl('/ai-builder');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const scrollToSection = (sectionId?: string) => {
     if (sectionId === 'order-tracking') {
       openTrackingPage();
+      return;
+    }
+    if (sectionId === 'ai-architect') {
+      openAiBuilderPage();
       return;
     }
     const sectionRouteMap: Record<string, string> = {
@@ -822,15 +935,26 @@ export default function App() {
 
   const handleQuickSearch = (term: string) => {
     playTapSound();
+    const wasOtherPage = activePage !== 'shop';
+    if (wasOtherPage) {
+      setActivePage('shop');
+    }
     setActiveCategory('all');
     setSearchQuery(term);
     if (typeof window !== 'undefined') {
       window.history.pushState(null, '', `/shop?q=${encodeURIComponent(term)}`);
       setActiveSectionPath('/shop');
     }
-    const el = document.getElementById('best-selling');
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const runScroll = () => {
+      const el = document.getElementById('best-selling');
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    };
+    if (wasOtherPage) {
+      window.setTimeout(runScroll, 50);
+    } else {
+      runScroll();
     }
   };
 
@@ -841,13 +965,21 @@ export default function App() {
     setMaxPrice('');
     setAvailabilityFilter('all');
     setSortBy('featured');
-    if (typeof window !== 'undefined' && window.location.pathname.startsWith('/category/')) {
+    if (
+      typeof window !== 'undefined' &&
+      (window.location.pathname.startsWith('/category/') || window.location.search.includes('q='))
+    ) {
       syncPublicUrl('/shop');
     }
   };
 
-  const showAddedToast = (name: string, qty: number) => {
-    setToastProduct({ name, qty });
+  const showAddedToast = (
+    name: string,
+    qty: number,
+    status: 'added' | 'capped' | 'max-stock' = 'added',
+    stockLimit?: number
+  ) => {
+    setToastProduct({ name, qty, status, stockLimit });
     if (toastTimerRef.current) {
       window.clearTimeout(toastTimerRef.current);
     }
@@ -861,41 +993,66 @@ export default function App() {
     quantity: number,
     variant?: string,
     silentToast = false
-  ) => {
-    if (product.stock <= 0 || quantity <= 0) return;
+  ): AddToCartResult => {
     const chosenVariant = variant ?? product.variants?.[0];
-    const existingItem = cartItems.find(
+    const currentCart = cartItemsRef.current;
+    const existingIndex = currentCart.findIndex(
       (item) => item.product.id === product.id && item.variant === chosenVariant
     );
-    const alreadyAtStockCap = existingItem ? existingItem.quantity >= product.stock : false;
-    setCartItems((prev) => {
-      const existingIndex = prev.findIndex(
-        (item) => item.product.id === product.id && item.variant === chosenVariant
-      );
-      if (existingIndex >= 0) {
-        const updated = [...prev];
-        updated[existingIndex] = {
-          ...updated[existingIndex],
-          product,
-          quantity: Math.min(product.stock, updated[existingIndex].quantity + quantity),
-        };
-        return updated;
+    const existingQty = existingIndex >= 0 ? currentCart[existingIndex].quantity : 0;
+
+    if (product.stock <= 0 || quantity <= 0) {
+      return {
+        addedQty: 0,
+        maxReached: true,
+        capped: false,
+        cartQty: existingQty,
+      };
+    }
+
+    const remainingStock = Math.max(0, product.stock - existingQty);
+    const addedQty = Math.min(quantity, remainingStock);
+    const nextQty = existingQty + addedQty;
+
+    if (addedQty > 0) {
+      const nextCart =
+        existingIndex >= 0
+          ? currentCart.map((item, idx) =>
+              idx === existingIndex ? { ...item, product, quantity: nextQty } : item
+            )
+          : [...currentCart, { product, quantity: nextQty, variant: chosenVariant }];
+      cartItemsRef.current = nextCart;
+      setCartItems(nextCart);
+      if (!silentToast) {
+        playAddToCartSound();
       }
-      return [...prev, { product, quantity: Math.min(product.stock, quantity), variant: chosenVariant }];
-    });
-    if (!alreadyAtStockCap) {
-      playAddToCartSound();
       setCartPulseTick((prev) => prev + 1);
+      if (!silentToast) {
+        showAddedToast(
+          product.name,
+          addedQty,
+          addedQty < quantity ? 'capped' : 'added',
+          product.stock
+        );
+      }
+    } else if (!silentToast) {
+      playErrorSound();
+      showAddedToast(product.name, 0, 'max-stock', product.stock);
     }
-    if (!silentToast) {
-      showAddedToast(product.name, quantity);
-    }
+
+    return {
+      addedQty,
+      maxReached: nextQty >= product.stock,
+      capped: addedQty > 0 && addedQty < quantity,
+      cartQty: nextQty,
+    };
   };
 
   const handleBuyNow = (product: Product, quantity: number, variant?: string) => {
     if (product.stock <= 0) return;
     handleAddToCart(product, quantity, variant, true);
-    setSelectedProduct(null);
+    playTapSound();
+    closeProductDetail();
     setCompareModalOpen(false);
     setStartInCheckout(true);
     setCartOpen(true);
@@ -903,34 +1060,37 @@ export default function App() {
 
   const handleUpdateCartQty = (productId: string, variant: string | undefined, delta: number) => {
     playStepTickSound(delta > 0);
+    const currentCart = cartItemsRef.current;
     if (delta > 0) {
-      const target = cartItems.find(
+      const target = currentCart.find(
         (item) => item.product.id === productId && item.variant === variant
       );
       if (target && target.quantity < Math.max(1, target.product.stock)) {
         setCartPulseTick((prev) => prev + 1);
       }
     }
-    setCartItems((prev) =>
-      prev
-        .map((item) => {
-          if (item.product.id === productId && item.variant === variant) {
-            const nextQty = item.quantity + delta;
-            if (nextQty <= 0) return null;
-            const maxCap = Math.max(1, item.product.stock);
-            return { ...item, quantity: Math.min(maxCap, nextQty) };
-          }
-          return item;
-        })
-        .filter((item): item is CartItem => item !== null)
-    );
+    const nextCart = currentCart
+      .map((item) => {
+        if (item.product.id === productId && item.variant === variant) {
+          const nextQty = item.quantity + delta;
+          if (nextQty <= 0) return null;
+          const maxCap = Math.max(1, item.product.stock);
+          return { ...item, quantity: Math.min(maxCap, nextQty) };
+        }
+        return item;
+      })
+      .filter((item): item is CartItem => item !== null);
+    cartItemsRef.current = nextCart;
+    setCartItems(nextCart);
   };
 
   const handleRemoveCartItem = (productId: string, variant: string | undefined) => {
     playTapSound();
-    setCartItems((prev) =>
-      prev.filter((item) => !(item.product.id === productId && item.variant === variant))
+    const nextCart = cartItemsRef.current.filter(
+      (item) => !(item.product.id === productId && item.variant === variant)
     );
+    cartItemsRef.current = nextCart;
+    setCartItems(nextCart);
   };
 
   const handleToggleWishlist = (productId: string) => {
@@ -1109,6 +1269,17 @@ export default function App() {
     [products, compareIds]
   );
 
+  const defaultVariantCartQtyByProductId = useMemo(() => {
+    const map: Record<string, number> = {};
+    cartItems.forEach((item) => {
+      const defaultVariant = item.product.variants?.[0];
+      if (item.variant === defaultVariant) {
+        map[item.product.id] = (map[item.product.id] ?? 0) + item.quantity;
+      }
+    });
+    return map;
+  }, [cartItems]);
+
   const totalCartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
   // Dynamic Google SEO Metadata, Canonical Links & Schema.org JSON-LD Synchronization
@@ -1159,6 +1330,18 @@ export default function App() {
 
     if (activePage === 'track') {
       applyDocumentSeo(buildSectionSeo('/track-order'));
+      return;
+    }
+
+    if (activePage === 'ai') {
+      applyDocumentSeo({
+        ...HOME_SEO,
+        title: 'AI Project Architect — Build Planner & Stock Matcher | Robotera BD',
+        description:
+          'Describe your robotics or electronics project in English or Banglish to get a complete parts list, live Dhaka warehouse stock matches, pin-to-pin wiring steps, and starter code.',
+        canonicalPath: '/ai-builder',
+        jsonLd: null,
+      });
       return;
     }
 
@@ -1233,18 +1416,42 @@ export default function App() {
         onNavigateSection={scrollToSection}
         onGoHome={() => scrollToSection()}
         onOpenTracking={() => openTrackingPage()}
+        onOpenAiBuilder={() => openAiBuilderPage()}
       />
 
       <main className="flex-1">
         {activePage === 'track' ? (
-          <OrderTrackingSection
-            recentOrderIds={recentOrderIds}
-            userOrders={userOrders}
-            products={products}
-            isSignedIn={Boolean(authUser)}
-            autoTrackOrderId={autoTrackOrderId}
-            onBackToStore={() => scrollToSection()}
-          />
+          <Suspense
+            fallback={
+              <div className="min-h-[60vh] flex items-center justify-center text-xs font-mono uppercase tracking-[0.16em] text-[#64748B]">
+                Loading Order Tracker...
+              </div>
+            }
+          >
+            <OrderTrackingSection
+              recentOrderIds={recentOrderIds}
+              userOrders={userOrders}
+              products={products}
+              isSignedIn={Boolean(authUser)}
+              autoTrackOrderId={autoTrackOrderId}
+              onBackToStore={() => scrollToSection()}
+            />
+          </Suspense>
+        ) : activePage === 'ai' ? (
+          <Suspense
+            fallback={
+              <div className="min-h-[70vh] bg-[#050B18] flex items-center justify-center text-xs font-mono uppercase tracking-[0.16em] text-[#00C8FF]">
+                Loading AI Project Architect...
+              </div>
+            }
+          >
+            <AIProjectArchitectSection
+              products={products}
+              onAddToCart={handleAddToCart}
+              onSelectProduct={openProductDetail}
+              onBackToStore={() => scrollToSection()}
+            />
+          </Suspense>
         ) : (
           <>
             <HeroSection
@@ -1255,6 +1462,7 @@ export default function App() {
                 const hasKits = categories.some((c) => c.id === 'robotics-kits');
                 handleSelectCategory(hasKits ? 'robotics-kits' : 'all');
               }}
+              onOpenAiArchitect={() => openAiBuilderPage()}
               onSelectProduct={openProductDetail}
             />
 
@@ -1363,6 +1571,7 @@ export default function App() {
               sortBy={sortBy}
               wishlistIds={wishlistIds}
               compareIds={compareIds}
+              cartQtyByProductId={defaultVariantCartQtyByProductId}
               restockWatchedIds={restockWatches.map((w) => w.productId)}
               onSelectCategory={(catId) => handleSelectCategory(catId, false)}
               onSearchChange={setSearchQuery}
@@ -1392,6 +1601,7 @@ export default function App() {
               categoryLabels={categoryLabels}
               wishlistIds={wishlistIds}
               compareIds={compareIds}
+              cartQtyByProductId={defaultVariantCartQtyByProductId}
               restockWatchedIds={restockWatches.map((w) => w.productId)}
               onToggleWishlist={handleToggleWishlist}
               onToggleCompare={handleToggleCompare}
@@ -1400,10 +1610,12 @@ export default function App() {
               onRequestRestockAlert={openProductDetail}
             />
 
+            <BrandPartnersStrip onSelectBrand={handleQuickSearch} />
+
             <SectionDivider
               indexCode="05"
               label="Engineering Ecosystem"
-              fromBg="#E6ECF4"
+              fromBg="#FFFFFF"
               toBg="#050B18"
               accent="cyan"
               dark
@@ -1465,200 +1677,240 @@ export default function App() {
         onSecretAdminTrigger={() => setAdminOpen(true)}
       />
 
-      {/* Interactive Drawers & Modals */}
-      <SidebarMenu
-        isOpen={sidebarOpen}
-        categories={categories}
-        activeCategory={activeCategory}
-        isSignedIn={Boolean(authUser)}
-        userEmail={authUser?.email}
-        userPhone={authUser?.phoneNumber}
-        onClose={() => setSidebarOpen(false)}
-        onSelectCategory={handleSelectCategory}
-        onOpenAuth={() => setAuthModalOpen(true)}
-        onOpenAdmin={() => setAdminOpen(true)}
-        onOpenTracking={() => openTrackingPage()}
-      />
+      {/* Interactive Drawers & Modals (Code-Split Lazy Chunks) */}
+      <Suspense
+        fallback={
+          hasAnyOverlayOpen ? (
+            <div
+              aria-hidden="true"
+              className="fixed inset-0 z-50 bg-[#071A3B]/35 backdrop-blur-[1px] flex items-center justify-center"
+            >
+              <div className="w-9 h-9 rounded-full border-2 border-[#00CFFF] border-t-transparent animate-spin" />
+            </div>
+          ) : null
+        }
+      >
+        {sidebarOpen && (
+          <SidebarMenu
+            isOpen={sidebarOpen}
+            categories={categories}
+            activeCategory={activeCategory}
+            isSignedIn={Boolean(authUser)}
+            userEmail={authUser?.email}
+            userPhone={authUser?.phoneNumber}
+            onClose={() => setSidebarOpen(false)}
+            onSelectCategory={handleSelectCategory}
+            onOpenAuth={() => setAuthModalOpen(true)}
+            onOpenAdmin={() => setAdminOpen(true)}
+            onOpenTracking={() => openTrackingPage()}
+            onOpenAiBuilder={() => openAiBuilderPage()}
+          />
+        )}
 
-      <ProductModal
-        product={selectedProduct}
-        allProducts={products}
-        categoryDisplayName={
-          selectedProduct
-            ? categoryLabels[selectedProduct.category] || selectedProduct.categoryLabel
-            : undefined
-        }
-        isWishlisted={selectedProduct ? wishlistIds.includes(selectedProduct.id) : false}
-        defaultEmail={authUser?.email}
-        watchedAlert={
-          selectedProduct
-            ? priceWatches.find((w) => w.productId === selectedProduct.id) ?? null
-            : null
-        }
-        watchedRestock={
-          selectedProduct
-            ? restockWatches.find((w) => w.productId === selectedProduct.id) ?? null
-            : null
-        }
-        zIndexClass={compareModalOpen ? 'z-[60]' : 'z-50'}
-        onClose={() => {
-          setSelectedProduct(null);
-          if (window.location.pathname.startsWith('/product/')) {
-            syncPublicUrl(
-              activeCategory !== 'all'
-                ? `/category/${encodeURIComponent(activeCategory)}`
-                : '/'
-            );
-          }
-        }}
-        onToggleWishlist={handleToggleWishlist}
-        onAddToCart={handleAddToCart}
-        onBuyNow={handleBuyNow}
-        onSelectProduct={openProductDetail}
-        onSubscribePriceDrop={handleSubscribePriceDrop}
-        onSubscribeRestock={handleSubscribeRestock}
-      />
-
-      <CartDrawer
-        isOpen={cartOpen}
-        items={cartItems}
-        cartPulseKey={cartPulseTick}
-        recommendedProducts={products}
-        promoCodes={promoCodes}
-        userOrders={userOrders}
-        availableGiftCards={giftCards}
-        rewardBalance={rewardBalance}
-        appliedCoupon={appliedCoupon}
-        startInCheckout={startInCheckout}
-        user={authUser}
-        hasPlacedOrderBefore={hasPlacedOrderBefore}
-        onOpenAuth={() => setAuthModalOpen(true)}
-        onClose={() => {
-          setCartOpen(false);
-          setStartInCheckout(false);
-        }}
-        onUpdateQty={handleUpdateCartQty}
-        onRemoveItem={handleRemoveCartItem}
-        onQuickAdd={(prod) => handleAddToCart(prod, 1, undefined, true)}
-        onApplyCoupon={setAppliedCoupon}
-        onClearCart={() => setCartItems([])}
-        onOrderCreated={(orderId) => {
-          setRecentOrderIds((prev) => [orderId, ...prev.filter((id) => id !== orderId)].slice(0, 5));
-          try {
-            localStorage.setItem(STORAGE_LAST_ORDER_KEY, orderId);
-          } catch {
-            // Ignore storage errors
-          }
-        }}
-        onGiftCardIssued={(newCard, redeemedCode, orderId) => {
-          if (!authUser?.uid) return;
-          if (newCard) {
-            saveGiftCard(newCard, authUser.uid);
-          }
-          const resolvedOrderId = orderId || newCard?.orderId;
-          if (redeemedCode && resolvedOrderId) {
-            markGiftCardRedeemed(redeemedCode, resolvedOrderId, authUser.uid);
-          }
-          setGiftCards((prev) => {
-            let next = prev.map((c) =>
-              redeemedCode &&
-              resolvedOrderId &&
-              c.code.toUpperCase() === redeemedCode.toUpperCase()
-                ? { ...c, redeemed: true, redeemedOrderId: resolvedOrderId }
-                : c
-            );
-            if (newCard && !next.some((c) => c.code === newCard.code)) {
-              next = [newCard, ...next];
+        {selectedProduct && (
+          <ProductModal
+            product={selectedProduct}
+            allProducts={products}
+            cartItems={cartItems}
+            categoryDisplayName={
+              selectedProduct
+                ? categoryLabels[selectedProduct.category] || selectedProduct.categoryLabel
+                : undefined
             }
-            return next;
-          });
-        }}
-        onTrackOrder={(orderId) => {
-          openTrackingPage(orderId);
-        }}
-      />
+            isWishlisted={selectedProduct ? wishlistIds.includes(selectedProduct.id) : false}
+            defaultEmail={authUser?.email}
+            watchedAlert={
+              selectedProduct
+                ? priceWatches.find((w) => w.productId === selectedProduct.id) ?? null
+                : null
+            }
+            watchedRestock={
+              selectedProduct
+                ? restockWatches.find((w) => w.productId === selectedProduct.id) ?? null
+                : null
+            }
+            zIndexClass={compareModalOpen ? 'z-[60]' : 'z-50'}
+            onClose={closeProductDetail}
+            onToggleWishlist={handleToggleWishlist}
+            onAddToCart={handleAddToCart}
+            onBuyNow={handleBuyNow}
+            onSelectProduct={openProductDetail}
+            onSubscribePriceDrop={handleSubscribePriceDrop}
+            onSubscribeRestock={handleSubscribeRestock}
+          />
+        )}
 
-      <WishlistDrawer
-        isOpen={wishlistOpen}
-        products={wishlistedProducts}
-        restockWatches={restockWatches}
-        justRestockedIds={justRestockedIds}
-        defaultEmail={authUser?.email}
-        onClose={() => setWishlistOpen(false)}
-        onRemove={handleToggleWishlist}
-        onMoveToCart={(product) => {
-          handleAddToCart(product, 1, undefined, true);
-          setWishlistOpen(false);
-          setStartInCheckout(false);
-          setCartOpen(true);
-        }}
-        onOpenDetail={(product) => {
-          setWishlistOpen(false);
-          openProductDetail(product);
-        }}
-        onSubscribeRestock={handleSubscribeRestock}
-      />
+        {cartEverOpened && (
+          <CartDrawer
+            isOpen={cartOpen}
+            items={cartItems}
+            cartPulseKey={cartPulseTick}
+            recommendedProducts={products}
+            promoCodes={promoCodes}
+            userOrders={userOrders}
+            availableGiftCards={giftCards}
+            rewardBalance={rewardBalance}
+            appliedCoupon={appliedCoupon}
+            startInCheckout={startInCheckout}
+            user={authUser}
+            hasPlacedOrderBefore={hasPlacedOrderBefore}
+            onOpenAuth={() => setAuthModalOpen(true)}
+            onClose={() => {
+              setCartOpen(false);
+              setStartInCheckout(false);
+            }}
+            onUpdateQty={handleUpdateCartQty}
+            onRemoveItem={handleRemoveCartItem}
+            onQuickAdd={(prod) => {
+              const res = handleAddToCart(prod, 1, undefined, true);
+              if (res.addedQty > 0) {
+                playAddToCartSound();
+              } else {
+                playErrorSound();
+              }
+            }}
+            onSelectProduct={(prod) => {
+              setCartOpen(false);
+              setStartInCheckout(false);
+              openProductDetail(prod);
+            }}
+            onApplyCoupon={setAppliedCoupon}
+            onClearCart={() => {
+              cartItemsRef.current = [];
+              setCartItems([]);
+            }}
+            onOrderCreated={(orderId) => {
+              setRecentOrderIds((prev) => [orderId, ...prev.filter((id) => id !== orderId)].slice(0, 5));
+              try {
+                localStorage.setItem(STORAGE_LAST_ORDER_KEY, orderId);
+              } catch {
+                // Ignore storage errors
+              }
+            }}
+            onGiftCardIssued={(newCard, redeemedCode, orderId) => {
+              if (!authUser?.uid) return;
+              if (newCard) {
+                saveGiftCard(newCard, authUser.uid);
+              }
+              const resolvedOrderId = orderId || newCard?.orderId;
+              if (redeemedCode && resolvedOrderId) {
+                markGiftCardRedeemed(redeemedCode, resolvedOrderId, authUser.uid);
+              }
+              setGiftCards((prev) => {
+                let next = prev.map((c) =>
+                  redeemedCode &&
+                  resolvedOrderId &&
+                  c.code.toUpperCase() === redeemedCode.toUpperCase()
+                    ? { ...c, redeemed: true, redeemedOrderId: resolvedOrderId }
+                    : c
+                );
+                if (newCard && !next.some((c) => c.code === newCard.code)) {
+                  next = [newCard, ...next];
+                }
+                return next;
+              });
+            }}
+            onTrackOrder={(orderId) => {
+              openTrackingPage(orderId);
+            }}
+          />
+        )}
 
-      {/* Account Sign-In / Sign-Up & Order History Modal */}
-      <AuthModal
-        isOpen={authModalOpen}
-        user={authUser}
-        giftCards={giftCards}
-        products={products}
-        onClose={() => setAuthModalOpen(false)}
-        onOpenAdmin={() => setAdminOpen(true)}
-        onTrackOrder={(orderId) => {
-          openTrackingPage(orderId);
-        }}
-      />
+        {wishlistOpen && (
+          <WishlistDrawer
+            isOpen={wishlistOpen}
+            products={wishlistedProducts}
+            restockWatches={restockWatches}
+            justRestockedIds={justRestockedIds}
+            defaultEmail={authUser?.email}
+            onClose={() => setWishlistOpen(false)}
+            onRemove={handleToggleWishlist}
+            onMoveToCart={(product) => {
+              const res = handleAddToCart(product, 1, undefined, true);
+              if (res.addedQty > 0) {
+                playAddToCartSound();
+              } else {
+                playTapSound();
+              }
+              setWishlistOpen(false);
+              setStartInCheckout(false);
+              setCartOpen(true);
+            }}
+            onOpenDetail={(product) => {
+              setWishlistOpen(false);
+              openProductDetail(product);
+            }}
+            onSubscribeRestock={handleSubscribeRestock}
+          />
+        )}
 
-      {/* Secret Store Owner Admin Console */}
-      <AdminPanel
-        isOpen={adminOpen}
-        user={authUser}
-        products={products}
-        categories={categories}
-        banners={banners}
-        promoCodes={promoCodes}
-        siteSettings={siteSettings}
-        onClose={() => {
-          setAdminOpen(false);
-          if (window.location.hash === '#admin') {
-            window.history.replaceState(null, '', window.location.pathname + window.location.search);
-          }
-        }}
-      />
+        {authModalOpen && (
+          <AuthModal
+            isOpen={authModalOpen}
+            user={authUser}
+            giftCards={giftCards}
+            products={products}
+            onClose={() => setAuthModalOpen(false)}
+            onOpenAdmin={() => setAdminOpen(true)}
+            onTrackOrder={(orderId) => {
+              openTrackingPage(orderId);
+            }}
+          />
+        )}
 
-      {/* Side-by-Side Hardware Specifications Comparison */}
-      <CompareDock
-        products={comparedProducts}
-        isVisible={
-          activePage === 'shop' &&
-          !compareModalOpen &&
-          !cartOpen &&
-          !wishlistOpen &&
-          !adminOpen &&
-          !authModalOpen &&
-          !sidebarOpen &&
-          !selectedProduct
-        }
-        limitNotice={compareLimitNotice}
-        onRemoveProduct={handleToggleCompare}
-        onClearAll={handleClearCompare}
-        onOpenModal={() => setCompareModalOpen(true)}
-      />
+        {adminOpen && (
+          <AdminPanel
+            isOpen={adminOpen}
+            user={authUser}
+            products={products}
+            categories={categories}
+            banners={banners}
+            promoCodes={promoCodes}
+            siteSettings={siteSettings}
+            onClose={() => {
+              setAdminOpen(false);
+              if (window.location.hash === '#admin') {
+                window.history.replaceState(null, '', window.location.pathname + window.location.search);
+              }
+            }}
+          />
+        )}
 
-      <CompareModal
-        isOpen={compareModalOpen}
-        products={comparedProducts}
-        categoryLabels={categoryLabels}
-        onClose={() => setCompareModalOpen(false)}
-        onRemoveProduct={handleToggleCompare}
-        onClearAll={handleClearCompare}
-        onAddToCart={handleAddToCart}
-        onQuickViewProduct={openProductDetail}
-        onBrowseCatalog={() => scrollToSection('best-selling')}
-      />
+        {(comparedProducts.length > 0 || compareLimitNotice) && (
+          <CompareDock
+            products={comparedProducts}
+            isVisible={
+              activePage === 'shop' &&
+              !compareModalOpen &&
+              !cartOpen &&
+              !wishlistOpen &&
+              !adminOpen &&
+              !authModalOpen &&
+              !sidebarOpen &&
+              !selectedProduct
+            }
+            limitNotice={compareLimitNotice}
+            onRemoveProduct={handleToggleCompare}
+            onClearAll={handleClearCompare}
+            onOpenModal={() => setCompareModalOpen(true)}
+          />
+        )}
+
+        {compareModalOpen && (
+          <CompareModal
+            isOpen={compareModalOpen}
+            products={comparedProducts}
+            categoryLabels={categoryLabels}
+            cartQtyByProductId={defaultVariantCartQtyByProductId}
+            onClose={() => setCompareModalOpen(false)}
+            onRemoveProduct={handleToggleCompare}
+            onClearAll={handleClearCompare}
+            onAddToCart={handleAddToCart}
+            onQuickViewProduct={openProductDetail}
+            onBrowseCatalog={() => scrollToSection('best-selling')}
+          />
+        )}
+      </Suspense>
 
       {/* Unified Bottom-Left Notification Toast Stack (No Overlapping Alerts) */}
       {(restockNotice || priceDropNotice || toastProduct) && !cartOpen && (
@@ -1764,11 +2016,19 @@ export default function App() {
               className="pointer-events-auto animate-toast-slide bg-[#071A3B] text-white rounded-xl shadow-2xl border border-white/15 p-3.5 flex items-center justify-between gap-3"
             >
               <div className="flex items-center gap-2.5 min-w-0">
-                <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+                {toastProduct.status === 'added' ? (
+                  <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+                ) : (
+                  <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0" />
+                )}
                 <div className="min-w-0">
                   <p className="text-xs font-bold truncate">{toastProduct.name}</p>
                   <p className="text-[11px] text-slate-300">
-                    Added {toastProduct.qty} {toastProduct.qty === 1 ? 'unit' : 'units'} to cart
+                    {toastProduct.status === 'max-stock'
+                      ? `Max available stock (${toastProduct.stockLimit ?? 0}) already in cart`
+                      : toastProduct.status === 'capped'
+                      ? `Added ${toastProduct.qty} ${toastProduct.qty === 1 ? 'unit' : 'units'} (max stock reached)`
+                      : `Added ${toastProduct.qty} ${toastProduct.qty === 1 ? 'unit' : 'units'} to cart`}
                   </p>
                 </div>
               </div>
@@ -1781,10 +2041,9 @@ export default function App() {
                     setStartInCheckout(false);
                     setCartOpen(true);
                   }}
-                  className="cta-sheen active:scale-95 px-2.5 py-1.5 rounded-lg bg-[#0866F5] hover:bg-[#0866F5]/90 border border-[#1685FF]/40 text-white text-xs font-semibold inline-flex items-center gap-1.5 whitespace-nowrap transition-all"
+                  className="motion-press cta-sheen px-2.5 py-1.5 rounded-lg bg-[#0866F5] hover:bg-[#0866F5]/90 border border-[#1685FF]/40 text-white text-xs font-semibold inline-flex items-center gap-1.5 whitespace-nowrap transition-colors"
                 >
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#FB923C]" aria-hidden="true" />
-                  <ShoppingBag className="w-3.5 h-3.5" />
+                  <AnimatedCartIcon className="w-3.5 h-3.5" hasItems />
                   <span>View Cart</span>
                 </button>
                 <button

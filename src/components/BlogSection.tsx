@@ -86,7 +86,7 @@ export const BlogSection: React.FC<BlogSectionProps> = ({
   }, [activePost]);
 
   return (
-    <section id="lab-guides" className="scroll-mt-[108px] bg-gradient-to-b from-[#F5F8FC] to-white min-[1500px]:bg-transparent min-[1500px]:pointer-events-none">
+    <section id="lab-guides" className="cv-section scroll-mt-[108px] bg-gradient-to-b from-[#F5F8FC] to-white min-[1500px]:bg-transparent min-[1500px]:pointer-events-none">
       <div className="relative z-20 pointer-events-auto w-full max-w-[1440px] mx-auto bg-gradient-to-b from-[#F5F8FC] to-white min-[1500px]:border-x min-[1500px]:border-slate-200/90 px-4 sm:px-6 lg:px-10 py-12 sm:py-16">
         <Reveal>
           <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 mb-8">
@@ -105,7 +105,7 @@ export const BlogSection: React.FC<BlogSectionProps> = ({
                   key={topic}
                   type="button"
                   onClick={() => setSelectedTopic(topic)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 whitespace-nowrap ${
+                  className={`motion-pill px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors duration-200 whitespace-nowrap ${
                     selectedTopic === topic
                       ? 'bg-[#071A3D] text-white shadow-sm'
                       : 'text-[#475569] hover:text-[#071A3D] hover:bg-[#F3F7FC]'
@@ -132,7 +132,7 @@ export const BlogSection: React.FC<BlogSectionProps> = ({
             return (
               <Reveal key={post.id} delayMs={origIndex * 65}>
                 <article
-                  className="group bg-white rounded-2xl border border-slate-200/85 overflow-hidden shadow-[0_8px_24px_-12px_rgba(7,26,61,0.08)] hover:border-[#087BFF]/65 hover:shadow-[0_20px_40px_-16px_rgba(8,123,255,0.16)] hover:-translate-y-1 transition-all duration-300 flex flex-col h-full"
+                  className="motion-card group bg-white rounded-2xl border border-slate-200/85 overflow-hidden shadow-[0_8px_24px_-12px_rgba(7,26,61,0.08)] hover:border-[#087BFF]/65 hover:shadow-[0_20px_40px_-16px_rgba(8,123,255,0.16)] flex flex-col h-full"
                 >
                   <a
                     href={guideHref}
@@ -143,7 +143,7 @@ export const BlogSection: React.FC<BlogSectionProps> = ({
                     }}
                     className="flex flex-col flex-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF]"
                   >
-                    <div className="card-shine bg-[#F3F7FC] aspect-[16/10] border-b border-slate-200/80 overflow-hidden">
+                    <div className="card-shine card-scan bg-[#F3F7FC] aspect-[16/10] border-b border-slate-200/80 overflow-hidden">
                       {customImg ? (
                         <div className="w-full h-full p-3 flex items-center justify-center">
                           <HardwareArtwork
@@ -151,7 +151,7 @@ export const BlogSection: React.FC<BlogSectionProps> = ({
                             imageUrl={customImg}
                             alt={post.title}
                             fit="contain"
-                            className="w-full h-full"
+                            className="thumb-hover-zoom w-full h-full"
                           />
                         </div>
                       ) : (
@@ -159,7 +159,8 @@ export const BlogSection: React.FC<BlogSectionProps> = ({
                           src={cardImageUrl}
                           alt={post.title}
                           loading="lazy"
-                          className="w-full h-full object-cover object-center transition-transform duration-500 group-hover:scale-[1.03]"
+                          decoding="async"
+                          className="w-full h-full object-cover object-center transition-transform duration-500 group-hover:scale-[1.05]"
                         />
                       )}
                     </div>
@@ -173,7 +174,7 @@ export const BlogSection: React.FC<BlogSectionProps> = ({
                         <span>{post.readTime}</span>
                       </div>
 
-                      <h3 className="font-hero text-lg font-bold text-[#071A3D] leading-snug group-hover:text-[#087BFF] transition-colors">
+                      <h3 className="font-hero text-lg font-bold text-[#071A3D] leading-snug group-hover:text-[#087BFF] transition-all duration-200 group-hover:translate-x-0.5">
                         {post.title}
                       </h3>
 
@@ -182,7 +183,7 @@ export const BlogSection: React.FC<BlogSectionProps> = ({
                       </p>
 
                       <div className="mt-auto pt-4 inline-flex items-center gap-1.5 text-xs font-bold text-[#087BFF]">
-                        <BookOpen className="w-3.5 h-3.5" />
+                        <BookOpen className="motion-icon-tilt w-3.5 h-3.5" />
                         <span>Read Technical Guide</span>
                         <ArrowRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-1" />
                       </div>

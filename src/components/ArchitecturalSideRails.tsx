@@ -45,9 +45,9 @@ export const ArchitecturalSideRails: React.FC = () => {
 
           {/* Mid-Wing Vertical Data Bus & Pin Header Schematic */}
           <g stroke="#071A3D" strokeOpacity="0.18" strokeWidth="1.2">
-            <path d="M 120 318 V 438 L 94 464 V 592 L 120 618 V 710" stroke="#087BFF" strokeOpacity="0.24" />
+            <path d="M 120 318 V 438 L 94 464 V 592 L 120 618 V 710" stroke="#087BFF" strokeOpacity="0.28" className="animate-circuit-flow" />
             <path d="M 134 334 V 444 L 108 470 V 586 L 134 612 V 698" stroke="#00A8E8" strokeOpacity="0.22" />
-            <circle cx="120" cy="318" r="3.5" fill="#EBF1F8" />
+            <circle cx="120" cy="318" r="3.5" fill="#EBF1F8" className="animate-pcb-node" />
             <circle cx="134" cy="334" r="3.5" fill="#EBF1F8" />
           </g>
 
@@ -78,8 +78,8 @@ export const ArchitecturalSideRails: React.FC = () => {
             <path d="M 30 -2 V 14 M 30 46 V 62 M -2 30 H 14 M 46 30 H 62" />
           </g>
 
-          <circle cx="192" cy="832" r="5" stroke="#087BFF" strokeOpacity="0.38" strokeWidth="1.4" />
-          <circle cx="192" cy="832" r="2" fill="#00CFFF" fillOpacity="0.55" />
+          <circle cx="192" cy="832" r="5" stroke="#087BFF" strokeOpacity="0.38" strokeWidth="1.4" className="animate-pcb-node" />
+          <circle cx="192" cy="832" r="2" fill="#00CFFF" fillOpacity="0.65" className="animate-telemetry-led" />
         </svg>
 
         {/* Precision Edge Caliper Ruler Hugging the 1440px Center Stage */}
@@ -131,12 +131,12 @@ export const ArchitecturalSideRails: React.FC = () => {
           <g transform="translate(52 444)" stroke="#071A3D" strokeOpacity="0.18" strokeWidth="1.2">
             <rect x="18" y="0" width="96" height="58" rx="6" />
             <circle cx="66" cy="29" r="15" stroke="#087BFF" strokeOpacity="0.32" />
-            <circle cx="66" cy="29" r="5" fill="#00CFFF" fillOpacity="0.38" stroke="none" />
+            <circle cx="66" cy="29" r="5" fill="#00CFFF" fillOpacity="0.45" stroke="none" className="animate-pcb-node" />
             <path d="M 0 18 H 18 M 0 40 H 18 M 114 18 H 138 M 114 40 H 138" />
           </g>
 
-          <g stroke="#087BFF" strokeWidth="1.2" strokeOpacity="0.22">
-            <path d="M 140 538 V 638 L 114 664 H 22" />
+          <g stroke="#087BFF" strokeWidth="1.2" strokeOpacity="0.24">
+            <path d="M 140 538 V 638 L 114 664 H 22" className="animate-circuit-flow" />
             <path d="M 154 538 V 646 L 124 676 H 38" />
             <circle cx="22" cy="664" r="3.5" fill="#EBF1F8" />
             <circle cx="38" cy="676" r="3.5" fill="#EBF1F8" />
@@ -148,15 +148,16 @@ export const ArchitecturalSideRails: React.FC = () => {
             <path d="M 64 128 L 106 78 L 164 58 L 190 80" stroke="#087BFF" strokeOpacity="0.34" strokeWidth="1.6" />
             <circle cx="64" cy="128" r="7" fill="#EBF1F8" />
             <circle cx="106" cy="78" r="6.5" fill="#EBF1F8" stroke="#087BFF" strokeOpacity="0.45" />
-            <circle cx="164" cy="58" r="5.5" fill="#EBF1F8" stroke="#00CFFF" strokeOpacity="0.55" />
+            <circle cx="164" cy="58" r="5.5" fill="#EBF1F8" stroke="#00CFFF" strokeOpacity="0.65" className="animate-pcb-node" />
           </g>
 
           {/* PWM Telemetry Waveform Strip */}
           <path
             d="M 22 924 H 46 V 898 H 74 V 924 H 98 V 898 H 144 V 924 H 168 V 898 H 196 V 924 H 236"
             stroke="#087BFF"
-            strokeOpacity="0.24"
+            strokeOpacity="0.28"
             strokeWidth="1.35"
+            className="animate-circuit-flow"
           />
         </svg>
 
